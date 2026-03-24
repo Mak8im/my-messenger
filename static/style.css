@@ -1018,3 +1018,96 @@ body:not(.auth-page) {
     0%, 100% { opacity: 0.5; }
     50% { opacity: 1; }
 }
+
+/* Кнопка уведомлений */
+#enableNotificationsBtn {
+    transition: all 0.2s ease;
+}
+
+#enableNotificationsBtn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
+}
+
+#notificationStatus {
+    padding: 8px;
+    background: #f8fafc;
+    border-radius: 12px;
+    text-align: center;
+}
+
+/* Индикатор "печатает..." */
+.chat-user-typing {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* Кнопка настроек в левом нижнем углу (только на ПК) */
+.tg-settings-trigger {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 100;
+}
+
+.settings-icon-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #3390ec;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-icon-btn:hover {
+    transform: scale(1.05);
+    background: #2b7bcb;
+}
+
+.settings-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    margin-bottom: 8px;
+}
+
+.tg-settings-trigger:hover .settings-tooltip {
+    opacity: 1;
+}
+
+/* На ПК кнопка настроек видна, на телефоне скрыта */
+@media (max-width: 768px) {
+    .tg-settings-trigger {
+        display: none;
+    }
+}
+
+/* На ПК настройки в левой панели */
+@media (min-width: 769px) {
+    .sidebar {
+        position: relative;
+    }
+}
