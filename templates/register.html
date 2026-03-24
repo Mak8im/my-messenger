@@ -98,6 +98,13 @@
                     .catch((error) => console.log("Service Worker error:", error));
             });
         }
+        
+        // Автоматический редирект на логин после успешной регистрации
+        {% if success %}
+        setTimeout(function() {
+            window.location.href = "/";
+        }, 2000);
+        {% endif %}
     </script>
 </body>
 </html>
