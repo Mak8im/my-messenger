@@ -81,7 +81,6 @@
                 </div>
             </div>
             
-            <!-- Кнопка настроек в левом нижнем углу (только на ПК) -->
             <div class="tg-settings-trigger" id="settingsTrigger">
                 <button class="settings-btn">Настройки</button>
             </div>
@@ -174,7 +173,6 @@
         </main>
     </div>
 
-    <!-- Модальное окно настроек (как в Telegram) -->
     <div id="settingsModal" class="modal-overlay" style="display: none;">
         <div class="modal-container">
             <div class="modal-header">
@@ -258,7 +256,6 @@
     {% endif %}
 
     <script>
-        // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
         const CURRENT_USER_ID = {{ current_user.id }};
         const SELECTED_USER_ID = {% if selected_user %}{{ selected_user.id }}{% else %}null{% endif %};
         const SELECTED_USER_EMAIL = {% if selected_user %}"{{ selected_user.email }}"{% else %}""{% endif %};
@@ -270,14 +267,11 @@
         let typingTimeout = null;
         let isCurrentlyTyping = false;
         
-        // Хранилище статусов пользователей
         let userStatuses = {};
         
-        // ========== WEBSOCKET ==========
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const socket = new WebSocket(`${protocol}://${window.location.host}/ws/${CURRENT_USER_ID}`);
         
-        // DOM элементы
         const messagesBox = document.getElementById("messagesBox");
         const messageInput = document.getElementById("messageInput");
         const photoInput = document.getElementById("photoInput");
@@ -286,7 +280,6 @@
         const selectedUserStatus = document.getElementById("selectedUserStatus");
         const selectedUserOnlineDot = document.getElementById("selectedUserOnlineDot");
         
-        // ========== МОДАЛЬНОЕ ОКНО ==========
         const modal = document.getElementById("settingsModal");
         const settingsTrigger = document.getElementById("settingsTrigger");
         const closeModalBtn = document.getElementById("closeModalBtn");
@@ -315,7 +308,6 @@
         if (settingsTrigger) settingsTrigger.addEventListener("click", openModal);
         if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
         
-        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function scrollToBottom() {
             if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
         }
@@ -342,11 +334,9 @@
             return `был(а) ${days} дн назад`;
         }
         
-        // ========== ОБНОВЛЕНИЕ СТАТУСОВ ==========
         function updateUserStatuses(statusData) {
             userStatuses = statusData;
             
-            // Обновляем статусы в списке диалогов
             document.querySelectorAll(".user-card[data-user-id]").forEach(card => {
                 const userId = Number(card.dataset.userId);
                 const status = userStatuses[userId];
@@ -355,7 +345,6 @@
                     const isOnline = status.is_online;
                     const lastActivity = status.last_activity;
                     
-                    // Обновляем зелёную точку
                     const wrap = card.querySelector(".user-avatar-wrap");
                     let dot = wrap?.querySelector(".online-dot");
                     if (isOnline) {
@@ -368,7 +357,6 @@
                         if (dot) dot.remove();
                     }
                     
-                    // Обновляем текстовый статус
                     const statusDiv = card.querySelector(".tg-dialog-status");
                     if (statusDiv) {
                         statusDiv.textContent = isOnline ? "В сети" : formatLastSeen(lastActivity);
@@ -376,7 +364,6 @@
                 }
             });
             
-            // Обновляем статус выбранного пользователя
             if (SELECTED_USER_ID !== null) {
                 const status = userStatuses[SELECTED_USER_ID];
                 if (selectedUserStatus) {
@@ -396,7 +383,6 @@
             }
         }
         
-        // ========== УВЕДОМЛЕНИЯ ==========
         const notificationSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
         notificationSound.load();
         
@@ -492,7 +478,6 @@
             }
         }
         
-        // ========== "ПЕЧАТАЕТ..." ==========
         function sendTypingStatus(isTyping) {
             if (!SELECTED_USER_ID) return;
             if (isTyping === isCurrentlyTyping) return;
@@ -534,7 +519,6 @@
             });
         }
         
-        // ========== ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ==========
         function updateUnreadBadge(userId, count) {
             const badge = document.querySelector(`[data-badge-for="${userId}"]`);
             if (!badge) return;
@@ -604,7 +588,6 @@
             scrollToBottom();
         }
         
-        // ========== ОТПРАВКА СООБЩЕНИЙ ==========
         function sendMessage() {
             if (!messageInput) return;
             const content = messageInput.value.trim();
@@ -624,7 +607,6 @@
             messageInput.value = "";
         }
         
-        // ========== WEBSOCKET ОБРАБОТЧИКИ ==========
         socket.onopen = function() {
             console.log("✅ WebSocket connected");
             if (SELECTED_USER_ID !== null) {
@@ -699,7 +681,6 @@
             }
         };
         
-        // ========== PUSH (БЕТА) ==========
         function urlBase64ToUint8Array(base64String) {
             const padding = "=".repeat((4 - base64String.length % 4) % 4);
             const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -779,7 +760,6 @@
             return await registration.pushManager.getSubscription();
         }
         
-        // ========== BACKUP ФУНКЦИИ ==========
         if (CAN_BACKUP) {
             const downloadBackupBtn = document.getElementById("downloadBackupBtn");
             const backupFileInput = document.getElementById("backupFileInput");
@@ -828,7 +808,6 @@
             }
         }
         
-        // ========== ИНИЦИАЛИЗАЦИЯ ==========
         window.addEventListener("load", async () => {
             await registerServiceWorker();
             await initPushStatus();
