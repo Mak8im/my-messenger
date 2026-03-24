@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Messenger</title>
+
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/apple-touch-icon">
+
+    <meta name="theme-color" content="#3390ec">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Messenger">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app telegram-app">
+        <aside class="sidebar {% if selected_user %}mobile-hidden{% endif %}">
+            <div class="tg-sidebar-header">
+                <div class="tg-sidebar-topline">
+                    <div class="tg-brand">Messenger</div>
+                    <a class="tg-logout-btn" href="/logout">Выйти</a>
+                </div>
+
+                <div class="tg-current-user">
+                    <div class="avatar">{{ current_user.email[0]|upper }}</div>
+                    <div class="tg-current-user-meta">
+                        <div class="tg-current-user-label">Ты вошёл как</div>
+                        <div class="tg-current-user-email">{{ current_user.email }}</div>
+                    </div>
+                </div>
+
+                <div class="tg-search-wrap" id="searchWrap">
+                    <input type="text" id="dialogSearch" class="tg-search-input" placeholder="Поиск чатов...">
+                </div>
+            </div>
+
+            <div class="tg-main-panel active" id="panelChats">
+                <div class="users-list tg-dialogs-list" id="dialogsList">
+                    {% if dialogs %}
+                        {% for dialog in dialogs %}
+                            <a
+                                href="/chat?selected_user_id={{ dialog.user.id }}"
+                                class="tg-dialog-item user-card {% if selected_user and selected_user.id == dialog.user.id %}active{% endif %}"
+                                data-user-id="{{ dialog.user.id }}"
+                                data-user-email="{{ dialog.user.email }}"
+                            >
+                                <div class="user-avatar-wrap tg-dialog-avatar-wrap">
+                                    <div class="user-avatar tg-dialog-avatar">{{ dialog.user.email[0]|upper }}</div>
+                                    {% if dialog.user.id in online_users %}
+                                        <span class="online-dot"></span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="tg-dialog-main">
+                                    <div class="tg-dialog-top">
+                                        <div class="tg-dialog-name user-name">{{ dialog.user.email }}</div>
+                                        <div class="tg-dialog-time dialog-time">{{ dialog.time }}</div>
+                                    </div>
+                                    <div class="tg-dialog-bottom">
+                                        <div class="tg-dialog-preview user-subtitle last-message">{{ dialog.last_message }}</div>
+
+                                        {% if dialog.unread_count > 0 %}
+                                            <div class="tg-unread-badge" data-badge-for="{{ dialog.user.id }}">{{ dialog.unread_count }}</div>
+                                        {% else %}
+                                            <div class="tg-unread-badge hidden" data-badge-for="{{ dialog.user.id }}">0</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-users">Пока других пользователей нет.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="tg-main-panel" id="panelSettings">
+                <div class="tg-settings-panel">
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">Аккаунт</div>
+                        <div class="tg-settings-row">
+                            <span>Email</span>
+                            <strong>{{ current_user.email }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">Push-уведомления</div>
+                        <div class="tg-settings-text" style="margin-bottom: 10px;">
+                            На iPhone push заработает после добавления сайта на главный экран и разрешения уведомлений.
+                        </div>
+                        <button id="enablePushBtn" class="auth-button" type="button" style="width: 100%;">
+                            Включить push-уведомления
+                        </button>
+                        <div id="pushStatus" class="tg-settings-text" style="margin-top: 10px; color: #707579;"></div>
+                    </div>
+
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">Приложение (PWA)</div>
+                        <div class="tg-settings-text">
+                            Для корректной работы уведомлений нажмите «Поделиться» → «На экран „Домой“».
+                        </div>
+                    </div>
+
+                    <a class="tg-settings-logout" href="/logout">Выйти из аккаунта</a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="chat-area {% if not selected_user %}mobile-hidden-chat{% endif %}">
+            {% if selected_user %}
+                <div class="chat-header tg-chat-header">
+                    <div class="tg-chat-left">
+                        <a href="/chat" class="tg-back-btn">←</a>
+
+                        <div class="chat-user">
+                            <div class="chat-user-avatar-wrap" id="selectedUserAvatarWrap">
+                                <div class="chat-user-avatar">{{ selected_user.email[0]|upper }}</div>
+                                {% if selected_user.id in online_users %}
+                                    <span class="online-dot"></span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div class="chat-user-name">{{ selected_user.email }}</div>
+                                <div class="chat-user-status" id="selectedUserStatus">
+                                    {% if selected_user.id in online_users %}
+                                        В сети
+                                    {% else %}
+                                        Не в сети
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="messagesBox" class="messages-box tg-messages-box">
+                    {% for msg in messages %}
+                        {% if msg.sender_id == current_user.id %}
+                            <div class="message-row own">
+                                <div class="message-bubble own">
+                                    {% if msg.message_type == "photo" and msg.file_path %}
+                                        <a href="/uploads/{{ msg.file_path }}" target="_blank" class="photo-link">
+                                            <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
+                                        </a>
+                                        <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
+                                    {% else %}
+                                        <div class="message-text">{{ msg.content }}</div>
+                                    {% endif %}
+                                    <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="message-row">
+                                <div class="message-bubble">
+                                    {% if msg.message_type == "photo" and msg.file_path %}
+                                        <div class="message-author">{{ selected_user.email }}</div>
+                                        <a href="/uploads/{{ msg.file_path }}" target="_blank" class="photo-link">
+                                            <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
+                                        </a>
+                                        <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
+                                    {% else %}
+                                        <div class="message-author">{{ selected_user.email }}</div>
+                                        <div class="message-text">{{ msg.content }}</div>
+                                    {% endif %}
+                                    <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <div class="message-form tg-message-form">
+                    <form id="photoForm" action="/send-photo" method="post" enctype="multipart/form-data" class="photo-form">
+                        <input type="hidden" name="receiver_id" value="{{ selected_user.id }}">
+                        <input type="file" id="photoInput" name="photo" accept="image/*" hidden>
+                        <button type="button" class="attach-btn" onclick="document.getElementById('photoInput').click()">＋</button>
+                    </form>
+
+                    <input
+                        type="text"
+                        id="messageInput"
+                        class="message-input tg-message-input"
+                        placeholder="Сообщение"
+                        autocomplete="off"
+                    >
+                    <button class="send-btn tg-send-btn" onclick="sendMessage()">➤</button>
+                </div>
+            {% else %}
+                <div class="empty-chat tg-empty-chat">
+                    <div class="empty-chat-box">
+                        <div class="empty-chat-title">Выбери диалог</div>
+                        <div class="empty-chat-text">
+                            Открой чат из списка слева.
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </main>
+    </div>
+
+    {% if not selected_user %}
+    <div class="tg-mobile-bottom-nav">
+        <button class="tg-mobile-tab active" id="tabChatsBtn" type="button">Чаты</button>
+        <button class="tg-mobile-tab" id="tabSettingsBtn" type="button">Настройки</button>
+    </div>
+    {% endif %}
+
+    <script>
+        const CURRENT_USER_ID = {{ current_user.id }};
+        const SELECTED_USER_ID = {% if selected_user %}{{ selected_user.id }}{% else %}null{% endif %};
+        const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
+
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const socket = new WebSocket(`${protocol}://${window.location.host}/ws/${CURRENT_USER_ID}`);
+
+        const messagesBox = document.getElementById("messagesBox");
+        const input = document.getElementById("messageInput");
+
+        function scrollToBottom() {
+            if (messagesBox) {
+                messagesBox.scrollTop = messagesBox.scrollHeight;
+            }
+        }
+
+        function updatePresence(onlineUsers) {
+            const onlineSet = new Set(onlineUsers);
+            document.querySelectorAll(".user-card[data-user-id]").forEach(card => {
+                const userId = Number(card.dataset.userId);
+                const dot = card.querySelector(".online-dot");
+                if (onlineSet.has(userId)) {
+                    if (!dot) {
+                        const wrap = card.querySelector(".user-avatar-wrap");
+                        if (wrap) {
+                            const span = document.createElement("span");
+                            span.className = "online-dot";
+                            wrap.appendChild(span);
+                        }
+                    }
+                } else {
+                    if (dot) dot.remove();
+                }
+            });
+
+            const selectedStatus = document.getElementById("selectedUserStatus");
+            if (selectedStatus && SELECTED_USER_ID !== null) {
+                selectedStatus.textContent = onlineSet.has(SELECTED_USER_ID) ? "В сети" : "Не в сети";
+            }
+        }
+
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+
+            if (data.type === "presence") {
+                updatePresence(data.online_users);
+            } else if (data.type === "message") {
+                const isCurrentChat = (data.sender_id === SELECTED_USER_ID || data.sender_id === CURRENT_USER_ID);
+
+                if (isCurrentChat) {
+                    const row = document.createElement("div");
+                    row.className = data.sender_id === CURRENT_USER_ID ? "message-row own" : "message-row";
+
+                    let contentHtml = "";
+                    if (data.message_type === "photo") {
+                        contentHtml = `
+                            <a href="/uploads/${data.file_path}" target="_blank" class="photo-link">
+                                <img src="/uploads/${data.file_path}" alt="photo" class="chat-photo">
+                            </a>
+                        `;
+                    } else {
+                        contentHtml = `<div class="message-text">${data.content}</div>`;
+                    }
+
+                    row.innerHTML = `
+                        <div class="message-bubble ${data.sender_id === CURRENT_USER_ID ? 'own' : ''}">
+                            ${contentHtml}
+                            <div class="message-time">${data.time}</div>
+                        </div>
+                    `;
+                    messagesBox.appendChild(row);
+                    scrollToBottom();
+                }
+            }
+        };
+
+        function sendMessage() {
+            const content = input.value.trim();
+            if (content && SELECTED_USER_ID) {
+                socket.send(JSON.stringify({
+                    type: "message",
+                    receiver_id: SELECTED_USER_ID,
+                    content: content
+                }));
+                input.value = "";
+            }
+        }
+
+        if (input) {
+            input.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") sendMessage();
+            });
+        }
+
+        scrollToBottom();
+
+        // ЛОГИКА PUSH-УВЕДОМЛЕНИЙ
+        const pushBtn = document.getElementById("enablePushBtn");
+        const pushStatus = document.getElementById("pushStatus");
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = "=".repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+            const rawData = window.atob(base64);
+            return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+        }
+
+        async function sendSubscriptionToBackend(subscription) {
+            await fetch("/push-subscribe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(subscription)
+            });
+        }
+
+        async function subscribeToPush() {
+            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+                pushStatus.textContent = "Ваш браузер не поддерживает Push-уведомления.";
+                return;
+            }
+
+            try {
+                if (!("Notification" in window)) {
+                    pushStatus.textContent = "Уведомления не поддерживаются.";
+                    return;
+                }
+
+                const permission = await Notification.requestPermission();
+                if (permission !== "granted") {
+                    pushStatus.textContent = "Разрешение на уведомления не выдано.";
+                    return;
+                }
+
+                const registration = await navigator.serviceWorker.ready;
+                let subscription = await registration.pushManager.getSubscription();
+                if (!subscription) {
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                    });
+                }
+
+                await sendSubscriptionToBackend(subscription);
+
+                pushStatus.textContent = "Уведомления успешно включены!";
+                pushBtn.style.display = "none";
+            } catch (err) {
+                console.error("Subscription error:", err);
+                pushStatus.textContent = "Ошибка при включении. Возможно, вы отклонили запрос прав.";
+            }
+        }
+
+        async function syncExistingPushSubscription() {
+            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+                return;
+            }
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                if (sub) {
+                    await sendSubscriptionToBackend(sub);
+                    if (pushBtn) pushBtn.style.display = "none";
+                    if (pushStatus) pushStatus.textContent = "Уведомления включены";
+                }
+            } catch (err) {
+                console.warn("Cannot sync existing push subscription:", err);
+            }
+        }
+
+        if (pushBtn) {
+            pushBtn.addEventListener("click", subscribeToPush);
+        }
+
+        // Переключение вкладок мобильной навигации
+        const panelChats = document.getElementById("panelChats");
+        const panelSettings = document.getElementById("panelSettings");
+        const tabChatsBtn = document.getElementById("tabChatsBtn");
+        const tabSettingsBtn = document.getElementById("tabSettingsBtn");
+        const searchWrap = document.getElementById("searchWrap");
+
+        if (tabChatsBtn && tabSettingsBtn) {
+            tabChatsBtn.addEventListener("click", () => {
+                panelChats.classList.add("active");
+                panelSettings.classList.remove("active");
+                tabChatsBtn.classList.add("active");
+                tabSettingsBtn.classList.remove("active");
+                if (searchWrap) searchWrap.style.display = "";
+            });
+
+            tabSettingsBtn.addEventListener("click", () => {
+                panelSettings.classList.add("active");
+                panelChats.classList.remove("active");
+                tabSettingsBtn.classList.add("active");
+                tabChatsBtn.classList.remove("active");
+                if (searchWrap) searchWrap.style.display = "none";
+            });
+        }
+
+        // Автоматическая регистрация SW
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("/service-worker.js")
+                    .then(reg => {
+                        console.log("SW Registered");
+                        // Проверяем существующую подписку
+                        reg.pushManager.getSubscription().then(sub => {
+                            if (sub && pushBtn) {
+                                pushBtn.style.display = "none";
+                                pushStatus.textContent = "Уведомления включены";
+                            }
+                        });
+                        syncExistingPushSubscription();
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,945 @@
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
+}
+
+/* AUTH */
+
+.auth-page {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.15), transparent 30%),
+        linear-gradient(135deg, #eef4ff 0%, #f7faff 45%, #eef2f7 100%);
+    color: #111827;
+}
+
+.auth-wrapper {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+}
+
+.auth-left {
+    padding: 56px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.brand-badge {
+    display: inline-block;
+    align-self: flex-start;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-weight: bold;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 14px;
+    margin-bottom: 26px;
+}
+
+.auth-title-big {
+    font-size: 52px;
+    line-height: 1.05;
+    margin: 0 0 16px;
+    max-width: 520px;
+}
+
+.auth-description {
+    font-size: 18px;
+    line-height: 1.6;
+    color: #4b5563;
+    max-width: 560px;
+    margin: 0 0 28px;
+}
+
+.auth-features {
+    display: grid;
+    gap: 14px;
+    max-width: 560px;
+}
+
+.auth-feature-card {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(209, 213, 219, 0.8);
+    border-radius: 18px;
+    padding: 18px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.auth-feature-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.auth-feature-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
+.auth-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 430px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(219, 225, 232, 0.9);
+    border-radius: 28px;
+    padding: 34px 28px 28px;
+    box-shadow: 0 24px 60px rgba(37, 99, 235, 0.10);
+    backdrop-filter: blur(12px);
+}
+
+.auth-card-top {
+    text-align: center;
+    margin-bottom: 22px;
+}
+
+.auth-logo-circle {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: bold;
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.28);
+}
+
+.auth-card-title {
+    margin: 0;
+    font-size: 30px;
+}
+
+.auth-card-subtitle {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.auth-label {
+    font-size: 14px;
+    font-weight: bold;
+    color: #374151;
+    margin-top: 4px;
+}
+
+.auth-input {
+    width: 100%;
+    border: 1px solid #d1d9e6;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 14px 15px;
+    font-size: 15px;
+    outline: none;
+    transition: 0.18s ease;
+}
+
+.auth-input:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16);
+}
+
+.auth-button {
+    margin-top: 10px;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
+}
+
+.auth-alert {
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 14px;
+    margin-bottom: 16px;
+    line-height: 1.45;
+}
+
+.auth-alert.error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.auth-alert.success {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.auth-bottom-text {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.auth-link {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}
+
+/* CHAT */
+
+body:not(.auth-page) {
+    background: #f3f5f8;
+    color: #111827;
+    min-height: 100vh;
+}
+
+.app {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+}
+
+.sidebar {
+    width: 340px;
+    min-width: 340px;
+    background: #ffffff;
+    border-right: 1px solid #dbe1e8;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.avatar,
+.user-avatar,
+.chat-user-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #3390ec;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.user-avatar-wrap,
+.chat-user-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.online-dot {
+    position: absolute;
+    right: 1px;
+    bottom: 1px;
+    width: 11px;
+    height: 11px;
+    background: #32d74b;
+    border: 2px solid #fff;
+    border-radius: 50%;
+}
+
+.messages-box {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+}
+
+.message-row {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 10px;
+}
+
+.message-row.own {
+    justify-content: flex-end;
+}
+
+.message-bubble {
+    max-width: 74%;
+    background: #ffffff;
+    border-radius: 16px 16px 16px 6px;
+    padding: 8px 12px 7px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    word-break: break-word;
+}
+
+.message-bubble.own {
+    background: #d9fdd3;
+    border-radius: 16px 16px 6px 16px;
+}
+
+.message-author {
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 4px;
+    color: #3390ec;
+}
+
+.message-text {
+    font-size: 15px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+}
+
+.message-time {
+    font-size: 11px;
+    color: #7a7f85;
+    text-align: right;
+    margin-top: 4px;
+}
+
+.message-form {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #f7f7f7;
+    border-top: 1px solid #e8e8e8;
+}
+
+.message-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: #ffffff;
+    border-radius: 22px;
+    padding: 12px 16px;
+    font-size: 15px;
+    outline: none;
+    box-shadow: inset 0 0 0 1px #e3e6ea;
+}
+
+.send-btn {
+    border: none;
+    background: #3390ec;
+    color: white;
+    border-radius: 50%;
+    width: 46px;
+    height: 46px;
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.attach-btn {
+    border: none;
+    background: #ffffff;
+    color: #3390ec;
+    border-radius: 50%;
+    width: 46px;
+    height: 46px;
+    font-size: 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px #e3e6ea;
+}
+
+.photo-form {
+    display: flex;
+}
+
+.chat-photo {
+    display: block;
+    max-width: 220px;
+    width: 100%;
+    border-radius: 12px;
+    margin-top: 2px;
+}
+
+.photo-link {
+    display: inline-block;
+    text-decoration: none;
+}
+
+.download-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.empty-chat {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.empty-chat-box {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 28px 22px;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+}
+
+.empty-chat-title {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.empty-chat-text {
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+/* TELEGRAM STYLE */
+
+.telegram-app {
+    background: #ffffff;
+}
+
+.tg-sidebar-header {
+    padding: 12px 12px 10px;
+    border-bottom: 1px solid #ececec;
+    background: #ffffff;
+}
+
+.tg-sidebar-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.tg-brand {
+    font-size: 20px;
+    font-weight: bold;
+    color: #1f2937;
+}
+
+.tg-logout-btn {
+    text-decoration: none;
+    color: #3390ec;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.tg-current-user {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.tg-current-user-meta {
+    min-width: 0;
+    flex: 1;
+}
+
+.tg-current-user-label {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.tg-current-user-email {
+    font-size: 14px;
+    font-weight: 600;
+    word-break: break-all;
+    color: #111827;
+}
+
+.tg-search-wrap {
+    margin-bottom: 4px;
+}
+
+.tg-search-input {
+    width: 100%;
+    border: none;
+    border-radius: 20px;
+    background: #f1f3f5;
+    padding: 12px 14px;
+    font-size: 14px;
+    outline: none;
+}
+
+.tg-main-panel {
+    display: none;
+    flex: 1;
+    min-height: 0;
+}
+
+.tg-main-panel.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.tg-dialogs-list {
+    padding: 0;
+    background: #ffffff;
+}
+
+.tg-dialog-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+    padding: 11px 12px;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    background: #fff;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+.tg-dialog-item:hover {
+    background: #f7f9fb;
+}
+
+.tg-dialog-item.active {
+    background: #eaf3ff;
+}
+
+.tg-dialog-avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 18px;
+    background: #3390ec;
+}
+
+.tg-dialog-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.tg-dialog-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.tg-dialog-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tg-dialog-time {
+    font-size: 12px;
+    color: #8b939c;
+    white-space: nowrap;
+}
+
+.tg-dialog-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tg-dialog-preview {
+    font-size: 13px;
+    color: #7a7f85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.tg-unread-badge {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #3390ec;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.tg-unread-badge.hidden {
+    display: none;
+}
+
+.tg-chat-header {
+    background: #ffffff;
+    border-bottom: 1px solid #ececec;
+    padding: 10px 12px;
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+}
+
+.tg-chat-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.tg-back-btn {
+    display: none;
+    text-decoration: none;
+    color: #3390ec;
+    font-size: 24px;
+    line-height: 1;
+    padding: 2px 4px;
+    flex-shrink: 0;
+}
+
+.chat-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.chat-user-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+    word-break: break-all;
+}
+
+.chat-user-status {
+    font-size: 12px;
+    color: #7a7f85;
+    margin-top: 2px;
+}
+
+.tg-messages-box {
+    background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.6), rgba(255,255,255,0) 30%),
+        #e7ebf0;
+}
+
+.tg-message-form {
+    background: #eef1f4;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+}
+
+.tg-message-input {
+    background: #fff;
+}
+
+.tg-send-btn {
+    background: #3390ec;
+}
+
+.tg-settings-panel {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+}
+
+.tg-settings-card {
+    background: #ffffff;
+    border: 1px solid #e8ebef;
+    border-radius: 16px;
+    padding: 14px;
+}
+
+.tg-settings-title {
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #111827;
+}
+
+.tg-settings-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 14px;
+    color: #374151;
+    flex-wrap: wrap;
+}
+
+.tg-settings-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
+.tg-settings-logout {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    background: #ef4444;
+    color: white;
+    padding: 14px;
+    border-radius: 14px;
+    font-weight: bold;
+}
+
+.tg-mobile-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .telegram-app {
+        display: block;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .sidebar,
+    .chat-area {
+        width: 100%;
+        min-width: 100%;
+        height: 100vh;
+    }
+
+    .sidebar {
+        border-right: none;
+        padding-bottom: 76px;
+    }
+
+    .mobile-hidden {
+        display: none !important;
+    }
+
+    .mobile-hidden-chat {
+        display: none !important;
+    }
+
+    .tg-back-btn {
+        display: inline-block;
+    }
+
+    .tg-sidebar-header {
+        padding-top: max(12px, env(safe-area-inset-top));
+    }
+
+    .tg-chat-header {
+        padding-top: max(10px, env(safe-area-inset-top));
+    }
+
+    .tg-dialog-item {
+        padding: 12px;
+    }
+
+    .tg-dialog-avatar {
+        width: 54px;
+        height: 54px;
+    }
+
+    .messages-box {
+        padding: 10px;
+    }
+
+    .message-bubble {
+        max-width: 82%;
+    }
+
+    .message-text {
+        font-size: 14px;
+    }
+
+    .message-input {
+        font-size: 14px;
+    }
+
+    .chat-photo {
+        max-width: 180px;
+    }
+
+    .tg-mobile-bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        background: rgba(255,255,255,0.96);
+        border-top: 1px solid #e5e7eb;
+        backdrop-filter: blur(10px);
+        padding-bottom: env(safe-area-inset-bottom);
+        z-index: 20;
+    }
+
+    .tg-mobile-tab {
+        border: none;
+        background: transparent;
+        padding: 14px 10px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+    }
+
+    .tg-mobile-tab.active {
+        color: #3390ec;
+    }
+}
+
+@media (min-width: 769px) {
+    .tg-back-btn {
+        display: none !important;
+    }
+
+    .sidebar {
+        display: flex !important;
+    }
+
+    .chat-area {
+        display: flex !important;
+    }
+
+    .tg-main-panel {
+        display: flex !important;
+        flex-direction: column;
+    }
+
+    #panelSettings {
+        display: none !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .tg-brand {
+        font-size: 18px;
+    }
+
+    .tg-current-user-email,
+    .tg-dialog-name,
+    .chat-user-name {
+        font-size: 13px;
+    }
+
+    .tg-dialog-preview,
+    .chat-user-status {
+        font-size: 12px;
+    }
+
+    .tg-dialog-avatar,
+    .chat-user-avatar {
+        width: 48px;
+        height: 48px;
+    }
+
+    .message-bubble {
+        max-width: 88%;
+    }
+
+    .send-btn,
+    .attach-btn {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+@media (max-width: 900px) {
+    .auth-wrapper {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-left {
+        padding: 30px 20px 10px;
+    }
+
+    .auth-title-big {
+        font-size: 36px;
+        max-width: 100%;
+    }
+
+    .auth-description {
+        font-size: 16px;
+        max-width: 100%;
+    }
+
+    .auth-right {
+        padding: 18px 14px 24px;
+        align-items: flex-start;
+    }
+
+    .auth-card {
+        max-width: 100%;
+        border-radius: 22px;
+        padding: 28px 18px 22px;
+    }
+}
+
+@media (max-width: 420px) {
+    .auth-left {
+        padding: 24px 14px 6px;
+    }
+
+    .auth-title-big {
+        font-size: 30px;
+    }
+
+    .auth-description {
+        font-size: 14px;
+    }
+
+    .auth-feature-card {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    .auth-card {
+        padding: 24px 14px 18px;
+        border-radius: 18px;
+    }
+
+    .auth-card-title {
+        font-size: 24px;
+    }
+
+    .auth-input {
+        padding: 12px 13px;
+        font-size: 14px;
+    }
+
+    .auth-button {
+        padding: 13px 14px;
+        font-size: 14px;
+    }
+}

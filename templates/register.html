@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Регистрация — Messenger</title>
+
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/apple-touch-icon">
+
+    <meta name="theme-color" content="#3390ec">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Messenger">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="auth-page">
+    <div class="auth-wrapper">
+        <div class="auth-left">
+            <div class="brand-badge">Messenger</div>
+            <h1 class="auth-title-big">Создай аккаунт</h1>
+            <p class="auth-description">
+                Зарегистрируйся и начни пользоваться своим приватным мессенджером.
+            </p>
+
+            <div class="auth-features">
+                <div class="auth-feature-card">
+                    <div class="auth-feature-title">Быстрая регистрация</div>
+                    <div class="auth-feature-text">Создание аккаунта занимает всего несколько секунд.</div>
+                </div>
+
+                <div class="auth-feature-card">
+                    <div class="auth-feature-title">Живой чат</div>
+                    <div class="auth-feature-text">Сообщения уже работают в реальном времени через WebSocket.</div>
+                </div>
+
+                <div class="auth-feature-card">
+                    <div class="auth-feature-title">Режим приложения</div>
+                    <div class="auth-feature-text">После добавления на главный экран сайт открывается отдельно от браузера.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="auth-right">
+            <div class="auth-card">
+                <div class="auth-card-top">
+                    <div class="auth-logo-circle">M</div>
+                    <h2 class="auth-card-title">Регистрация</h2>
+                    <p class="auth-card-subtitle">Создай новый аккаунт</p>
+                </div>
+
+                {% if error %}
+                    <div class="auth-alert error">{{ error }}</div>
+                {% endif %}
+
+                {% if success %}
+                    <div class="auth-alert success">{{ success }}</div>
+                {% endif %}
+
+                <form method="post" action="/register" class="auth-form">
+                    <label class="auth-label">Email</label>
+                    <input
+                        type="email"
+                        name="email"
+                        class="auth-input"
+                        placeholder="Например: user@mail.com"
+                        required
+                    >
+
+                    <label class="auth-label">Пароль</label>
+                    <input
+                        type="password"
+                        name="password"
+                        class="auth-input"
+                        placeholder="Придумай пароль"
+                        required
+                    >
+
+                    <button type="submit" class="auth-button">Создать аккаунт</button>
+                </form>
+
+                <div class="auth-bottom-text">
+                    Уже есть аккаунт?
+                    <a href="/" class="auth-link">Войти</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("/service-worker.js")
+                    .then(() => console.log("Service Worker registered"))
+                    .catch((error) => console.log("Service Worker error:", error));
+            });
+        }
+    </script>
+</body>
+</html>
