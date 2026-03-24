@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import json
 import uuid
@@ -91,6 +91,29 @@ def format_message_time(dt):
     return dt.strftime("%H:%M")
 
 
+def format_last_seen(last_activity: datetime) -> str:
+    """Форматирует время последней активности в читаемый вид"""
+    if not last_activity:
+        return "Не в сети"
+    
+    now = datetime.utcnow()
+    diff = now - last_activity
+    
+    if diff.total_seconds() < 60:
+        return "В сети"
+    elif diff.total_seconds() < 3600:
+        minutes = int(diff.total_seconds() // 60)
+        return f"был(а) {minutes} мин назад"
+    elif diff.total_seconds() < 86400:
+        hours = int(diff.total_seconds() // 3600)
+        return f"был(а) {hours} ч назад"
+    elif diff.total_seconds() < 172800:
+        return "был(а) вчера"
+    else:
+        days = int(diff.total_seconds() // 86400)
+        return f"был(а) {days} дн назад"
+
+
 def get_current_user(user_id: str | None, db: Session):
     if not user_id:
         return None
@@ -123,7 +146,7 @@ def build_message_preview(message: Message, current_user_id: int) -> str:
     return base
 
 
-def build_dialogs_for_user(current_user: User, db: Session):
+def build_dialogs_for_user(current_user: User, db: Session, last_activity_map: dict):
     all_users = db.query(User).filter(User.id != current_user.id).all()
     dialogs = []
 
@@ -150,13 +173,20 @@ def build_dialogs_for_user(current_user: User, db: Session):
             last_message_id = last_message.id
 
         unread_count = get_unread_count(current_user.id, user.id, db)
-
+        
+        # Получаем статус пользователя
+        is_online = user.id in last_activity_map and last_activity_map[user.id].get("is_online", False)
+        last_seen = last_activity_map.get(user.id, {}).get("last_activity")
+        status_text = format_last_seen(last_seen) if last_seen else "Не в сети"
+        
         dialogs.append({
             "user": user,
             "last_message": preview,
             "time": time_str,
             "last_message_id": last_message_id,
-            "unread_count": unread_count
+            "unread_count": unread_count,
+            "is_online": is_online,
+            "status_text": status_text
         })
 
     dialogs.sort(key=lambda x: x["last_message_id"], reverse=True)
@@ -233,16 +263,18 @@ def send_push_to_user(db: Session, user_id: int, title: str, body: str, url: str
 class ConnectionManager:
     def __init__(self):
         self.active_connections = defaultdict(list)
-        self.online_users = set()
-        self.last_activity = {}
+        self.user_status = {}  # {user_id: {"is_online": bool, "last_activity": datetime}}
 
     async def connect(self, user_id: int, websocket: WebSocket):
         await websocket.accept()
         self.active_connections[user_id].append(websocket)
 
-        was_offline = user_id not in self.online_users
-        self.online_users.add(user_id)
-        self.last_activity[user_id] = datetime.utcnow()
+        was_offline = not self.user_status.get(user_id, {}).get("is_online", False)
+        
+        self.user_status[user_id] = {
+            "is_online": True,
+            "last_activity": datetime.utcnow()
+        }
 
         if was_offline:
             await self.broadcast_presence()
@@ -254,14 +286,18 @@ class ConnectionManager:
 
             if not self.active_connections[user_id]:
                 del self.active_connections[user_id]
-                if user_id in self.online_users:
-                    self.online_users.discard(user_id)
-                    self.last_activity[user_id] = datetime.utcnow()
+                if user_id in self.user_status:
+                    self.user_status[user_id]["is_online"] = False
+                    self.user_status[user_id]["last_activity"] = datetime.utcnow()
                     await self.broadcast_presence()
 
     async def update_activity(self, user_id: int):
-        if user_id in self.last_activity:
-            self.last_activity[user_id] = datetime.utcnow()
+        if user_id in self.user_status:
+            self.user_status[user_id]["last_activity"] = datetime.utcnow()
+            # Если пользователь был оффлайн, но совершил действие — включаем онлайн
+            if not self.user_status[user_id]["is_online"]:
+                self.user_status[user_id]["is_online"] = True
+                await self.broadcast_presence()
 
     async def send_to_user(self, user_id: int, data: dict):
         if user_id not in self.active_connections:
@@ -282,8 +318,9 @@ class ConnectionManager:
 
         if changed and user_id in self.active_connections and not self.active_connections[user_id]:
             del self.active_connections[user_id]
-            if user_id in self.online_users:
-                self.online_users.discard(user_id)
+            if user_id in self.user_status:
+                self.user_status[user_id]["is_online"] = False
+                self.user_status[user_id]["last_activity"] = datetime.utcnow()
                 await self.broadcast_presence()
 
     async def broadcast_all(self, data: dict):
@@ -302,19 +339,37 @@ class ConnectionManager:
                 self.active_connections[uid].remove(ws)
                 if not self.active_connections[uid]:
                     del self.active_connections[uid]
-                    if uid in self.online_users:
-                        self.online_users.discard(uid)
+                    if uid in self.user_status:
+                        self.user_status[uid]["is_online"] = False
+                        self.user_status[uid]["last_activity"] = datetime.utcnow()
                         changed = True
 
         if changed:
             await self.broadcast_presence()
 
     async def broadcast_presence(self):
+        # Формируем данные о статусах
+        status_data = {}
+        for uid, status in self.user_status.items():
+            status_data[uid] = {
+                "is_online": status["is_online"],
+                "last_activity": status["last_activity"].isoformat() if status["last_activity"] else None
+            }
+        
         await self.broadcast_all({
             "type": "presence",
-            "online_users": list(self.online_users),
-            "last_activity": {uid: ts.isoformat() for uid, ts in self.last_activity.items()}
+            "user_status": status_data
         })
+    
+    def get_user_status_map(self):
+        """Возвращает словарь со статусами для использования в шаблоне"""
+        result = {}
+        for uid, status in self.user_status.items():
+            result[uid] = {
+                "is_online": status["is_online"],
+                "last_activity": status["last_activity"]
+            }
+        return result
 
 
 manager = ConnectionManager()
@@ -434,15 +489,21 @@ async def chat_page(
                 .all()
             )
 
-    dialogs = build_dialogs_for_user(current_user, db)
+    # Получаем статусы пользователей
+    user_status_map = manager.get_user_status_map()
     
-    last_activity = {}
-    for dialog in dialogs:
-        user_id_dialog = dialog["user"].id
-        if user_id_dialog in manager.last_activity:
-            last_activity[user_id_dialog] = manager.last_activity[user_id_dialog]
+    dialogs = build_dialogs_for_user(current_user, db, user_status_map)
     
-    # Проверяем, может ли пользователь делать backup
+    # Статус выбранного пользователя
+    selected_user_status = "Не в сети"
+    if selected_user:
+        status = user_status_map.get(selected_user.id, {})
+        if status.get("is_online"):
+            selected_user_status = "В сети"
+        else:
+            last_activity = status.get("last_activity")
+            selected_user_status = format_last_seen(last_activity) if last_activity else "Не в сети"
+    
     can_backup = current_user.email in ALLOWED_BACKUP_EMAILS
 
     return templates.TemplateResponse(
@@ -453,9 +514,9 @@ async def chat_page(
             "dialogs": dialogs,
             "messages": messages,
             "selected_user": selected_user,
-            "online_users": manager.online_users,
-            "last_activity": last_activity,
+            "selected_user_status": selected_user_status,
             "format_message_time": format_message_time,
+            "format_last_seen": format_last_seen,
             "vapid_public_key": VAPID_PUBLIC_KEY,
             "can_backup": can_backup,
         }
@@ -565,7 +626,7 @@ async def send_photo(
     await manager.send_to_user(current_user.id, outgoing_to_sender)
     await manager.send_to_user(receiver_id, outgoing_to_receiver)
 
-    if receiver_id not in manager.online_users:
+    if receiver_id not in manager.user_status.get(receiver_id, {}).get("is_online", False):
         send_push_to_user(
             db=db,
             user_id=receiver_id,
@@ -622,10 +683,17 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
     typing_timeout = {}
     
     try:
+        # Отправляем текущие статусы
+        status_data = {}
+        for uid, status in manager.user_status.items():
+            status_data[uid] = {
+                "is_online": status["is_online"],
+                "last_activity": status["last_activity"].isoformat() if status["last_activity"] else None
+            }
+        
         await manager.send_to_user(user_id, {
             "type": "presence",
-            "online_users": list(manager.online_users),
-            "last_activity": {uid: ts.isoformat() for uid, ts in manager.last_activity.items()}
+            "user_status": status_data
         })
 
         while True:
@@ -719,7 +787,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
 
                     unread_count_for_receiver = get_unread_count(receiver_id, user_id, db)
 
-                    if receiver_id not in manager.online_users and sender:
+                    receiver_online = manager.user_status.get(receiver_id, {}).get("is_online", False)
+                    if not receiver_online and sender:
                         send_push_to_user(
                             db=db,
                             user_id=receiver_id,
