@@ -1017,3 +1017,132 @@ body:not(.auth-page) {
         font-size: 14px;
     }
 }
+
+/* Модальное окно настроек (как в Telegram) */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal-container {
+    background: #ffffff;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 480px;
+    max-height: 85vh;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.2s ease;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid #e8e8e8;
+    background: #ffffff;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.modal-body {
+    overflow-y: auto;
+    max-height: calc(85vh - 70px);
+    padding: 0;
+}
+
+.modal-body .tg-settings-panel {
+    padding: 16px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Кнопка настроек в левом нижнем углу */
+.tg-settings-trigger {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 100;
+}
+
+.settings-btn {
+    background: linear-gradient(135deg, #3390ec, #2563eb);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.settings-btn:hover {
+    transform: scale(1.02);
+    background: linear-gradient(135deg, #3b9af5, #2b6ef0);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+.settings-btn:active {
+    transform: scale(0.98);
+}
+
+/* На ПК кнопка настроек видна, на телефоне скрыта (там есть нижняя навигация) */
+@media (max-width: 768px) {
+    .tg-settings-trigger {
+        display: none;
+    }
+}
