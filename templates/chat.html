@@ -216,8 +216,9 @@
         const SELECTED_USER_ID = {% if selected_user %}{{ selected_user.id }}{% else %}null{% endif %};
         const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
 
-        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        const socket = new WebSocket(`${protocol}://${window.location.host}/ws/${CURRENT_USER_ID}`);
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const socketUrl = `${wsProtocol}//${window.location.host}/ws`;
+        const socket = new WebSocket(socketUrl);
 
         const messagesBox = document.getElementById("messagesBox");
         const input = document.getElementById("messageInput");
@@ -286,6 +287,10 @@
                     scrollToBottom();
                 }
             }
+        };
+
+        socket.onclose = function() {
+            console.warn("WebSocket closed:", socketUrl);
         };
 
         function sendMessage() {
