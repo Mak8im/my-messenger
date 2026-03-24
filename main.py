@@ -49,6 +49,9 @@ VAPID_CLAIMS = {
     "sub": "mailto:test@example.com"
 }
 
+# Список email, которым разрешён backup
+ALLOWED_BACKUP_EMAILS = ["maksim13leo@gmail.com", "televisor13leo@gmail.com"]
+
 
 @app.get("/manifest.webmanifest", include_in_schema=False)
 async def manifest():
@@ -438,6 +441,9 @@ async def chat_page(
         user_id_dialog = dialog["user"].id
         if user_id_dialog in manager.last_activity:
             last_activity[user_id_dialog] = manager.last_activity[user_id_dialog]
+    
+    # Проверяем, может ли пользователь делать backup
+    can_backup = current_user.email in ALLOWED_BACKUP_EMAILS
 
     return templates.TemplateResponse(
         request=request,
@@ -451,6 +457,7 @@ async def chat_page(
             "last_activity": last_activity,
             "format_message_time": format_message_time,
             "vapid_public_key": VAPID_PUBLIC_KEY,
+            "can_backup": can_backup,
         }
     )
 
@@ -767,17 +774,25 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
         await manager.disconnect(user_id, websocket)
 
 
-# ========== BACKUP ФУНКЦИИ ==========
+# ========== BACKUP ФУНКЦИИ (только для разрешённых email) ==========
+
+def check_backup_permission(current_user: User):
+    """Проверяет, имеет ли пользователь право на backup"""
+    if current_user.email not in ALLOWED_BACKUP_EMAILS:
+        raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
+
 
 @app.get("/download-backup")
 async def download_backup(
     user_id: str | None = Cookie(default=None), 
     db: Session = Depends(get_db)
 ):
-    """Скачать файл базы данных"""
+    """Скачать файл базы данных (только для разрешённых email)"""
     current_user = get_current_user(user_id, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    check_backup_permission(current_user)
     
     db_path = BASE_DIR / "messenger.db"
     
@@ -799,10 +814,12 @@ async def restore_backup(
     user_id: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    """Восстановить базу данных из backup файла"""
+    """Восстановить базу данных из backup файла (только для разрешённых email)"""
     current_user = get_current_user(user_id, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    check_backup_permission(current_user)
     
     if not backup_file.filename.endswith('.db'):
         raise HTTPException(status_code=400, detail="Файл должен иметь расширение .db")
