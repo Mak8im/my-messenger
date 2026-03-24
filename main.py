@@ -33,7 +33,6 @@ from models import User, Message, PushSubscription
 
 app = FastAPI()
 
-# Создаём таблицы (если last_activity добавляется в существующую БД, нужно будет вручную добавить колонку)
 Base.metadata.create_all(bind=engine)
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -92,11 +91,19 @@ def format_message_time(dt):
     return dt.strftime("%H:%M")
 
 
-def format_last_seen(last_activity: datetime) -> str:
+def format_last_seen(last_activity):
+    """Форматирует время последней активности"""
     if not last_activity:
         return "Не в сети"
     
     now = datetime.utcnow()
+    # Если last_activity это строка, конвертируем в datetime
+    if isinstance(last_activity, str):
+        try:
+            last_activity = datetime.fromisoformat(last_activity)
+        except:
+            return "Не в сети"
+    
     diff = now - last_activity
     seconds = diff.total_seconds()
     
@@ -177,6 +184,7 @@ def build_dialogs_for_user(current_user: User, db: Session, online_users: set):
         
         is_online = user.id in online_users
         
+        # ВАЖНО: Берём last_activity из БД, а не из памяти
         if is_online:
             status_text = "В сети"
         else:
@@ -266,13 +274,13 @@ def send_push_to_user(db: Session, user_id: int, title: str, body: str, url: str
 class ConnectionManager:
     def __init__(self):
         self.active_connections = defaultdict(list)
-        self.online_users = set()  # просто множество ID онлайн пользователей
+        self.online_users = set()
 
     async def connect(self, user_id: int, websocket: WebSocket, db: Session):
         await websocket.accept()
         self.active_connections[user_id].append(websocket)
         
-        # Обновляем last_activity в БД
+        # Обновляем last_activity в БД при подключении
         user = db.query(User).filter(User.id == user_id).first()
         if user:
             user.last_activity = datetime.utcnow()
@@ -301,12 +309,13 @@ class ConnectionManager:
                     await self.broadcast_presence(db)
 
     async def update_activity(self, user_id: int, db: Session):
-        # Обновляем last_activity в БД
+        # Обновляем last_activity в БД при любом действии
         user = db.query(User).filter(User.id == user_id).first()
         if user:
             user.last_activity = datetime.utcnow()
             db.commit()
         
+        # Если пользователь был оффлайн, добавляем в онлайн
         if user_id not in self.online_users:
             self.online_users.add(user_id)
             await self.broadcast_presence(db)
@@ -328,9 +337,6 @@ class ConnectionManager:
 
         if user_id in self.active_connections and not self.active_connections[user_id]:
             del self.active_connections[user_id]
-            if user_id in self.online_users:
-                self.online_users.remove(user_id)
-                # Нужен доступ к БД, но здесь его нет — делаем отдельно
 
     async def broadcast_all(self, data: dict):
         dead_connections = []
@@ -347,12 +353,9 @@ class ConnectionManager:
                 self.active_connections[uid].remove(ws)
                 if not self.active_connections[uid]:
                     del self.active_connections[uid]
-                    if uid in self.online_users:
-                        self.online_users.remove(uid)
 
     async def broadcast_presence(self, db: Session):
-        """Отправляем всем пользователям актуальные статусы"""
-        # Получаем last_activity из БД для всех пользователей
+        """Отправляем всем пользователям актуальные статусы из БД"""
         all_users = db.query(User).all()
         status_data = {}
         for user in all_users:
@@ -367,11 +370,11 @@ class ConnectionManager:
         })
     
     async def force_logout_user(self, user_id: int, db: Session):
-        """Принудительно выводит пользователя и обновляет статус"""
+        """Принудительно выводит пользователя и обновляет статус в БД"""
         if user_id in self.online_users:
             self.online_users.remove(user_id)
         
-        # Обновляем last_activity в БД
+        # Обновляем last_activity в БД на момент выхода
         user = db.query(User).filter(User.id == user_id).first()
         if user:
             user.last_activity = datetime.utcnow()
@@ -466,7 +469,7 @@ async def login_user(
             key="user_id",
             value=str(user.id),
             httponly=True,
-            max_age=30 * 24 * 60 * 60  # 30 дней
+            max_age=30 * 24 * 60 * 60
         )
     else:
         response.set_cookie(
@@ -488,7 +491,7 @@ async def chat_page(
     if not current_user:
         return RedirectResponse(url="/", status_code=303)
 
-    # Обновляем last_activity текущего пользователя
+    # ОБНОВЛЯЕМ last_activity ПРИ КАЖДОМ ЗАХОДЕ В ЧАТ
     current_user.last_activity = datetime.utcnow()
     db.commit()
 
@@ -529,6 +532,7 @@ async def chat_page(
 
     dialogs = build_dialogs_for_user(current_user, db, manager.online_users)
     
+    # Статус выбранного пользователя - БЕРЁМ ИЗ БД
     selected_user_status = "Не в сети"
     if selected_user:
         if selected_user.id in manager.online_users:
