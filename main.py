@@ -92,25 +92,26 @@ def format_message_time(dt):
 
 
 def format_last_seen(last_activity: datetime) -> str:
-    """Форматирует время последней активности в читаемый вид"""
+    """Форматирует время последней активности для офлайн-пользователя"""
     if not last_activity:
         return "Не в сети"
     
     now = datetime.utcnow()
     diff = now - last_activity
+    seconds = diff.total_seconds()
     
-    if diff.total_seconds() < 60:
-        return "В сети"
-    elif diff.total_seconds() < 3600:
-        minutes = int(diff.total_seconds() // 60)
+    if seconds < 60:
+        return "был(а) только что"
+    elif seconds < 3600:
+        minutes = int(seconds // 60)
         return f"был(а) {minutes} мин назад"
-    elif diff.total_seconds() < 86400:
-        hours = int(diff.total_seconds() // 3600)
+    elif seconds < 86400:
+        hours = int(seconds // 3600)
         return f"был(а) {hours} ч назад"
-    elif diff.total_seconds() < 172800:
+    elif seconds < 172800:
         return "был(а) вчера"
     else:
-        days = int(diff.total_seconds() // 86400)
+        days = int(seconds // 86400)
         return f"был(а) {days} дн назад"
 
 
@@ -178,7 +179,11 @@ def build_dialogs_for_user(current_user: User, db: Session, user_status_map: dic
         status_info = user_status_map.get(user.id, {})
         is_online = status_info.get("is_online", False)
         last_activity = status_info.get("last_activity")
-        status_text = format_last_seen(last_activity) if last_activity else "Не в сети"
+        
+        if is_online:
+            status_text = "В сети"
+        else:
+            status_text = format_last_seen(last_activity) if last_activity else "Не в сети"
         
         dialogs.append({
             "user": user,
