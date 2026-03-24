@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import uuid
 import asyncio
+import shutil
 
 from fastapi import (
     FastAPI,
@@ -764,3 +765,63 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                 pass
             del typing_timeout[user_id]
         await manager.disconnect(user_id, websocket)
+
+
+# ========== BACKUP ФУНКЦИИ ==========
+
+@app.get("/download-backup")
+async def download_backup(
+    user_id: str | None = Cookie(default=None), 
+    db: Session = Depends(get_db)
+):
+    """Скачать файл базы данных"""
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    db_path = BASE_DIR / "messenger.db"
+    
+    if not db_path.exists():
+        raise HTTPException(status_code=404, detail="Файл базы данных не найден")
+    
+    backup_name = f"messenger_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    
+    return FileResponse(
+        path=db_path,
+        filename=backup_name,
+        media_type="application/octet-stream"
+    )
+
+
+@app.post("/restore-backup")
+async def restore_backup(
+    backup_file: UploadFile = File(...),
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    """Восстановить базу данных из backup файла"""
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    if not backup_file.filename.endswith('.db'):
+        raise HTTPException(status_code=400, detail="Файл должен иметь расширение .db")
+    
+    db_path = BASE_DIR / "messenger.db"
+    
+    # Создаём резервную копию текущей БД на всякий случай
+    if db_path.exists():
+        backup_path = BASE_DIR / f"messenger_backup_auto_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        shutil.copy(db_path, backup_path)
+    
+    try:
+        content = await backup_file.read()
+        with open(db_path, "wb") as f:
+            f.write(content)
+        
+        return JSONResponse({
+            "status": "success",
+            "message": "База данных восстановлена. Обновите страницу."
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при восстановлении: {str(e)}")
