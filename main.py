@@ -176,7 +176,6 @@ def build_dialogs_for_user(current_user: User, db: Session, user_status_map: dic
 
         unread_count = get_unread_count(current_user.id, user.id, db)
         
-        # Получаем статус пользователя из map
         status_info = user_status_map.get(user.id, {})
         is_online = status_info.get("is_online", False)
         last_activity = status_info.get("last_activity")
@@ -270,7 +269,7 @@ def send_push_to_user(db: Session, user_id: int, title: str, body: str, url: str
 class ConnectionManager:
     def __init__(self):
         self.active_connections = defaultdict(list)
-        self.user_status = {}  # {user_id: {"is_online": bool, "last_activity": datetime}}
+        self.user_status = {}
 
     async def connect(self, user_id: int, websocket: WebSocket):
         await websocket.accept()
@@ -284,7 +283,6 @@ class ConnectionManager:
         }
 
         if was_offline:
-            # Отправляем обновление статуса всем
             await self.broadcast_presence()
 
     async def disconnect(self, user_id: int, websocket: WebSocket):
@@ -295,34 +293,15 @@ class ConnectionManager:
             if not self.active_connections[user_id]:
                 del self.active_connections[user_id]
                 if user_id in self.user_status:
-                    # Пользователь вышел, обновляем статус
                     self.user_status[user_id]["is_online"] = False
                     self.user_status[user_id]["last_activity"] = datetime.utcnow()
-                    # Отправляем обновление статуса всем
                     await self.broadcast_presence()
-
-    async def force_logout(self, user_id: int):
-        """Принудительно выйти из аккаунта и закрыть все сокеты"""
-        if user_id in self.active_connections:
-            # Закрываем все сокеты пользователя
-            for ws in list(self.active_connections[user_id]):
-                try:
-                    await ws.close()
-                except:
-                    pass
-            del self.active_connections[user_id]
-        
-        if user_id in self.user_status:
-            self.user_status[user_id]["is_online"] = False
-            self.user_status[user_id]["last_activity"] = datetime.utcnow()
-            await self.broadcast_presence()
 
     async def update_activity(self, user_id: int):
         if user_id in self.user_status:
             old_status = self.user_status[user_id]["is_online"]
             self.user_status[user_id]["last_activity"] = datetime.utcnow()
             
-            # Если пользователь был оффлайн, но совершил действие — включаем онлайн и уведомляем всех
             if not old_status:
                 self.user_status[user_id]["is_online"] = True
                 await self.broadcast_presence()
@@ -376,7 +355,6 @@ class ConnectionManager:
             await self.broadcast_presence()
 
     async def broadcast_presence(self):
-        """Отправляем всем пользователям актуальные статусы"""
         status_data = {}
         for uid, status in self.user_status.items():
             status_data[uid] = {
@@ -390,7 +368,6 @@ class ConnectionManager:
         })
     
     def get_user_status_map(self):
-        """Возвращает словарь со статусами для использования в шаблоне"""
         result = {}
         for uid, status in self.user_status.items():
             result[uid] = {
@@ -398,6 +375,21 @@ class ConnectionManager:
                 "last_activity": status["last_activity"]
             }
         return result
+    
+    async def force_logout_user(self, user_id: int):
+        """Принудительно выводит пользователя и обновляет статус"""
+        if user_id in self.user_status:
+            self.user_status[user_id]["is_online"] = False
+            self.user_status[user_id]["last_activity"] = datetime.utcnow()
+            await self.broadcast_presence()
+        
+        if user_id in self.active_connections:
+            for ws in list(self.active_connections[user_id]):
+                try:
+                    await ws.close()
+                except:
+                    pass
+            del self.active_connections[user_id]
 
 
 manager = ConnectionManager()
@@ -469,24 +461,19 @@ async def login_user(
 
     response = RedirectResponse(url="/chat", status_code=303)
     
-    # Устанавливаем куку с user_id
     if remember_me:
-        # Запомнить на 30 дней
-        expires = datetime.utcnow() + timedelta(days=30)
         response.set_cookie(
             key="user_id",
             value=str(user.id),
             httponly=True,
-            expires=expires
+            max_age=30 * 24 * 60 * 60  # 30 дней
         )
     else:
-        # Сессионная кука (закроется при закрытии браузера)
         response.set_cookie(
             key="user_id",
             value=str(user.id),
             httponly=True
         )
-    
     return response
 
 
@@ -536,12 +523,10 @@ async def chat_page(
                 .all()
             )
 
-    # Получаем актуальные статусы пользователей
     user_status_map = manager.get_user_status_map()
     
     dialogs = build_dialogs_for_user(current_user, db, user_status_map)
     
-    # Статус выбранного пользователя
     selected_user_status = "Не в сети"
     if selected_user:
         status_info = user_status_map.get(selected_user.id, {})
@@ -718,13 +703,13 @@ async def download_file(
 
 
 @app.get("/logout")
-async def logout(user_id: str | None = Cookie(default=None)):
-    # Принудительно завершаем сессию пользователя
+async def logout(
+    response: Response,
+    user_id: str | None = Cookie(default=None)
+):
     if user_id:
-        try:
-            await manager.force_logout(int(user_id))
-        except:
-            pass
+        uid = int(user_id)
+        await manager.force_logout_user(uid)
     
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("user_id")
@@ -738,7 +723,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
     typing_timeout = {}
     
     try:
-        # Отправляем текущие статусы новому пользователю
         status_data = {}
         for uid, status in manager.user_status.items():
             status_data[uid] = {
@@ -898,10 +882,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
         await manager.disconnect(user_id, websocket)
 
 
-# ========== BACKUP ФУНКЦИИ (только для разрешённых email) ==========
+# ========== BACKUP ФУНКЦИИ ==========
 
 def check_backup_permission(current_user: User):
-    """Проверяет, имеет ли пользователь право на backup"""
     if current_user.email not in ALLOWED_BACKUP_EMAILS:
         raise HTTPException(status_code=403, detail="Доступ запрещён. Только для администраторов.")
 
@@ -911,7 +894,6 @@ async def download_backup(
     user_id: str | None = Cookie(default=None), 
     db: Session = Depends(get_db)
 ):
-    """Скачать файл базы данных (только для разрешённых email)"""
     current_user = get_current_user(user_id, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
@@ -938,7 +920,6 @@ async def restore_backup(
     user_id: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    """Восстановить базу данных из backup файла (только для разрешённых email)"""
     current_user = get_current_user(user_id, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
@@ -950,7 +931,6 @@ async def restore_backup(
     
     db_path = BASE_DIR / "messenger.db"
     
-    # Создаём резервную копию текущей БД на всякий случай
     if db_path.exists():
         backup_path = BASE_DIR / f"messenger_backup_auto_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
         shutil.copy(db_path, backup_path)
