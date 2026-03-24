@@ -1,7 +1,6 @@
 fastapi
-uvicorn
+uvicorn[standard]
 sqlalchemy
 jinja2
 python-multipart
-passlib[bcrypt]
 pywebpush
