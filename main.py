@@ -18,6 +18,7 @@ from fastapi import (
     File,
     HTTPException,
     Body,
+    Response
 )
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -296,10 +297,25 @@ class ConnectionManager:
                 if user_id in self.user_status:
                     # Пользователь вышел, обновляем статус
                     self.user_status[user_id]["is_online"] = False
-                    # Устанавливаем last_activity на момент выхода
                     self.user_status[user_id]["last_activity"] = datetime.utcnow()
                     # Отправляем обновление статуса всем
                     await self.broadcast_presence()
+
+    async def force_logout(self, user_id: int):
+        """Принудительно выйти из аккаунта и закрыть все сокеты"""
+        if user_id in self.active_connections:
+            # Закрываем все сокеты пользователя
+            for ws in list(self.active_connections[user_id]):
+                try:
+                    await ws.close()
+                except:
+                    pass
+            del self.active_connections[user_id]
+        
+        if user_id in self.user_status:
+            self.user_status[user_id]["is_online"] = False
+            self.user_status[user_id]["last_activity"] = datetime.utcnow()
+            await self.broadcast_presence()
 
     async def update_activity(self, user_id: int):
         if user_id in self.user_status:
@@ -439,6 +455,7 @@ async def login_user(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
+    remember_me: bool = Form(False),
     db: Session = Depends(get_db)
 ):
     user = authenticate_user(db, email, password)
@@ -451,7 +468,25 @@ async def login_user(
         )
 
     response = RedirectResponse(url="/chat", status_code=303)
-    response.set_cookie(key="user_id", value=str(user.id), httponly=True)
+    
+    # Устанавливаем куку с user_id
+    if remember_me:
+        # Запомнить на 30 дней
+        expires = datetime.utcnow() + timedelta(days=30)
+        response.set_cookie(
+            key="user_id",
+            value=str(user.id),
+            httponly=True,
+            expires=expires
+        )
+    else:
+        # Сессионная кука (закроется при закрытии браузера)
+        response.set_cookie(
+            key="user_id",
+            value=str(user.id),
+            httponly=True
+        )
+    
     return response
 
 
@@ -683,7 +718,14 @@ async def download_file(
 
 
 @app.get("/logout")
-async def logout():
+async def logout(user_id: str | None = Cookie(default=None)):
+    # Принудительно завершаем сессию пользователя
+    if user_id:
+        try:
+            await manager.force_logout(int(user_id))
+        except:
+            pass
+    
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("user_id")
     return response
