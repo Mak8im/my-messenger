@@ -102,6 +102,26 @@
                     </div>
 
                     <div class="tg-settings-card">
+                        <div class="tg-settings-title">💾 Резервное копирование</div>
+                        <div class="tg-settings-text" style="margin-bottom: 12px;">
+                            Скачивай базу данных раз в месяц, чтобы не потерять сообщения.
+                            При смене аккаунта — восстанови из backup.
+                        </div>
+                        
+                        <button id="downloadBackupBtn" class="auth-button" type="button" style="width: 100%; margin-bottom: 10px; background: linear-gradient(135deg, #10b981, #059669);">
+                            📥 Скачать backup
+                        </button>
+                        
+                        <form id="restoreBackupForm" enctype="multipart/form-data" style="margin-top: 10px;">
+                            <label for="backupFileInput" style="display: block; text-align: center; background: linear-gradient(135deg, #6b7280, #4b5563); color: white; padding: 12px; border-radius: 14px; cursor: pointer; font-weight: bold;">
+                                📤 Выбрать файл для восстановления
+                            </label>
+                            <input type="file" id="backupFileInput" name="backup_file" accept=".db" style="display: none;">
+                            <div id="restoreStatus" class="tg-settings-text" style="margin-top: 8px; font-size: 12px;"></div>
+                        </form>
+                    </div>
+
+                    <div class="tg-settings-card">
                         <div class="tg-settings-title">Push-уведомления (эксперимент)</div>
                         <div class="tg-settings-text" style="margin-bottom: 10px;">
                             Для полных push-уведомлений (даже когда сайт закрыт) нужна сложная настройка сервера.<br>
@@ -254,12 +274,6 @@
             if (messagesBox) {
                 messagesBox.scrollTop = messagesBox.scrollHeight;
             }
-        }
-        
-        function formatTimeFromDate(date) {
-            if (!date) return "";
-            const d = new Date(date);
-            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
         
         // ========== УВЕДОМЛЕНИЯ ==========
@@ -639,12 +653,13 @@
         }
         
         async function subscribeToPush() {
+            const pushStatusDiv = document.getElementById("pushStatus");
             if (!window.isSecureContext) {
-                if (pushStatus) pushStatus.textContent = "Push требует HTTPS.";
+                if (pushStatusDiv) pushStatusDiv.textContent = "Push требует HTTPS.";
                 return;
             }
             if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-                if (pushStatus) pushStatus.textContent = "Push API не поддерживается";
+                if (pushStatusDiv) pushStatusDiv.textContent = "Push API не поддерживается";
                 return;
             }
             try {
@@ -652,7 +667,7 @@
                 let permission = Notification.permission;
                 if (permission !== "granted") permission = await Notification.requestPermission();
                 if (permission !== "granted") {
-                    if (pushStatus) pushStatus.textContent = "Разрешение не выдано";
+                    if (pushStatusDiv) pushStatusDiv.textContent = "Разрешение не выдано";
                     return;
                 }
                 let subscription = await registration.pushManager.getSubscription();
@@ -668,26 +683,26 @@
                     body: JSON.stringify(subscription)
                 });
                 if (!response.ok) throw new Error("Ошибка сохранения");
-                if (pushStatus) pushStatus.textContent = "Push включены (бета)";
+                if (pushStatusDiv) pushStatusDiv.textContent = "Push включены (бета)";
             } catch (error) {
                 console.error("Push error:", error);
-                if (pushStatus) pushStatus.textContent = "Ошибка при включении push";
+                if (pushStatusDiv) pushStatusDiv.textContent = "Ошибка при включении push";
             }
         }
         
         async function initPushStatus() {
-            const pushStatus = document.getElementById("pushStatus");
+            const pushStatusDiv = document.getElementById("pushStatus");
             if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-                if (pushStatus) pushStatus.textContent = "Push API не поддерживается";
+                if (pushStatusDiv) pushStatusDiv.textContent = "Push API не поддерживается";
                 return;
             }
             try {
                 await navigator.serviceWorker.ready;
                 const subscription = await getExistingSubscription();
                 if (subscription) {
-                    if (pushStatus) pushStatus.textContent = "Push уже включены (бета)";
+                    if (pushStatusDiv) pushStatusDiv.textContent = "Push уже включены (бета)";
                 } else {
-                    if (pushStatus) pushStatus.textContent = "Push не включены";
+                    if (pushStatusDiv) pushStatusDiv.textContent = "Push не включены";
                 }
             } catch(e) {}
         }
@@ -695,6 +710,62 @@
         async function getExistingSubscription() {
             const registration = await navigator.serviceWorker.ready;
             return await registration.pushManager.getSubscription();
+        }
+        
+        // ========== BACKUP ФУНКЦИИ ==========
+        const downloadBackupBtn = document.getElementById("downloadBackupBtn");
+        const backupFileInput = document.getElementById("backupFileInput");
+        const restoreStatus = document.getElementById("restoreStatus");
+        
+        if (downloadBackupBtn) {
+            downloadBackupBtn.addEventListener("click", function() {
+                window.location.href = "/download-backup";
+            });
+        }
+        
+        if (backupFileInput) {
+            backupFileInput.addEventListener("change", async function() {
+                const file = this.files[0];
+                if (!file) return;
+                
+                if (!file.name.endsWith('.db')) {
+                    restoreStatus.textContent = "❌ Файл должен иметь расширение .db";
+                    restoreStatus.style.color = "#ef4444";
+                    this.value = "";
+                    return;
+                }
+                
+                restoreStatus.textContent = "⏳ Восстановление...";
+                restoreStatus.style.color = "#6b7280";
+                
+                const formData = new FormData();
+                formData.append("backup_file", file);
+                
+                try {
+                    const response = await fetch("/restore-backup", {
+                        method: "POST",
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        restoreStatus.textContent = "✅ База данных восстановлена! Обновите страницу.";
+                        restoreStatus.style.color = "#10b981";
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    } else {
+                        restoreStatus.textContent = "❌ Ошибка: " + (result.detail || "неизвестная ошибка");
+                        restoreStatus.style.color = "#ef4444";
+                    }
+                } catch (error) {
+                    restoreStatus.textContent = "❌ Ошибка при восстановлении";
+                    restoreStatus.style.color = "#ef4444";
+                }
+                
+                this.value = "";
+            });
         }
         
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
@@ -722,7 +793,6 @@
         // Кнопки
         const notifBtn = document.getElementById("enableNotificationsBtn");
         const pushBtn = document.getElementById("enablePushBtn");
-        const pushStatus = document.getElementById("pushStatus");
         
         if (notifBtn) notifBtn.addEventListener("click", enableNotifications);
         if (pushBtn) pushBtn.addEventListener("click", subscribeToPush);
