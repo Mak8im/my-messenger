@@ -328,7 +328,7 @@
             const diffMs = now - last;
             const diffSec = Math.floor(diffMs / 1000);
             
-            if (diffSec < 60) return "В сети";
+            if (diffSec < 60) return "был(а) только что";
             if (diffSec < 3600) {
                 const minutes = Math.floor(diffSec / 60);
                 return `был(а) ${minutes} мин назад`;
