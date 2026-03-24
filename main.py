@@ -41,7 +41,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 templates = Jinja2Templates(directory="templates")
 
-# ВСТАВЬ СЮДА СВОИ КЛЮЧИ
+# VAPID ключи
 VAPID_PUBLIC_KEY = "BNwWM6Ck0sZ828Jq5mb56yFN4bS8mzj3eCA3sA1bxUYl7ysSZdCRSWZvrT7V9p7m9DBBX2WwHOkBemAJfo0Ya8M"
 VAPID_PRIVATE_KEY = "UN14rpjZaky3nH_LOKLRJg2H5wEHEJYBGULYvLGkhSw"
 VAPID_CLAIMS = {
@@ -230,6 +230,7 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections = defaultdict(list)
         self.online_users = set()
+        self.last_activity = {}  # {user_id: datetime} - для статуса "был(а) недавно"
 
     async def connect(self, user_id: int, websocket: WebSocket):
         await websocket.accept()
@@ -237,6 +238,7 @@ class ConnectionManager:
 
         was_offline = user_id not in self.online_users
         self.online_users.add(user_id)
+        self.last_activity[user_id] = datetime.utcnow()
 
         if was_offline:
             await self.broadcast_presence()
@@ -250,7 +252,13 @@ class ConnectionManager:
                 del self.active_connections[user_id]
                 if user_id in self.online_users:
                     self.online_users.discard(user_id)
+                    self.last_activity[user_id] = datetime.utcnow()
                     await self.broadcast_presence()
+
+    async def update_activity(self, user_id: int):
+        """Обновляем время последней активности пользователя"""
+        if user_id in self.last_activity:
+            self.last_activity[user_id] = datetime.utcnow()
 
     async def send_to_user(self, user_id: int, data: dict):
         if user_id not in self.active_connections:
@@ -299,9 +307,20 @@ class ConnectionManager:
             await self.broadcast_presence()
 
     async def broadcast_presence(self):
+        # Формируем статусы для всех пользователей
+        now = datetime.utcnow()
+        user_statuses = {}
+        
+        for user_id in self.online_users:
+            user_statuses[user_id] = "online"
+        
+        # Добавляем оффлайн пользователей с временем последней активности
+        # (это будет передаваться отдельно при загрузке страницы)
+        
         await self.broadcast_all({
             "type": "presence",
-            "online_users": list(self.online_users)
+            "online_users": list(self.online_users),
+            "last_activity": {uid: ts.isoformat() for uid, ts in self.last_activity.items()}
         })
 
 
@@ -423,6 +442,13 @@ async def chat_page(
             )
 
     dialogs = build_dialogs_for_user(current_user, db)
+    
+    # Получаем статусы активности для всех пользователей
+    last_activity = {}
+    for dialog in dialogs:
+        user_id = dialog["user"].id
+        if user_id in manager.last_activity:
+            last_activity[user_id] = manager.last_activity[user_id]
 
     return templates.TemplateResponse(
         request=request,
@@ -433,6 +459,7 @@ async def chat_page(
             "messages": messages,
             "selected_user": selected_user,
             "online_users": manager.online_users,
+            "last_activity": last_activity,
             "format_message_time": format_message_time,
             "vapid_public_key": VAPID_PUBLIC_KEY,
         }
@@ -521,7 +548,8 @@ async def send_photo(
         "unread_count": 0,
         "file_url": file_url,
         "download_url": download_url,
-        "file_name": new_message.file_name or "image"
+        "file_name": new_message.file_name or "image",
+        "sender_email": current_user.email
     }
 
     outgoing_to_receiver = {
@@ -534,13 +562,13 @@ async def send_photo(
         "unread_count": unread_count_for_receiver,
         "file_url": file_url,
         "download_url": download_url,
-        "file_name": new_message.file_name or "image"
+        "file_name": new_message.file_name or "image",
+        "sender_email": current_user.email
     }
 
     await manager.send_to_user(current_user.id, outgoing_to_sender)
     await manager.send_to_user(receiver_id, outgoing_to_receiver)
 
-    # Пуш шлём, если у получателя сейчас нет активного websocket-соединения
     if receiver_id not in manager.online_users:
         send_push_to_user(
             db=db,
@@ -594,16 +622,23 @@ async def logout():
 @app.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: int):
     await manager.connect(user_id, websocket)
-
+    
+    # Таймер для debounce печатания
+    typing_timeout = {}
+    
     try:
         await manager.send_to_user(user_id, {
             "type": "presence",
-            "online_users": list(manager.online_users)
+            "online_users": list(manager.online_users),
+            "last_activity": {uid: ts.isoformat() for uid, ts in manager.last_activity.items()}
         })
 
         while True:
             data = await websocket.receive_json()
             data_type = data.get("type")
+            
+            # Обновляем активность при любом действии
+            await manager.update_activity(user_id)
 
             if data_type == "read_chat":
                 other_user_id = int(data["chat_user_id"])
@@ -633,7 +668,49 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     "chat_user_id": other_user_id
                 })
 
-            if data_type == "message":
+            elif data_type == "typing":
+                # Обработка статуса "печатает"
+                receiver_id = int(data.get("receiver_id"))
+                is_typing = data.get("is_typing", False)
+                
+                # Отправляем статус печатания получателю
+                await manager.send_to_user(receiver_id, {
+                    "type": "typing",
+                    "sender_id": user_id,
+                    "is_typing": is_typing
+                })
+                
+                # Если начал печатать, устанавливаем таймер на автоматическое отключение через 3 секунды
+                if is_typing:
+                    # Удаляем предыдущий таймер если есть
+                    if user_id in typing_timeout:
+                        typing_timeout[user_id].cancel()
+                    
+                    # Создаём новый таймер (асинхронно)
+                    import asyncio
+                    async def clear_typing():
+                        await asyncio.sleep(3)
+                        await manager.send_to_user(receiver_id, {
+                            "type": "typing",
+                            "sender_id": user_id,
+                            "is_typing": False
+                        })
+                        if user_id in typing_timeout:
+                            del typing_timeout[user_id]
+                    
+                    # Запускаем таймер (сохраняем задачу чтобы не было конфликтов)
+                    # В данном случае просто отправляем сигнал через 3 секунды
+                    # Для простоты используем asyncio.create_task
+                    if user_id in typing_timeout:
+                        try:
+                            typing_timeout[user_id].cancel()
+                        except:
+                            pass
+                    
+                    task = asyncio.create_task(clear_typing())
+                    typing_timeout[user_id] = task
+
+            elif data_type == "message":
                 receiver_id = int(data["receiver_id"])
                 content = data["content"].strip()
 
@@ -658,7 +735,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
 
                     unread_count_for_receiver = get_unread_count(receiver_id, user_id, db)
 
-                    # Пуш шлём только если получатель оффлайн
                     if receiver_id not in manager.online_users and sender:
                         send_push_to_user(
                             db=db,
@@ -677,7 +753,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     "receiver_id": receiver_id,
                     "content": content,
                     "time": format_message_time(new_message.created_at),
-                    "unread_count": 0
+                    "unread_count": 0,
+                    "sender_email": sender.email if sender else ""
                 }
 
                 outgoing_to_receiver = {
@@ -687,13 +764,28 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     "receiver_id": receiver_id,
                     "content": content,
                     "time": format_message_time(new_message.created_at),
-                    "unread_count": unread_count_for_receiver
+                    "unread_count": unread_count_for_receiver,
+                    "sender_email": sender.email if sender else ""
                 }
 
                 await manager.send_to_user(user_id, outgoing_to_sender)
                 await manager.send_to_user(receiver_id, outgoing_to_receiver)
 
     except WebSocketDisconnect:
+        # Отменяем все таймеры печатания для этого пользователя
+        if user_id in typing_timeout:
+            try:
+                typing_timeout[user_id].cancel()
+            except:
+                pass
+            del typing_timeout[user_id]
         await manager.disconnect(user_id, websocket)
-    except Exception:
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        if user_id in typing_timeout:
+            try:
+                typing_timeout[user_id].cancel()
+            except:
+                pass
+            del typing_timeout[user_id]
         await manager.disconnect(user_id, websocket)
