@@ -51,7 +51,7 @@
                             >
                                 <div class="user-avatar-wrap tg-dialog-avatar-wrap">
                                     <div class="user-avatar tg-dialog-avatar">{{ dialog.user.email[0]|upper }}</div>
-                                    {% if dialog.user.id in online_users %}
+                                    {% if dialog.is_online %}
                                         <span class="online-dot"></span>
                                     {% endif %}
                                 </div>
@@ -63,12 +63,14 @@
                                     </div>
                                     <div class="tg-dialog-bottom">
                                         <div class="tg-dialog-preview user-subtitle last-message">{{ dialog.last_message }}</div>
-
                                         {% if dialog.unread_count > 0 %}
                                             <div class="tg-unread-badge" data-badge-for="{{ dialog.user.id }}">{{ dialog.unread_count }}</div>
                                         {% else %}
                                             <div class="tg-unread-badge hidden" data-badge-for="{{ dialog.user.id }}">0</div>
                                         {% endif %}
+                                    </div>
+                                    <div class="tg-dialog-status" style="font-size: 11px; color: #7a7f85; margin-top: 2px;">
+                                        {{ dialog.status_text }}
                                     </div>
                                 </div>
                             </a>
@@ -94,18 +96,12 @@
                         <div class="chat-user">
                             <div class="chat-user-avatar-wrap" id="selectedUserAvatarWrap">
                                 <div class="chat-user-avatar">{{ selected_user.email[0]|upper }}</div>
-                                {% if selected_user.id in online_users %}
-                                    <span class="online-dot"></span>
-                                {% endif %}
+                                <span id="selectedUserOnlineDot" class="online-dot" style="display: none;"></span>
                             </div>
                             <div>
                                 <div class="chat-user-name">{{ selected_user.email }}</div>
                                 <div class="chat-user-status" id="selectedUserStatus">
-                                    {% if selected_user.id in online_users %}
-                                        В сети
-                                    {% else %}
-                                        Не в сети
-                                    {% endif %}
+                                    {{ selected_user_status }}
                                 </div>
                                 <div id="typingIndicator" class="chat-user-typing" style="display: none;">печатает...</div>
                             </div>
@@ -274,6 +270,9 @@
         let typingTimeout = null;
         let isCurrentlyTyping = false;
         
+        // Хранилище статусов пользователей
+        let userStatuses = {};
+        
         // ========== WEBSOCKET ==========
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const socket = new WebSocket(`${protocol}://${window.location.host}/ws/${CURRENT_USER_ID}`);
@@ -285,6 +284,7 @@
         const photoForm = document.getElementById("photoForm");
         const typingIndicator = document.getElementById("typingIndicator");
         const selectedUserStatus = document.getElementById("selectedUserStatus");
+        const selectedUserOnlineDot = document.getElementById("selectedUserOnlineDot");
         
         // ========== МОДАЛЬНОЕ ОКНО ==========
         const modal = document.getElementById("settingsModal");
@@ -295,7 +295,6 @@
             if (modal) {
                 modal.style.display = "flex";
                 document.body.style.overflow = "hidden";
-                // Обновляем статусы в модальном окне
                 updateModalNotificationStatus();
             }
         }
@@ -307,27 +306,93 @@
             }
         }
         
-        // Закрытие по клику вне окна
         if (modal) {
             modal.addEventListener("click", function(e) {
-                if (e.target === modal) {
-                    closeModal();
-                }
+                if (e.target === modal) closeModal();
             });
         }
         
-        if (settingsTrigger) {
-            settingsTrigger.addEventListener("click", openModal);
-        }
-        
-        if (closeModalBtn) {
-            closeModalBtn.addEventListener("click", closeModal);
-        }
+        if (settingsTrigger) settingsTrigger.addEventListener("click", openModal);
+        if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
         
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function scrollToBottom() {
-            if (messagesBox) {
-                messagesBox.scrollTop = messagesBox.scrollHeight;
+            if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
+        }
+        
+        function formatLastSeen(lastActivity) {
+            if (!lastActivity) return "Не в сети";
+            
+            const now = new Date();
+            const last = new Date(lastActivity);
+            const diffMs = now - last;
+            const diffSec = Math.floor(diffMs / 1000);
+            
+            if (diffSec < 60) return "В сети";
+            if (diffSec < 3600) {
+                const minutes = Math.floor(diffSec / 60);
+                return `был(а) ${minutes} мин назад`;
+            }
+            if (diffSec < 86400) {
+                const hours = Math.floor(diffSec / 3600);
+                return `был(а) ${hours} ч назад`;
+            }
+            if (diffSec < 172800) return "был(а) вчера";
+            const days = Math.floor(diffSec / 86400);
+            return `был(а) ${days} дн назад`;
+        }
+        
+        // ========== ОБНОВЛЕНИЕ СТАТУСОВ ==========
+        function updateUserStatuses(statusData) {
+            userStatuses = statusData;
+            
+            // Обновляем статусы в списке диалогов
+            document.querySelectorAll(".user-card[data-user-id]").forEach(card => {
+                const userId = Number(card.dataset.userId);
+                const status = userStatuses[userId];
+                
+                if (status) {
+                    const isOnline = status.is_online;
+                    const lastActivity = status.last_activity;
+                    
+                    // Обновляем зелёную точку
+                    const wrap = card.querySelector(".user-avatar-wrap");
+                    let dot = wrap?.querySelector(".online-dot");
+                    if (isOnline) {
+                        if (!dot && wrap) {
+                            dot = document.createElement("span");
+                            dot.className = "online-dot";
+                            wrap.appendChild(dot);
+                        }
+                    } else {
+                        if (dot) dot.remove();
+                    }
+                    
+                    // Обновляем текстовый статус
+                    const statusDiv = card.querySelector(".tg-dialog-status");
+                    if (statusDiv) {
+                        statusDiv.textContent = isOnline ? "В сети" : formatLastSeen(lastActivity);
+                    }
+                }
+            });
+            
+            // Обновляем статус выбранного пользователя
+            if (SELECTED_USER_ID !== null) {
+                const status = userStatuses[SELECTED_USER_ID];
+                if (selectedUserStatus) {
+                    if (status) {
+                        if (status.is_online) {
+                            selectedUserStatus.textContent = "В сети";
+                            if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "inline-block";
+                        } else {
+                            selectedUserStatus.textContent = formatLastSeen(status.last_activity);
+                            if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
+                        }
+                    } else {
+                        selectedUserStatus.textContent = "Не в сети";
+                        if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
+                    }
+                }
             }
         }
         
@@ -347,7 +412,6 @@
         function showBrowserNotification(title, body) {
             if (!notificationsEnabled || !notificationPermissionGranted) return;
             if (document.visibilityState === "visible") return;
-            
             try {
                 const notification = new Notification(title, {
                     body: body,
@@ -363,15 +427,10 @@
         async function requestNotificationPermission() {
             if (!("Notification" in window)) {
                 updateNotificationStatus("❌ Браузер не поддерживает уведомления");
-                updateModalNotificationStatus();
                 return false;
             }
-            
             let permission = Notification.permission;
-            if (permission !== "granted") {
-                permission = await Notification.requestPermission();
-            }
-            
+            if (permission !== "granted") permission = await Notification.requestPermission();
             if (permission === "granted") {
                 notificationPermissionGranted = true;
                 notificationsEnabled = true;
@@ -457,11 +516,9 @@
         
         function setupTypingDetection() {
             if (!messageInput) return;
-            
             messageInput.addEventListener("input", function() {
                 const isTyping = this.value.length > 0;
                 sendTypingStatus(isTyping);
-                
                 if (typingTimeout) clearTimeout(typingTimeout);
                 if (isTyping) {
                     typingTimeout = setTimeout(() => {
@@ -470,7 +527,6 @@
                     }, 2000);
                 }
             });
-            
             messageInput.addEventListener("blur", () => {
                 sendTypingStatus(false);
                 if (typingTimeout) clearTimeout(typingTimeout);
@@ -479,49 +535,6 @@
         }
         
         // ========== ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ==========
-        function updatePresence(onlineUsers) {
-            const onlineSet = new Set(onlineUsers);
-            
-            document.querySelectorAll(".user-card[data-user-id]").forEach(card => {
-                const userId = Number(card.dataset.userId);
-                const wrap = card.querySelector(".user-avatar-wrap");
-                const existingDot = wrap?.querySelector(".online-dot");
-                
-                if (onlineSet.has(userId)) {
-                    if (!existingDot && wrap) {
-                        const dot = document.createElement("span");
-                        dot.className = "online-dot";
-                        wrap.appendChild(dot);
-                    }
-                } else {
-                    if (existingDot) existingDot.remove();
-                }
-            });
-            
-            if (SELECTED_USER_ID !== null) {
-                const selectedWrap = document.getElementById("selectedUserAvatarWrap");
-                const existingDot = selectedWrap?.querySelector(".online-dot");
-                
-                if (onlineSet.has(SELECTED_USER_ID)) {
-                    if (!existingDot && selectedWrap) {
-                        const dot = document.createElement("span");
-                        dot.className = "online-dot";
-                        selectedWrap.appendChild(dot);
-                    }
-                    if (selectedUserStatus && typingIndicator?.style.display !== "block") {
-                        selectedUserStatus.textContent = "В сети";
-                        selectedUserStatus.style.display = "block";
-                    }
-                } else {
-                    if (existingDot) existingDot.remove();
-                    if (selectedUserStatus && typingIndicator?.style.display !== "block") {
-                        selectedUserStatus.textContent = "Не в сети";
-                        selectedUserStatus.style.display = "block";
-                    }
-                }
-            }
-        }
-        
         function updateUnreadBadge(userId, count) {
             const badge = document.querySelector(`[data-badge-for="${userId}"]`);
             if (!badge) return;
@@ -538,35 +551,28 @@
         function updateDialogPreview(userId, messageType, content, isMine, time) {
             const card = document.querySelector(`.user-card[data-user-id="${userId}"]`);
             if (!card) return;
-            
             const lastMsg = card.querySelector(".last-message");
             const dialogTime = card.querySelector(".dialog-time");
-            
             let preview = messageType === "photo" ? "📷 Фото" : (content || "");
             if (lastMsg) lastMsg.textContent = (isMine ? "Ты: " : "") + preview;
             if (dialogTime) dialogTime.textContent = time || "";
-            
             const list = document.getElementById("dialogsList");
             if (list && card.parentNode === list) list.prepend(card);
         }
         
         function appendMessageToChat(senderId, messageType, content, time, senderEmail, fileUrl, downloadUrl, fileName) {
             if (!messagesBox) return;
-            
             const isOwn = senderId === CURRENT_USER_ID;
             const row = document.createElement("div");
             row.className = `message-row ${isOwn ? "own" : ""}`;
-            
             const bubble = document.createElement("div");
             bubble.className = `message-bubble ${isOwn ? "own" : ""}`;
-            
             if (!isOwn) {
                 const author = document.createElement("div");
                 author.className = "message-author";
                 author.textContent = senderEmail || SELECTED_USER_EMAIL;
                 bubble.appendChild(author);
             }
-            
             if (messageType === "photo" && fileUrl) {
                 const link = document.createElement("a");
                 link.href = fileUrl;
@@ -578,7 +584,6 @@
                 img.className = "chat-photo";
                 link.appendChild(img);
                 bubble.appendChild(link);
-                
                 const download = document.createElement("a");
                 download.href = downloadUrl;
                 download.className = "download-link";
@@ -590,12 +595,10 @@
                 text.textContent = content || "";
                 bubble.appendChild(text);
             }
-            
             const timeDiv = document.createElement("div");
             timeDiv.className = "message-time";
             timeDiv.textContent = time || "";
             bubble.appendChild(timeDiv);
-            
             row.appendChild(bubble);
             messagesBox.appendChild(row);
             scrollToBottom();
@@ -610,13 +613,11 @@
                 alert("Связь с сервером не установлена");
                 return;
             }
-            
             socket.send(JSON.stringify({
                 type: "message",
                 receiver_id: SELECTED_USER_ID,
                 content: content
             }));
-            
             sendTypingStatus(false);
             if (typingTimeout) clearTimeout(typingTimeout);
             isCurrentlyTyping = false;
@@ -634,20 +635,15 @@
             }
         };
         
-        socket.onclose = function() {
-            console.log("❌ WebSocket disconnected");
-        };
-        
-        socket.onerror = function(error) {
-            console.log("WebSocket error:", error);
-        };
+        socket.onclose = function() { console.log("❌ WebSocket disconnected"); };
+        socket.onerror = function(error) { console.log("WebSocket error:", error); };
         
         socket.onmessage = function(event) {
             const data = JSON.parse(event.data);
             console.log("📨 Received:", data);
             
             if (data.type === "presence") {
-                updatePresence(data.online_users || []);
+                updateUserStatuses(data.user_status || {});
                 return;
             }
             
@@ -663,19 +659,16 @@
             
             if (data.type === "message") {
                 const isFromOther = data.sender_id !== CURRENT_USER_ID;
-                
                 if (isFromOther) {
                     playNotificationSound();
                     let notifBody = data.message_type === "photo" ? "📷 Фото" : (data.content || "");
                     if (notifBody.length > 100) notifBody = notifBody.substring(0, 100) + "...";
                     showBrowserNotification(`Новое сообщение от ${data.sender_email || "пользователя"}`, notifBody);
                 }
-                
                 const isCurrentChat = SELECTED_USER_ID !== null && (
                     (data.sender_id === CURRENT_USER_ID && data.receiver_id === SELECTED_USER_ID) ||
                     (data.sender_id === SELECTED_USER_ID && data.receiver_id === CURRENT_USER_ID)
                 );
-                
                 if (data.sender_id === CURRENT_USER_ID) {
                     updateDialogPreview(data.receiver_id, data.message_type, data.content, true, data.time);
                     updateUnreadBadge(data.receiver_id, 0);
@@ -691,7 +684,6 @@
                         updateUnreadBadge(data.sender_id, data.unread_count || 1);
                     }
                 }
-                
                 if (isCurrentChat) {
                     appendMessageToChat(
                         data.sender_id,
@@ -787,7 +779,7 @@
             return await registration.pushManager.getSubscription();
         }
         
-        // ========== BACKUP ФУНКЦИИ (только если разрешено) ==========
+        // ========== BACKUP ФУНКЦИИ ==========
         if (CAN_BACKUP) {
             const downloadBackupBtn = document.getElementById("downloadBackupBtn");
             const backupFileInput = document.getElementById("backupFileInput");
@@ -803,34 +795,26 @@
                 backupFileInput.addEventListener("change", async function() {
                     const file = this.files[0];
                     if (!file) return;
-                    
                     if (!file.name.endsWith('.db')) {
                         restoreStatus.textContent = "❌ Файл должен иметь расширение .db";
                         restoreStatus.style.color = "#ef4444";
                         this.value = "";
                         return;
                     }
-                    
                     restoreStatus.textContent = "⏳ Восстановление...";
                     restoreStatus.style.color = "#6b7280";
-                    
                     const formData = new FormData();
                     formData.append("backup_file", file);
-                    
                     try {
                         const response = await fetch("/restore-backup", {
                             method: "POST",
                             body: formData
                         });
-                        
                         const result = await response.json();
-                        
                         if (response.ok) {
                             restoreStatus.textContent = "✅ База данных восстановлена! Обновите страницу.";
                             restoreStatus.style.color = "#10b981";
-                            setTimeout(() => {
-                                location.reload();
-                            }, 1500);
+                            setTimeout(() => location.reload(), 1500);
                         } else {
                             restoreStatus.textContent = "❌ Ошибка: " + (result.detail || "неизвестная ошибка");
                             restoreStatus.style.color = "#ef4444";
@@ -839,7 +823,6 @@
                         restoreStatus.textContent = "❌ Ошибка при восстановлении";
                         restoreStatus.style.color = "#ef4444";
                     }
-                    
                     this.value = "";
                 });
             }
@@ -852,7 +835,6 @@
             checkNotificationStatus();
             setupTypingDetection();
             
-            // Активация аудио
             const enableAudio = () => {
                 const silent = new Audio();
                 silent.volume = 0;
@@ -867,10 +849,8 @@
             if (SELECTED_USER_ID !== null) updateUnreadBadge(SELECTED_USER_ID, 0);
         });
         
-        // Кнопки в модальном окне
         const notifBtnModal = document.getElementById("enableNotificationsBtnModal");
         const pushBtnModal = document.getElementById("enablePushBtnModal");
-        
         if (notifBtnModal) notifBtnModal.addEventListener("click", enableNotifications);
         if (pushBtnModal) pushBtnModal.addEventListener("click", subscribeToPush);
         
@@ -889,7 +869,6 @@
             });
         }
         
-        // Поиск
         const dialogSearch = document.getElementById("dialogSearch");
         if (dialogSearch) {
             dialogSearch.addEventListener("input", function() {
@@ -901,7 +880,6 @@
             });
         }
         
-        // Мобильная навигация
         const tabChatsBtn = document.getElementById("tabChatsBtn");
         const tabSettingsBtn = document.getElementById("tabSettingsBtn");
         const panelChats = document.getElementById("panelChats");
