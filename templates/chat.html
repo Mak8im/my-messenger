@@ -101,6 +101,7 @@
                         <div id="notificationStatus" class="tg-settings-text" style="margin-top: 10px; font-size: 13px;"></div>
                     </div>
 
+                    {% if can_backup %}
                     <div class="tg-settings-card">
                         <div class="tg-settings-title">💾 Резервное копирование</div>
                         <div class="tg-settings-text" style="margin-bottom: 12px;">
@@ -120,6 +121,7 @@
                             <div id="restoreStatus" class="tg-settings-text" style="margin-top: 8px; font-size: 12px;"></div>
                         </form>
                     </div>
+                    {% endif %}
 
                     <div class="tg-settings-card">
                         <div class="tg-settings-title">Push-уведомления (эксперимент)</div>
@@ -142,6 +144,12 @@
 
                     <a class="tg-settings-logout" href="/logout">Выйти из аккаунта</a>
                 </div>
+            </div>
+            
+            <!-- Кнопка настроек в левом нижнем углу (только на ПК) -->
+            <div class="tg-settings-trigger" id="settingsTrigger">
+                <button class="settings-icon-btn">⚙️</button>
+                <span class="settings-tooltip">Настройки</span>
             </div>
         </aside>
 
@@ -251,6 +259,7 @@
         const SELECTED_USER_ID = {% if selected_user %}{{ selected_user.id }}{% else %}null{% endif %};
         const SELECTED_USER_EMAIL = {% if selected_user %}"{{ selected_user.email }}"{% else %}""{% endif %};
         const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
+        const CAN_BACKUP = {{ "true" if can_backup else "false" }};
         
         let notificationsEnabled = false;
         let notificationPermissionGranted = false;
@@ -712,59 +721,98 @@
             return await registration.pushManager.getSubscription();
         }
         
-        // ========== BACKUP ФУНКЦИИ ==========
-        const downloadBackupBtn = document.getElementById("downloadBackupBtn");
-        const backupFileInput = document.getElementById("backupFileInput");
-        const restoreStatus = document.getElementById("restoreStatus");
-        
-        if (downloadBackupBtn) {
-            downloadBackupBtn.addEventListener("click", function() {
-                window.location.href = "/download-backup";
-            });
-        }
-        
-        if (backupFileInput) {
-            backupFileInput.addEventListener("change", async function() {
-                const file = this.files[0];
-                if (!file) return;
-                
-                if (!file.name.endsWith('.db')) {
-                    restoreStatus.textContent = "❌ Файл должен иметь расширение .db";
-                    restoreStatus.style.color = "#ef4444";
-                    this.value = "";
-                    return;
-                }
-                
-                restoreStatus.textContent = "⏳ Восстановление...";
-                restoreStatus.style.color = "#6b7280";
-                
-                const formData = new FormData();
-                formData.append("backup_file", file);
-                
-                try {
-                    const response = await fetch("/restore-backup", {
-                        method: "POST",
-                        body: formData
-                    });
+        // ========== BACKUP ФУНКЦИИ (только если разрешено) ==========
+        if (CAN_BACKUP) {
+            const downloadBackupBtn = document.getElementById("downloadBackupBtn");
+            const backupFileInput = document.getElementById("backupFileInput");
+            const restoreStatus = document.getElementById("restoreStatus");
+            
+            if (downloadBackupBtn) {
+                downloadBackupBtn.addEventListener("click", function() {
+                    window.location.href = "/download-backup";
+                });
+            }
+            
+            if (backupFileInput) {
+                backupFileInput.addEventListener("change", async function() {
+                    const file = this.files[0];
+                    if (!file) return;
                     
-                    const result = await response.json();
+                    if (!file.name.endsWith('.db')) {
+                        restoreStatus.textContent = "❌ Файл должен иметь расширение .db";
+                        restoreStatus.style.color = "#ef4444";
+                        this.value = "";
+                        return;
+                    }
                     
-                    if (response.ok) {
-                        restoreStatus.textContent = "✅ База данных восстановлена! Обновите страницу.";
-                        restoreStatus.style.color = "#10b981";
-                        setTimeout(() => {
-                            location.reload();
-                        }, 1500);
-                    } else {
-                        restoreStatus.textContent = "❌ Ошибка: " + (result.detail || "неизвестная ошибка");
+                    restoreStatus.textContent = "⏳ Восстановление...";
+                    restoreStatus.style.color = "#6b7280";
+                    
+                    const formData = new FormData();
+                    formData.append("backup_file", file);
+                    
+                    try {
+                        const response = await fetch("/restore-backup", {
+                            method: "POST",
+                            body: formData
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (response.ok) {
+                            restoreStatus.textContent = "✅ База данных восстановлена! Обновите страницу.";
+                            restoreStatus.style.color = "#10b981";
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            restoreStatus.textContent = "❌ Ошибка: " + (result.detail || "неизвестная ошибка");
+                            restoreStatus.style.color = "#ef4444";
+                        }
+                    } catch (error) {
+                        restoreStatus.textContent = "❌ Ошибка при восстановлении";
                         restoreStatus.style.color = "#ef4444";
                     }
-                } catch (error) {
-                    restoreStatus.textContent = "❌ Ошибка при восстановлении";
-                    restoreStatus.style.color = "#ef4444";
+                    
+                    this.value = "";
+                });
+            }
+        }
+        
+        // ========== НАСТРОЙКИ (кнопка в левом нижнем углу) ==========
+        const settingsTrigger = document.getElementById("settingsTrigger");
+        const panelChats = document.getElementById("panelChats");
+        const panelSettings = document.getElementById("panelSettings");
+        const searchWrap = document.getElementById("searchWrap");
+        
+        // Функция открытия настроек
+        function openSettings() {
+            if (panelChats && panelSettings) {
+                panelChats.classList.remove("active");
+                panelSettings.classList.add("active");
+                if (searchWrap) searchWrap.style.display = "none";
+            }
+        }
+        
+        // Функция закрытия настроек (возврат к чатам)
+        function closeSettings() {
+            if (panelChats && panelSettings) {
+                panelChats.classList.add("active");
+                panelSettings.classList.remove("active");
+                if (searchWrap) searchWrap.style.display = "";
+            }
+        }
+        
+        // Обработчик кнопки настроек
+        if (settingsTrigger) {
+            settingsTrigger.addEventListener("click", function(e) {
+                e.stopPropagation();
+                // Проверяем, открыты ли сейчас настройки
+                if (panelSettings && panelSettings.classList.contains("active")) {
+                    closeSettings();
+                } else {
+                    openSettings();
                 }
-                
-                this.value = "";
             });
         }
         
@@ -824,12 +872,9 @@
             });
         }
         
-        // Мобильная навигация
-        const panelChats = document.getElementById("panelChats");
-        const panelSettings = document.getElementById("panelSettings");
+        // Мобильная навигация (оставляем как есть)
         const tabChatsBtn = document.getElementById("tabChatsBtn");
         const tabSettingsBtn = document.getElementById("tabSettingsBtn");
-        const searchWrap = document.getElementById("searchWrap");
         
         if (tabChatsBtn && tabSettingsBtn && panelChats && panelSettings) {
             tabChatsBtn.addEventListener("click", () => {
