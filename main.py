@@ -92,7 +92,7 @@ def format_message_time(dt):
 
 
 def format_last_seen(last_activity: datetime) -> str:
-    """Форматирует время последней активности для офлайн-пользователя"""
+    """Форматирует время последней активности в читаемый вид"""
     if not last_activity:
         return "Не в сети"
     
@@ -296,6 +296,7 @@ class ConnectionManager:
                 if user_id in self.user_status:
                     # Пользователь вышел, обновляем статус
                     self.user_status[user_id]["is_online"] = False
+                    # Устанавливаем last_activity на момент выхода
                     self.user_status[user_id]["last_activity"] = datetime.utcnow()
                     # Отправляем обновление статуса всем
                     await self.broadcast_presence()
