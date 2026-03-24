@@ -90,20 +90,33 @@
                     </div>
 
                     <div class="tg-settings-card">
-                        <div class="tg-settings-title">Push-уведомления</div>
+                        <div class="tg-settings-title">Уведомления</div>
                         <div class="tg-settings-text" style="margin-bottom: 10px;">
-                            На iPhone push заработает после добавления сайта на главный экран и разрешения уведомлений.
+                            🔔 Включай уведомления, чтобы не пропускать сообщения.<br>
+                            <small style="color: #6b7280;">📱 На iPhone: добавь сайт на главный экран, затем нажми кнопку ниже и разреши уведомления.</small>
                         </div>
-                        <button id="enablePushBtn" class="auth-button" type="button" style="width: 100%;">
-                            Включить push-уведомления
+                        <button id="enableNotificationsBtn" class="auth-button" type="button" style="width: 100%; background: linear-gradient(135deg, #2563eb, #3b82f6);">
+                            🔔 Включить уведомления
                         </button>
-                        <div id="pushStatus" class="tg-settings-text" style="margin-top: 10px; color: #707579;"></div>
+                        <div id="notificationStatus" class="tg-settings-text" style="margin-top: 10px; font-size: 13px;"></div>
                     </div>
 
                     <div class="tg-settings-card">
-                        <div class="tg-settings-title">Приложение (PWA)</div>
+                        <div class="tg-settings-title">Push-уведомления (эксперимент)</div>
+                        <div class="tg-settings-text" style="margin-bottom: 10px;">
+                            Для полных push-уведомлений (даже когда сайт закрыт) нужна сложная настройка сервера.<br>
+                            Пока работают обычные браузерные уведомления, когда вкладка открыта или свёрнута.
+                        </div>
+                        <button id="enablePushBtn" class="auth-button" type="button" style="width: 100%; background: linear-gradient(135deg, #6b7280, #9ca3af);">
+                            📱 Push (бета)
+                        </button>
+                        <div id="pushStatus" class="tg-settings-text" style="margin-top: 10px;"></div>
+                    </div>
+
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">Приложение</div>
                         <div class="tg-settings-text">
-                            Для корректной работы уведомлений нажмите «Поделиться» → «На экран „Домой“».
+                            Можно добавить сайт на главный экран iPhone и открывать как приложение.
                         </div>
                     </div>
 
@@ -214,13 +227,155 @@
     <script>
         const CURRENT_USER_ID = {{ current_user.id }};
         const SELECTED_USER_ID = {% if selected_user %}{{ selected_user.id }}{% else %}null{% endif %};
+        const SELECTED_USER_EMAIL = {% if selected_user %}"{{ selected_user.email }}"{% else %}""{% endif %};
         const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
 
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const socket = new WebSocket(`${protocol}://${window.location.host}/ws/${CURRENT_USER_ID}`);
 
+        // ========== УВЕДОМЛЕНИЯ ==========
+        let notificationsEnabled = false;
+        let notificationPermissionGranted = false;
+        
+        // Звук уведомления
+        const notificationSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+        // Заранее загружаем звук, чтобы потом быстро играл
+        notificationSound.load();
+        
+        // Функция для воспроизведения звука (только если разрешено)
+        function playNotificationSound() {
+            if (notificationsEnabled) {
+                try {
+                    // Сбрасываем и воспроизводим
+                    notificationSound.currentTime = 0;
+                    notificationSound.play().catch(e => console.log("Sound play error:", e));
+                } catch(e) {
+                    console.log("Sound error:", e);
+                }
+            }
+        }
+        
+        // Функция для показа браузерного уведомления
+        function showBrowserNotification(title, body, tag = null) {
+            if (!notificationsEnabled || !notificationPermissionGranted) return;
+            
+            // Проверяем, видима ли страница
+            if (document.visibilityState === "visible") {
+                // Если страница активна, не показываем уведомление (только звук)
+                return;
+            }
+            
+            try {
+                const options = {
+                    body: body,
+                    icon: "/static/icon.svg",
+                    badge: "/static/icon.svg",
+                    silent: false,
+                    vibrate: [200, 100, 200]
+                };
+                
+                if (tag) options.tag = tag;
+                
+                const notification = new Notification(title, options);
+                
+                // При клике на уведомление фокусируем окно
+                notification.onclick = function() {
+                    window.focus();
+                    notification.close();
+                };
+                
+                // Автоматически закрываем через 5 секунд
+                setTimeout(() => notification.close(), 5000);
+            } catch(e) {
+                console.log("Notification error:", e);
+            }
+        }
+        
+        // Запрос разрешения на уведомления
+        async function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                updateNotificationStatus("❌ Ваш браузер не поддерживает уведомления");
+                return false;
+            }
+            
+            let permission = Notification.permission;
+            
+            if (permission !== "granted") {
+                // Запрашиваем разрешение
+                permission = await Notification.requestPermission();
+            }
+            
+            if (permission === "granted") {
+                notificationPermissionGranted = true;
+                notificationsEnabled = true;
+                updateNotificationStatus("✅ Уведомления включены");
+                
+                // Тестовый звук и уведомление
+                playNotificationSound();
+                setTimeout(() => {
+                    showBrowserNotification("Messenger", "Уведомления работают! 🎉");
+                }, 500);
+                
+                return true;
+            } else {
+                notificationPermissionGranted = false;
+                notificationsEnabled = false;
+                updateNotificationStatus("❌ Разрешение на уведомления не получено");
+                return false;
+            }
+        }
+        
+        // Включение уведомлений (вызывается по кнопке)
+        async function enableNotifications() {
+            // Для iOS PWA нужно сначала добавить на экран, потом разрешить
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
+            if (isIOS && !window.navigator.standalone) {
+                updateNotificationStatus("📱 Для уведомлений на iPhone добавьте сайт на главный экран, затем нажмите кнопку снова");
+                // Всё равно пробуем запросить разрешение
+            }
+            
+            await requestNotificationPermission();
+        }
+        
+        // Обновление статуса в интерфейсе
+        function updateNotificationStatus(text) {
+            const statusDiv = document.getElementById("notificationStatus");
+            if (statusDiv) {
+                statusDiv.textContent = text;
+            }
+        }
+        
+        // Проверка текущего статуса при загрузке
+        function checkNotificationStatus() {
+            if ("Notification" in window) {
+                if (Notification.permission === "granted") {
+                    notificationPermissionGranted = true;
+                    notificationsEnabled = true;
+                    updateNotificationStatus("✅ Уведомления включены");
+                } else if (Notification.permission === "denied") {
+                    notificationPermissionGranted = false;
+                    notificationsEnabled = false;
+                    updateNotificationStatus("❌ Уведомления заблокированы. Разрешите в настройках браузера.");
+                } else {
+                    notificationPermissionGranted = false;
+                    notificationsEnabled = false;
+                    updateNotificationStatus("⚠️ Нажмите кнопку, чтобы включить уведомления");
+                }
+            } else {
+                updateNotificationStatus("❌ Ваш браузер не поддерживает уведомления");
+            }
+        }
+        
+        // ========== КОНЕЦ УВЕДОМЛЕНИЙ ==========
+
         const messagesBox = document.getElementById("messagesBox");
         const input = document.getElementById("messageInput");
+        const photoInput = document.getElementById("photoInput");
+        const photoForm = document.getElementById("photoForm");
+        const pushBtn = document.getElementById("enablePushBtn");
+        const pushStatus = document.getElementById("pushStatus");
+        const notifBtn = document.getElementById("enableNotificationsBtn");
 
         function scrollToBottom() {
             if (messagesBox) {
@@ -230,9 +385,11 @@
 
         function updatePresence(onlineUsers) {
             const onlineSet = new Set(onlineUsers);
+
             document.querySelectorAll(".user-card[data-user-id]").forEach(card => {
                 const userId = Number(card.dataset.userId);
                 const dot = card.querySelector(".online-dot");
+
                 if (onlineSet.has(userId)) {
                     if (!dot) {
                         const wrap = card.querySelector(".user-avatar-wrap");
@@ -243,157 +400,479 @@
                         }
                     }
                 } else {
-                    if (dot) dot.remove();
+                    if (dot) {
+                        dot.remove();
+                    }
                 }
             });
 
             const selectedStatus = document.getElementById("selectedUserStatus");
+            const selectedWrap = document.getElementById("selectedUserAvatarWrap");
+
             if (selectedStatus && SELECTED_USER_ID !== null) {
                 selectedStatus.textContent = onlineSet.has(SELECTED_USER_ID) ? "В сети" : "Не в сети";
             }
+
+            if (selectedWrap && SELECTED_USER_ID !== null) {
+                const existingDot = selectedWrap.querySelector(".online-dot");
+                if (onlineSet.has(SELECTED_USER_ID)) {
+                    if (!existingDot) {
+                        const span = document.createElement("span");
+                        span.className = "online-dot";
+                        selectedWrap.appendChild(span);
+                    }
+                } else {
+                    if (existingDot) {
+                        existingDot.remove();
+                    }
+                }
+            }
+        }
+
+        function updateUnreadBadge(userId, count) {
+            const badge = document.querySelector(`[data-badge-for="${userId}"]`);
+            if (!badge) return;
+
+            const safeCount = Number(count) || 0;
+
+            if (safeCount > 0) {
+                badge.textContent = safeCount > 99 ? "99+" : String(safeCount);
+                badge.classList.remove("hidden");
+            } else {
+                badge.textContent = "0";
+                badge.classList.add("hidden");
+            }
+        }
+
+        function clearUnreadForSelectedChat() {
+            if (SELECTED_USER_ID !== null) {
+                updateUnreadBadge(SELECTED_USER_ID, 0);
+            }
+        }
+
+        function updateDialogPreview(userId, messageType, content, isMine, time) {
+            const card = document.querySelector(`.user-card[data-user-id="${userId}"]`);
+            if (!card) return;
+
+            const lastMessage = card.querySelector(".last-message");
+            const dialogTime = card.querySelector(".dialog-time");
+
+            let previewText = "Сообщение";
+            if (messageType === "photo") {
+                previewText = "📷 Фото";
+            } else {
+                previewText = content || "";
+            }
+
+            if (lastMessage) {
+                lastMessage.textContent = (isMine ? "Ты: " : "") + previewText;
+            }
+
+            if (dialogTime) {
+                dialogTime.textContent = time || "";
+            }
+
+            const list = document.getElementById("dialogsList");
+            if (list && card.parentNode === list) {
+                list.prepend(card);
+            }
+        }
+
+        function appendTextMessage(senderId, content, time, senderEmail) {
+            if (!messagesBox) return;
+
+            const row = document.createElement("div");
+            const bubble = document.createElement("div");
+            const author = document.createElement("div");
+            const text = document.createElement("div");
+            const timeDiv = document.createElement("div");
+
+            if (senderId === CURRENT_USER_ID) {
+                row.className = "message-row own";
+                bubble.className = "message-bubble own";
+            } else {
+                row.className = "message-row";
+                bubble.className = "message-bubble";
+                author.className = "message-author";
+                author.textContent = senderEmail || SELECTED_USER_EMAIL;
+                bubble.appendChild(author);
+            }
+
+            text.className = "message-text";
+            timeDiv.className = "message-time";
+
+            text.textContent = content;
+            timeDiv.textContent = time || "";
+
+            bubble.appendChild(text);
+            bubble.appendChild(timeDiv);
+            row.appendChild(bubble);
+            messagesBox.appendChild(row);
+
+            scrollToBottom();
+        }
+
+        function appendPhotoMessage(senderId, fileUrl, downloadUrl, fileName, time, senderEmail) {
+            if (!messagesBox) return;
+
+            const row = document.createElement("div");
+            const bubble = document.createElement("div");
+            const author = document.createElement("div");
+            const link = document.createElement("a");
+            const img = document.createElement("img");
+            const download = document.createElement("a");
+            const timeDiv = document.createElement("div");
+
+            if (senderId === CURRENT_USER_ID) {
+                row.className = "message-row own";
+                bubble.className = "message-bubble own";
+            } else {
+                row.className = "message-row";
+                bubble.className = "message-bubble";
+                author.className = "message-author";
+                author.textContent = senderEmail || SELECTED_USER_EMAIL;
+                bubble.appendChild(author);
+            }
+
+            link.href = fileUrl;
+            link.target = "_blank";
+            link.className = "photo-link";
+
+            img.src = fileUrl;
+            img.alt = "photo";
+            img.className = "chat-photo";
+
+            link.appendChild(img);
+
+            download.href = downloadUrl;
+            download.className = "download-link";
+            download.textContent = "Скачать";
+
+            timeDiv.className = "message-time";
+            timeDiv.textContent = time || "";
+
+            bubble.appendChild(link);
+            bubble.appendChild(download);
+            bubble.appendChild(timeDiv);
+            row.appendChild(bubble);
+            messagesBox.appendChild(row);
+
+            scrollToBottom();
         }
 
         socket.onmessage = function(event) {
             const data = JSON.parse(event.data);
 
             if (data.type === "presence") {
-                updatePresence(data.online_users);
-            } else if (data.type === "message") {
-                const isCurrentChat = (data.sender_id === SELECTED_USER_ID || data.sender_id === CURRENT_USER_ID);
+                updatePresence(data.online_users || []);
+                return;
+            }
 
-                if (isCurrentChat) {
-                    const row = document.createElement("div");
-                    row.className = data.sender_id === CURRENT_USER_ID ? "message-row own" : "message-row";
+            if (data.type === "read_update") {
+                if (data.chat_user_id !== undefined) {
+                    updateUnreadBadge(data.chat_user_id, 0);
+                }
+                return;
+            }
 
-                    let contentHtml = "";
+            if (data.type === "message") {
+                const isFromOther = data.sender_id !== CURRENT_USER_ID;
+                
+                // Уведомление только если сообщение от другого пользователя
+                if (isFromOther) {
+                    // Воспроизводим звук
+                    playNotificationSound();
+                    
+                    // Формируем текст уведомления
+                    let notificationBody = "";
                     if (data.message_type === "photo") {
-                        contentHtml = `
-                            <a href="/uploads/${data.file_path}" target="_blank" class="photo-link">
-                                <img src="/uploads/${data.file_path}" alt="photo" class="chat-photo">
-                            </a>
-                        `;
+                        notificationBody = "📷 Отправил(а) фото";
                     } else {
-                        contentHtml = `<div class="message-text">${data.content}</div>`;
+                        notificationBody = data.content || "";
+                        if (notificationBody.length > 100) {
+                            notificationBody = notificationBody.substring(0, 100) + "...";
+                        }
                     }
+                    
+                    // Показываем браузерное уведомление
+                    showBrowserNotification(
+                        `Новое сообщение от ${data.sender_email || "пользователя"}`,
+                        notificationBody,
+                        `msg_${data.sender_id}`
+                    );
+                }
 
-                    row.innerHTML = `
-                        <div class="message-bubble ${data.sender_id === CURRENT_USER_ID ? 'own' : ''}">
-                            ${contentHtml}
-                            <div class="message-time">${data.time}</div>
-                        </div>
-                    `;
-                    messagesBox.appendChild(row);
-                    scrollToBottom();
+                const isCurrentChat =
+                    SELECTED_USER_ID !== null &&
+                    (
+                        (data.sender_id === CURRENT_USER_ID && data.receiver_id === SELECTED_USER_ID) ||
+                        (data.sender_id === SELECTED_USER_ID && data.receiver_id === CURRENT_USER_ID)
+                    );
+
+                if (data.sender_id === CURRENT_USER_ID) {
+                    updateDialogPreview(data.receiver_id, data.message_type, data.content, true, data.time);
+                    updateUnreadBadge(data.receiver_id, 0);
+                } else {
+                    updateDialogPreview(data.sender_id, data.message_type, data.content, false, data.time);
+
+                    if (isCurrentChat) {
+                        updateUnreadBadge(data.sender_id, 0);
+
+                        socket.send(JSON.stringify({
+                            type: "read_chat",
+                            chat_user_id: data.sender_id
+                        }));
+                    } else {
+                        updateUnreadBadge(data.sender_id, data.unread_count || 1);
+                    }
+                }
+
+                if (!isCurrentChat) return;
+
+                if (data.message_type === "photo") {
+                    appendPhotoMessage(
+                        data.sender_id,
+                        data.file_url,
+                        data.download_url,
+                        data.file_name,
+                        data.time,
+                        data.sender_email
+                    );
+                } else {
+                    appendTextMessage(data.sender_id, data.content, data.time, data.sender_email);
                 }
             }
         };
 
-        function sendMessage() {
-            const content = input.value.trim();
-            if (content && SELECTED_USER_ID) {
+        socket.onopen = function() {
+            console.log("WebSocket connected");
+
+            if (SELECTED_USER_ID !== null) {
                 socket.send(JSON.stringify({
-                    type: "message",
-                    receiver_id: SELECTED_USER_ID,
-                    content: content
+                    type: "read_chat",
+                    chat_user_id: SELECTED_USER_ID
                 }));
-                input.value = "";
             }
+        };
+
+        socket.onclose = function() {
+            console.log("WebSocket disconnected");
+        };
+
+        function sendMessage() {
+            if (!input) return;
+
+            const content = input.value.trim();
+
+            if (!content || SELECTED_USER_ID === null) return;
+
+            if (socket.readyState !== WebSocket.OPEN) {
+                alert("Связь с сервером ещё не установлена");
+                return;
+            }
+
+            socket.send(JSON.stringify({
+                type: "message",
+                receiver_id: SELECTED_USER_ID,
+                content: content
+            }));
+
+            input.value = "";
         }
 
         if (input) {
-            input.addEventListener("keypress", (e) => {
-                if (e.key === "Enter") sendMessage();
+            input.addEventListener("keydown", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        }
+
+        if (photoInput && photoForm) {
+            photoInput.addEventListener("change", function() {
+                if (photoInput.files && photoInput.files.length > 0) {
+                    photoForm.submit();
+                }
+            });
+        }
+
+        // Push-уведомления (оставляем как есть, они не мешают)
+        function urlBase64ToUint8Array(base64String) {
+            const padding = "=".repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, "+")
+                .replace(/_/g, "/");
+
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+
+            return outputArray;
+        }
+
+        async function registerServiceWorker() {
+            if (!("serviceWorker" in navigator)) {
+                return null;
+            }
+
+            try {
+                const registration = await navigator.serviceWorker.register("/service-worker.js");
+                console.log("Service Worker registered");
+                return registration;
+            } catch (error) {
+                console.log("Service Worker error:", error);
+                return null;
+            }
+        }
+
+        async function getExistingSubscription() {
+            const registration = await navigator.serviceWorker.ready;
+            return await registration.pushManager.getSubscription();
+        }
+
+        async function subscribeToPush() {
+            if (!window.isSecureContext) {
+                if (pushStatus) {
+                    pushStatus.textContent = "Push требует HTTPS.";
+                }
+                return;
+            }
+
+            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+                if (pushStatus) {
+                    pushStatus.textContent = "Push API не поддерживается на этом устройстве.";
+                }
+                return;
+            }
+
+            try {
+                const registration = await navigator.serviceWorker.ready;
+
+                let permission = Notification.permission;
+                if (permission !== "granted") {
+                    permission = await Notification.requestPermission();
+                }
+
+                if (permission !== "granted") {
+                    if (pushStatus) {
+                        pushStatus.textContent = "Разрешение на уведомления не выдано.";
+                    }
+                    return;
+                }
+
+                let subscription = await registration.pushManager.getSubscription();
+
+                if (!subscription) {
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                    });
+                }
+
+                const response = await fetch("/subscribe", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(subscription)
+                });
+
+                if (!response.ok) {
+                    throw new Error("Не удалось сохранить подписку");
+                }
+
+                if (pushStatus) {
+                    pushStatus.textContent = "Push-уведомления включены (эксперимент).";
+                }
+            } catch (error) {
+                console.error("Push subscribe error:", error);
+                if (pushStatus) {
+                    pushStatus.textContent = "Ошибка при включении push-уведомлений.";
+                }
+            }
+        }
+
+        async function initPushStatus() {
+            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+                if (pushStatus) {
+                    pushStatus.textContent = "Push API не поддерживается.";
+                }
+                return;
+            }
+
+            try {
+                await navigator.serviceWorker.ready;
+                const subscription = await getExistingSubscription();
+
+                if (subscription) {
+                    if (pushStatus) pushStatus.textContent = "Push уже включены (эксперимент).";
+                } else {
+                    if (pushStatus) pushStatus.textContent = "Push пока не включены.";
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Инициализация при загрузке
+        window.addEventListener("load", async () => {
+            await registerServiceWorker();
+            await initPushStatus();
+            checkNotificationStatus();
+            
+            // Небольшая хитрость: при первом клике в любом месте включаем звуковой контекст
+            const enableAudioOnFirstClick = () => {
+                // Создаём тихий звук для активации аудиоконтекста
+                const silentAudio = new Audio();
+                silentAudio.volume = 0;
+                silentAudio.play().catch(() => {});
+                document.removeEventListener("click", enableAudioOnFirstClick);
+                document.removeEventListener("touchstart", enableAudioOnFirstClick);
+                console.log("Audio context activated");
+            };
+            document.addEventListener("click", enableAudioOnFirstClick);
+            document.addEventListener("touchstart", enableAudioOnFirstClick);
+        });
+
+        // Кнопка включения уведомлений
+        if (notifBtn) {
+            notifBtn.addEventListener("click", async function() {
+                await enableNotifications();
+            });
+        }
+
+        if (pushBtn) {
+            pushBtn.addEventListener("click", async function() {
+                await subscribeToPush();
             });
         }
 
         scrollToBottom();
+        clearUnreadForSelectedChat();
 
-        // ЛОГИКА PUSH-УВЕДОМЛЕНИЙ
-        const pushBtn = document.getElementById("enablePushBtn");
-        const pushStatus = document.getElementById("pushStatus");
-
-        function urlBase64ToUint8Array(base64String) {
-            const padding = "=".repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-            const rawData = window.atob(base64);
-            return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
-        }
-
-        async function sendSubscriptionToBackend(subscription) {
-            await fetch("/push-subscribe", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(subscription)
+        const dialogSearch = document.getElementById("dialogSearch");
+        if (dialogSearch) {
+            dialogSearch.addEventListener("input", function() {
+                const value = this.value.trim().toLowerCase();
+                document.querySelectorAll(".tg-dialog-item").forEach(item => {
+                    const email = (item.dataset.userEmail || "").toLowerCase();
+                    item.style.display = email.includes(value) ? "" : "none";
+                });
             });
         }
 
-        async function subscribeToPush() {
-            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-                pushStatus.textContent = "Ваш браузер не поддерживает Push-уведомления.";
-                return;
-            }
-
-            try {
-                if (!("Notification" in window)) {
-                    pushStatus.textContent = "Уведомления не поддерживаются.";
-                    return;
-                }
-
-                const permission = await Notification.requestPermission();
-                if (permission !== "granted") {
-                    pushStatus.textContent = "Разрешение на уведомления не выдано.";
-                    return;
-                }
-
-                const registration = await navigator.serviceWorker.ready;
-                let subscription = await registration.pushManager.getSubscription();
-                if (!subscription) {
-                    subscription = await registration.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-                    });
-                }
-
-                await sendSubscriptionToBackend(subscription);
-
-                pushStatus.textContent = "Уведомления успешно включены!";
-                pushBtn.style.display = "none";
-            } catch (err) {
-                console.error("Subscription error:", err);
-                pushStatus.textContent = "Ошибка при включении. Возможно, вы отклонили запрос прав.";
-            }
-        }
-
-        async function syncExistingPushSubscription() {
-            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-                return;
-            }
-            try {
-                const reg = await navigator.serviceWorker.ready;
-                const sub = await reg.pushManager.getSubscription();
-                if (sub) {
-                    await sendSubscriptionToBackend(sub);
-                    if (pushBtn) pushBtn.style.display = "none";
-                    if (pushStatus) pushStatus.textContent = "Уведомления включены";
-                }
-            } catch (err) {
-                console.warn("Cannot sync existing push subscription:", err);
-            }
-        }
-
-        if (pushBtn) {
-            pushBtn.addEventListener("click", subscribeToPush);
-        }
-
-        // Переключение вкладок мобильной навигации
         const panelChats = document.getElementById("panelChats");
         const panelSettings = document.getElementById("panelSettings");
         const tabChatsBtn = document.getElementById("tabChatsBtn");
         const tabSettingsBtn = document.getElementById("tabSettingsBtn");
         const searchWrap = document.getElementById("searchWrap");
 
-        if (tabChatsBtn && tabSettingsBtn) {
-            tabChatsBtn.addEventListener("click", () => {
+        if (tabChatsBtn && tabSettingsBtn && panelChats && panelSettings) {
+            tabChatsBtn.addEventListener("click", function() {
                 panelChats.classList.add("active");
                 panelSettings.classList.remove("active");
                 tabChatsBtn.classList.add("active");
@@ -401,30 +880,12 @@
                 if (searchWrap) searchWrap.style.display = "";
             });
 
-            tabSettingsBtn.addEventListener("click", () => {
+            tabSettingsBtn.addEventListener("click", function() {
                 panelSettings.classList.add("active");
                 panelChats.classList.remove("active");
                 tabSettingsBtn.classList.add("active");
                 tabChatsBtn.classList.remove("active");
                 if (searchWrap) searchWrap.style.display = "none";
-            });
-        }
-
-        // Автоматическая регистрация SW
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker.register("/service-worker.js")
-                    .then(reg => {
-                        console.log("SW Registered");
-                        // Проверяем существующую подписку
-                        reg.pushManager.getSubscription().then(sub => {
-                            if (sub && pushBtn) {
-                                pushBtn.style.display = "none";
-                                pushStatus.textContent = "Уведомления включены";
-                            }
-                        });
-                        syncExistingPushSubscription();
-                    });
             });
         }
     </script>
