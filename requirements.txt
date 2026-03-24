@@ -1,6 +1,7 @@
 fastapi
 uvicorn
-jinja2
 sqlalchemy
-passlib
+jinja2
 python-multipart
+passlib[bcrypt]
+pywebpush
