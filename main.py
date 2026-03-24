@@ -591,8 +591,22 @@ async def logout():
     return response
 
 
+@app.websocket("/ws")
 @app.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: int):
+async def websocket_endpoint(websocket: WebSocket, user_id: int | None = None):
+    cookie_user_id = websocket.cookies.get("user_id")
+    resolved_user_id = None
+
+    if cookie_user_id and cookie_user_id.isdigit():
+        resolved_user_id = int(cookie_user_id)
+    elif user_id is not None:
+        resolved_user_id = user_id
+
+    if resolved_user_id is None:
+        await websocket.close(code=1008)
+        return
+
+    user_id = resolved_user_id
     await manager.connect(user_id, websocket)
 
     try:
