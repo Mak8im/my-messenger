@@ -236,6 +236,7 @@ body:not(.auth-page) {
     border-right: 1px solid #dbe1e8;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .chat-area {
@@ -722,6 +723,75 @@ body:not(.auth-page) {
     display: none;
 }
 
+/* Кнопка настроек в левом нижнем углу */
+.tg-settings-trigger {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 100;
+}
+
+.settings-btn {
+    background: linear-gradient(135deg, #3390ec, #2563eb);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.settings-btn:hover {
+    transform: scale(1.02);
+    background: linear-gradient(135deg, #3b9af5, #2b6ef0);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+.settings-btn:active {
+    transform: scale(0.98);
+}
+
+/* На ПК кнопка настроек видна, на телефоне скрыта (там есть нижняя навигация) */
+@media (max-width: 768px) {
+    .tg-settings-trigger {
+        display: none;
+    }
+}
+
+/* Кнопка уведомлений */
+#enableNotificationsBtn {
+    transition: all 0.2s ease;
+}
+
+#enableNotificationsBtn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
+}
+
+#notificationStatus {
+    padding: 8px;
+    background: #f8fafc;
+    border-radius: 12px;
+    text-align: center;
+}
+
+/* Индикатор "печатает..." */
+.chat-user-typing {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
 @media (max-width: 768px) {
     .telegram-app {
         display: block;
@@ -840,6 +910,10 @@ body:not(.auth-page) {
     #panelSettings {
         display: none !important;
     }
+    
+    #panelSettings.active {
+        display: flex !important;
+    }
 }
 
 @media (max-width: 420px) {
@@ -941,173 +1015,5 @@ body:not(.auth-page) {
     .auth-button {
         padding: 13px 14px;
         font-size: 14px;
-    }
-}
-/* Кнопка уведомлений */
-#enableNotificationsBtn {
-    transition: all 0.2s ease;
-}
-
-#enableNotificationsBtn:hover {
-    transform: scale(1.02);
-    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
-}
-
-#notificationStatus {
-    padding: 8px;
-    background: #f8fafc;
-    border-radius: 12px;
-    text-align: center;
-}
-/* Кнопка уведомлений */
-#enableNotificationsBtn {
-    transition: all 0.2s ease;
-}
-
-#enableNotificationsBtn:hover {
-    transform: scale(1.02);
-    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
-}
-
-#notificationStatus {
-    padding: 8px;
-    background: #f8fafc;
-    border-radius: 12px;
-    text-align: center;
-}
-
-/* Индикатор "печатает..." */
-.chat-user-typing {
-    font-size: 12px;
-    color: #6b7280;
-    margin-top: 2px;
-    animation: pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-
-/* Кнопка уведомлений */
-#enableNotificationsBtn {
-    transition: all 0.2s ease;
-}
-
-#enableNotificationsBtn:hover {
-    transform: scale(1.02);
-    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
-}
-
-#notificationStatus {
-    padding: 8px;
-    background: #f8fafc;
-    border-radius: 12px;
-    text-align: center;
-}
-
-/* Индикатор "печатает..." */
-.chat-user-typing {
-    font-size: 12px;
-    color: #6b7280;
-    margin-top: 2px;
-    animation: pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-
-/* Кнопка уведомлений */
-#enableNotificationsBtn {
-    transition: all 0.2s ease;
-}
-
-#enableNotificationsBtn:hover {
-    transform: scale(1.02);
-    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
-}
-
-#notificationStatus {
-    padding: 8px;
-    background: #f8fafc;
-    border-radius: 12px;
-    text-align: center;
-}
-
-/* Индикатор "печатает..." */
-.chat-user-typing {
-    font-size: 12px;
-    color: #6b7280;
-    margin-top: 2px;
-    animation: pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-
-/* Кнопка настроек в левом нижнем углу (только на ПК) */
-.tg-settings-trigger {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    z-index: 100;
-}
-
-.settings-icon-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #3390ec;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.settings-icon-btn:hover {
-    transform: scale(1.05);
-    background: #2b7bcb;
-}
-
-.settings-tooltip {
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1f2937;
-    color: white;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-    margin-bottom: 8px;
-}
-
-.tg-settings-trigger:hover .settings-tooltip {
-    opacity: 1;
-}
-
-/* На ПК кнопка настроек видна, на телефоне скрыта */
-@media (max-width: 768px) {
-    .tg-settings-trigger {
-        display: none;
-    }
-}
-
-/* На ПК настройки в левой панели */
-@media (min-width: 769px) {
-    .sidebar {
-        position: relative;
     }
 }
