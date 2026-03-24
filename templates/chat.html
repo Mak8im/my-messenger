@@ -78,75 +78,8 @@
                     {% endif %}
                 </div>
             </div>
-
-            <div class="tg-main-panel" id="panelSettings">
-                <div class="tg-settings-panel">
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">Аккаунт</div>
-                        <div class="tg-settings-row">
-                            <span>Email</span>
-                            <strong>{{ current_user.email }}</strong>
-                        </div>
-                    </div>
-
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">Уведомления</div>
-                        <div class="tg-settings-text" style="margin-bottom: 10px;">
-                            🔔 Включай уведомления, чтобы не пропускать сообщения.<br>
-                            <small style="color: #6b7280;">📱 На iPhone: добавь сайт на главный экран, затем нажми кнопку ниже и разреши уведомления.</small>
-                        </div>
-                        <button id="enableNotificationsBtn" class="auth-button" type="button" style="width: 100%; background: linear-gradient(135deg, #2563eb, #3b82f6);">
-                            🔔 Включить уведомления
-                        </button>
-                        <div id="notificationStatus" class="tg-settings-text" style="margin-top: 10px; font-size: 13px;"></div>
-                    </div>
-
-                    {% if can_backup %}
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">💾 Резервное копирование</div>
-                        <div class="tg-settings-text" style="margin-bottom: 12px;">
-                            Скачивай базу данных раз в месяц, чтобы не потерять сообщения.
-                            При смене аккаунта — восстанови из backup.
-                        </div>
-                        
-                        <button id="downloadBackupBtn" class="auth-button" type="button" style="width: 100%; margin-bottom: 10px; background: linear-gradient(135deg, #10b981, #059669);">
-                            📥 Скачать backup
-                        </button>
-                        
-                        <form id="restoreBackupForm" enctype="multipart/form-data" style="margin-top: 10px;">
-                            <label for="backupFileInput" style="display: block; text-align: center; background: linear-gradient(135deg, #6b7280, #4b5563); color: white; padding: 12px; border-radius: 14px; cursor: pointer; font-weight: bold;">
-                                📤 Выбрать файл для восстановления
-                            </label>
-                            <input type="file" id="backupFileInput" name="backup_file" accept=".db" style="display: none;">
-                            <div id="restoreStatus" class="tg-settings-text" style="margin-top: 8px; font-size: 12px;"></div>
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">Push-уведомления (эксперимент)</div>
-                        <div class="tg-settings-text" style="margin-bottom: 10px;">
-                            Для полных push-уведомлений (даже когда сайт закрыт) нужна сложная настройка сервера.<br>
-                            Пока работают обычные браузерные уведомления, когда вкладка открыта или свёрнута.
-                        </div>
-                        <button id="enablePushBtn" class="auth-button" type="button" style="width: 100%; background: linear-gradient(135deg, #6b7280, #9ca3af);">
-                            📱 Push (бета)
-                        </button>
-                        <div id="pushStatus" class="tg-settings-text" style="margin-top: 10px;"></div>
-                    </div>
-
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">Приложение</div>
-                        <div class="tg-settings-text">
-                            Можно добавить сайт на главный экран iPhone и открывать как приложение.
-                        </div>
-                    </div>
-
-                    <a class="tg-settings-logout" href="/logout">Выйти из аккаунта</a>
-                </div>
-            </div>
             
-            <!-- Кнопка настроек в левом нижнем углу -->
+            <!-- Кнопка настроек в левом нижнем углу (только на ПК) -->
             <div class="tg-settings-trigger" id="settingsTrigger">
                 <button class="settings-btn">Настройки</button>
             </div>
@@ -245,6 +178,82 @@
         </main>
     </div>
 
+    <!-- Модальное окно настроек (как в Telegram) -->
+    <div id="settingsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">Настройки</h3>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tg-settings-panel">
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">Аккаунт</div>
+                        <div class="tg-settings-row">
+                            <span>Email</span>
+                            <strong>{{ current_user.email }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">Уведомления</div>
+                        <div class="tg-settings-text" style="margin-bottom: 10px;">
+                            🔔 Включай уведомления, чтобы не пропускать сообщения.<br>
+                            <small style="color: #6b7280;">📱 На iPhone: добавь сайт на главный экран, затем нажми кнопку ниже и разреши уведомления.</small>
+                        </div>
+                        <button id="enableNotificationsBtnModal" class="auth-button" type="button" style="width: 100%; background: linear-gradient(135deg, #2563eb, #3b82f6);">
+                            🔔 Включить уведомления
+                        </button>
+                        <div id="notificationStatusModal" class="tg-settings-text" style="margin-top: 10px; font-size: 13px;"></div>
+                    </div>
+
+                    {% if can_backup %}
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">💾 Резервное копирование</div>
+                        <div class="tg-settings-text" style="margin-bottom: 12px;">
+                            Скачивай базу данных раз в месяц, чтобы не потерять сообщения.
+                            При смене аккаунта — восстанови из backup.
+                        </div>
+                        
+                        <button id="downloadBackupBtn" class="auth-button" type="button" style="width: 100%; margin-bottom: 10px; background: linear-gradient(135deg, #10b981, #059669);">
+                            📥 Скачать backup
+                        </button>
+                        
+                        <form id="restoreBackupForm" enctype="multipart/form-data" style="margin-top: 10px;">
+                            <label for="backupFileInput" style="display: block; text-align: center; background: linear-gradient(135deg, #6b7280, #4b5563); color: white; padding: 12px; border-radius: 14px; cursor: pointer; font-weight: bold;">
+                                📤 Выбрать файл для восстановления
+                            </label>
+                            <input type="file" id="backupFileInput" name="backup_file" accept=".db" style="display: none;">
+                            <div id="restoreStatus" class="tg-settings-text" style="margin-top: 8px; font-size: 12px;"></div>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">Push-уведомления (эксперимент)</div>
+                        <div class="tg-settings-text" style="margin-bottom: 10px;">
+                            Для полных push-уведомлений (даже когда сайт закрыт) нужна сложная настройка сервера.<br>
+                            Пока работают обычные браузерные уведомления, когда вкладка открыта или свёрнута.
+                        </div>
+                        <button id="enablePushBtnModal" class="auth-button" type="button" style="width: 100%; background: linear-gradient(135deg, #6b7280, #9ca3af);">
+                            📱 Push (бета)
+                        </button>
+                        <div id="pushStatusModal" class="tg-settings-text" style="margin-top: 10px;"></div>
+                    </div>
+
+                    <div class="tg-settings-card">
+                        <div class="tg-settings-title">Приложение</div>
+                        <div class="tg-settings-text">
+                            Можно добавить сайт на главный экран iPhone и открывать как приложение.
+                        </div>
+                    </div>
+
+                    <a class="tg-settings-logout" href="/logout">Выйти из аккаунта</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% if not selected_user %}
     <div class="tg-mobile-bottom-nav">
         <button class="tg-mobile-tab active" id="tabChatsBtn" type="button">Чаты</button>
@@ -276,6 +285,44 @@
         const photoForm = document.getElementById("photoForm");
         const typingIndicator = document.getElementById("typingIndicator");
         const selectedUserStatus = document.getElementById("selectedUserStatus");
+        
+        // ========== МОДАЛЬНОЕ ОКНО ==========
+        const modal = document.getElementById("settingsModal");
+        const settingsTrigger = document.getElementById("settingsTrigger");
+        const closeModalBtn = document.getElementById("closeModalBtn");
+        
+        function openModal() {
+            if (modal) {
+                modal.style.display = "flex";
+                document.body.style.overflow = "hidden";
+                // Обновляем статусы в модальном окне
+                updateModalNotificationStatus();
+            }
+        }
+        
+        function closeModal() {
+            if (modal) {
+                modal.style.display = "none";
+                document.body.style.overflow = "";
+            }
+        }
+        
+        // Закрытие по клику вне окна
+        if (modal) {
+            modal.addEventListener("click", function(e) {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+        }
+        
+        if (settingsTrigger) {
+            settingsTrigger.addEventListener("click", openModal);
+        }
+        
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener("click", closeModal);
+        }
         
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function scrollToBottom() {
@@ -316,6 +363,7 @@
         async function requestNotificationPermission() {
             if (!("Notification" in window)) {
                 updateNotificationStatus("❌ Браузер не поддерживает уведомления");
+                updateModalNotificationStatus();
                 return false;
             }
             
@@ -328,6 +376,7 @@
                 notificationPermissionGranted = true;
                 notificationsEnabled = true;
                 updateNotificationStatus("✅ Уведомления включены");
+                updateModalNotificationStatus();
                 playNotificationSound();
                 setTimeout(() => showBrowserNotification("Messenger", "Уведомления работают! 🎉"), 500);
                 return true;
@@ -335,6 +384,7 @@
                 notificationPermissionGranted = false;
                 notificationsEnabled = false;
                 updateNotificationStatus("❌ Разрешение не получено");
+                updateModalNotificationStatus();
                 return false;
             }
         }
@@ -343,6 +393,7 @@
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             if (isIOS && !window.navigator.standalone) {
                 updateNotificationStatus("📱 Для уведомлений добавьте сайт на главный экран");
+                updateModalNotificationStatus();
             }
             await requestNotificationPermission();
         }
@@ -352,16 +403,32 @@
             if (statusDiv) statusDiv.textContent = text;
         }
         
+        function updateModalNotificationStatus() {
+            const statusDiv = document.getElementById("notificationStatusModal");
+            if (statusDiv) {
+                if (notificationPermissionGranted && notificationsEnabled) {
+                    statusDiv.textContent = "✅ Уведомления включены";
+                } else if (Notification.permission === "denied") {
+                    statusDiv.textContent = "❌ Уведомления заблокированы";
+                } else {
+                    statusDiv.textContent = "⚠️ Нажмите кнопку, чтобы включить";
+                }
+            }
+        }
+        
         function checkNotificationStatus() {
             if ("Notification" in window) {
                 if (Notification.permission === "granted") {
                     notificationPermissionGranted = true;
                     notificationsEnabled = true;
                     updateNotificationStatus("✅ Уведомления включены");
+                    updateModalNotificationStatus();
                 } else if (Notification.permission === "denied") {
                     updateNotificationStatus("❌ Уведомления заблокированы");
+                    updateModalNotificationStatus();
                 } else {
                     updateNotificationStatus("⚠️ Нажмите кнопку, чтобы включить");
+                    updateModalNotificationStatus();
                 }
             }
         }
@@ -661,7 +728,7 @@
         }
         
         async function subscribeToPush() {
-            const pushStatusDiv = document.getElementById("pushStatus");
+            const pushStatusDiv = document.getElementById("pushStatusModal");
             if (!window.isSecureContext) {
                 if (pushStatusDiv) pushStatusDiv.textContent = "Push требует HTTPS.";
                 return;
@@ -699,7 +766,7 @@
         }
         
         async function initPushStatus() {
-            const pushStatusDiv = document.getElementById("pushStatus");
+            const pushStatusDiv = document.getElementById("pushStatusModal");
             if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
                 if (pushStatusDiv) pushStatusDiv.textContent = "Push API не поддерживается";
                 return;
@@ -778,43 +845,6 @@
             }
         }
         
-        // ========== НАСТРОЙКИ (кнопка в левом нижнем углу) ==========
-        const settingsTrigger = document.getElementById("settingsTrigger");
-        const panelChats = document.getElementById("panelChats");
-        const panelSettings = document.getElementById("panelSettings");
-        const searchWrap = document.getElementById("searchWrap");
-        
-        // Функция открытия настроек
-        function openSettings() {
-            if (panelChats && panelSettings) {
-                panelChats.classList.remove("active");
-                panelSettings.classList.add("active");
-                if (searchWrap) searchWrap.style.display = "none";
-            }
-        }
-        
-        // Функция закрытия настроек (возврат к чатам)
-        function closeSettings() {
-            if (panelChats && panelSettings) {
-                panelChats.classList.add("active");
-                panelSettings.classList.remove("active");
-                if (searchWrap) searchWrap.style.display = "";
-            }
-        }
-        
-        // Обработчик кнопки настроек
-        if (settingsTrigger) {
-            settingsTrigger.addEventListener("click", function(e) {
-                e.stopPropagation();
-                // Проверяем, открыты ли сейчас настройки
-                if (panelSettings && panelSettings.classList.contains("active")) {
-                    closeSettings();
-                } else {
-                    openSettings();
-                }
-            });
-        }
-        
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
         window.addEventListener("load", async () => {
             await registerServiceWorker();
@@ -837,12 +867,12 @@
             if (SELECTED_USER_ID !== null) updateUnreadBadge(SELECTED_USER_ID, 0);
         });
         
-        // Кнопки
-        const notifBtn = document.getElementById("enableNotificationsBtn");
-        const pushBtn = document.getElementById("enablePushBtn");
+        // Кнопки в модальном окне
+        const notifBtnModal = document.getElementById("enableNotificationsBtnModal");
+        const pushBtnModal = document.getElementById("enablePushBtnModal");
         
-        if (notifBtn) notifBtn.addEventListener("click", enableNotifications);
-        if (pushBtn) pushBtn.addEventListener("click", subscribeToPush);
+        if (notifBtnModal) notifBtnModal.addEventListener("click", enableNotifications);
+        if (pushBtnModal) pushBtnModal.addEventListener("click", subscribeToPush);
         
         if (messageInput) {
             messageInput.addEventListener("keydown", (e) => {
@@ -874,6 +904,9 @@
         // Мобильная навигация
         const tabChatsBtn = document.getElementById("tabChatsBtn");
         const tabSettingsBtn = document.getElementById("tabSettingsBtn");
+        const panelChats = document.getElementById("panelChats");
+        const panelSettings = document.getElementById("panelSettings");
+        const searchWrap = document.getElementById("searchWrap");
         
         if (tabChatsBtn && tabSettingsBtn && panelChats && panelSettings) {
             tabChatsBtn.addEventListener("click", () => {
