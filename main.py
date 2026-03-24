@@ -146,7 +146,7 @@ def build_message_preview(message: Message, current_user_id: int) -> str:
     return base
 
 
-def build_dialogs_for_user(current_user: User, db: Session, last_activity_map: dict):
+def build_dialogs_for_user(current_user: User, db: Session, user_status_map: dict):
     all_users = db.query(User).filter(User.id != current_user.id).all()
     dialogs = []
 
@@ -174,10 +174,11 @@ def build_dialogs_for_user(current_user: User, db: Session, last_activity_map: d
 
         unread_count = get_unread_count(current_user.id, user.id, db)
         
-        # Получаем статус пользователя
-        is_online = user.id in last_activity_map and last_activity_map[user.id].get("is_online", False)
-        last_seen = last_activity_map.get(user.id, {}).get("last_activity")
-        status_text = format_last_seen(last_seen) if last_seen else "Не в сети"
+        # Получаем статус пользователя из map
+        status_info = user_status_map.get(user.id, {})
+        is_online = status_info.get("is_online", False)
+        last_activity = status_info.get("last_activity")
+        status_text = format_last_seen(last_activity) if last_activity else "Не в сети"
         
         dialogs.append({
             "user": user,
@@ -277,6 +278,7 @@ class ConnectionManager:
         }
 
         if was_offline:
+            # Отправляем обновление статуса всем
             await self.broadcast_presence()
 
     async def disconnect(self, user_id: int, websocket: WebSocket):
@@ -287,15 +289,19 @@ class ConnectionManager:
             if not self.active_connections[user_id]:
                 del self.active_connections[user_id]
                 if user_id in self.user_status:
+                    # Пользователь вышел, обновляем статус
                     self.user_status[user_id]["is_online"] = False
                     self.user_status[user_id]["last_activity"] = datetime.utcnow()
+                    # Отправляем обновление статуса всем
                     await self.broadcast_presence()
 
     async def update_activity(self, user_id: int):
         if user_id in self.user_status:
+            old_status = self.user_status[user_id]["is_online"]
             self.user_status[user_id]["last_activity"] = datetime.utcnow()
-            # Если пользователь был оффлайн, но совершил действие — включаем онлайн
-            if not self.user_status[user_id]["is_online"]:
+            
+            # Если пользователь был оффлайн, но совершил действие — включаем онлайн и уведомляем всех
+            if not old_status:
                 self.user_status[user_id]["is_online"] = True
                 await self.broadcast_presence()
 
@@ -348,7 +354,7 @@ class ConnectionManager:
             await self.broadcast_presence()
 
     async def broadcast_presence(self):
-        # Формируем данные о статусах
+        """Отправляем всем пользователям актуальные статусы"""
         status_data = {}
         for uid, status in self.user_status.items():
             status_data[uid] = {
@@ -489,7 +495,7 @@ async def chat_page(
                 .all()
             )
 
-    # Получаем статусы пользователей
+    # Получаем актуальные статусы пользователей
     user_status_map = manager.get_user_status_map()
     
     dialogs = build_dialogs_for_user(current_user, db, user_status_map)
@@ -497,11 +503,11 @@ async def chat_page(
     # Статус выбранного пользователя
     selected_user_status = "Не в сети"
     if selected_user:
-        status = user_status_map.get(selected_user.id, {})
-        if status.get("is_online"):
+        status_info = user_status_map.get(selected_user.id, {})
+        if status_info.get("is_online"):
             selected_user_status = "В сети"
         else:
-            last_activity = status.get("last_activity")
+            last_activity = status_info.get("last_activity")
             selected_user_status = format_last_seen(last_activity) if last_activity else "Не в сети"
     
     can_backup = current_user.email in ALLOWED_BACKUP_EMAILS
@@ -626,7 +632,8 @@ async def send_photo(
     await manager.send_to_user(current_user.id, outgoing_to_sender)
     await manager.send_to_user(receiver_id, outgoing_to_receiver)
 
-    if receiver_id not in manager.user_status.get(receiver_id, {}).get("is_online", False):
+    receiver_status = manager.user_status.get(receiver_id, {})
+    if not receiver_status.get("is_online", False):
         send_push_to_user(
             db=db,
             user_id=receiver_id,
@@ -683,7 +690,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
     typing_timeout = {}
     
     try:
-        # Отправляем текущие статусы
+        # Отправляем текущие статусы новому пользователю
         status_data = {}
         for uid, status in manager.user_status.items():
             status_data[uid] = {
@@ -787,8 +794,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
 
                     unread_count_for_receiver = get_unread_count(receiver_id, user_id, db)
 
-                    receiver_online = manager.user_status.get(receiver_id, {}).get("is_online", False)
-                    if not receiver_online and sender:
+                    receiver_status = manager.user_status.get(receiver_id, {})
+                    if not receiver_status.get("is_online", False) and sender:
                         send_push_to_user(
                             db=db,
                             user_id=receiver_id,
