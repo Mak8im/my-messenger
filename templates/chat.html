@@ -147,6 +147,10 @@
                                         Не в сети
                                     {% endif %}
                                 </div>
+                                <!-- Индикатор "печатает..." -->
+                                <div id="typingIndicator" class="chat-user-typing" style="display: none; font-size: 12px; color: #6b7280;">
+                                    печатает...
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -239,14 +243,11 @@
         
         // Звук уведомления
         const notificationSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-        // Заранее загружаем звук, чтобы потом быстро играл
         notificationSound.load();
         
-        // Функция для воспроизведения звука (только если разрешено)
         function playNotificationSound() {
             if (notificationsEnabled) {
                 try {
-                    // Сбрасываем и воспроизводим
                     notificationSound.currentTime = 0;
                     notificationSound.play().catch(e => console.log("Sound play error:", e));
                 } catch(e) {
@@ -255,13 +256,10 @@
             }
         }
         
-        // Функция для показа браузерного уведомления
         function showBrowserNotification(title, body, tag = null) {
             if (!notificationsEnabled || !notificationPermissionGranted) return;
             
-            // Проверяем, видима ли страница
             if (document.visibilityState === "visible") {
-                // Если страница активна, не показываем уведомление (только звук)
                 return;
             }
             
@@ -278,20 +276,17 @@
                 
                 const notification = new Notification(title, options);
                 
-                // При клике на уведомление фокусируем окно
                 notification.onclick = function() {
                     window.focus();
                     notification.close();
                 };
                 
-                // Автоматически закрываем через 5 секунд
                 setTimeout(() => notification.close(), 5000);
             } catch(e) {
                 console.log("Notification error:", e);
             }
         }
         
-        // Запрос разрешения на уведомления
         async function requestNotificationPermission() {
             if (!("Notification" in window)) {
                 updateNotificationStatus("❌ Ваш браузер не поддерживает уведомления");
@@ -301,7 +296,6 @@
             let permission = Notification.permission;
             
             if (permission !== "granted") {
-                // Запрашиваем разрешение
                 permission = await Notification.requestPermission();
             }
             
@@ -310,7 +304,6 @@
                 notificationsEnabled = true;
                 updateNotificationStatus("✅ Уведомления включены");
                 
-                // Тестовый звук и уведомление
                 playNotificationSound();
                 setTimeout(() => {
                     showBrowserNotification("Messenger", "Уведомления работают! 🎉");
@@ -325,20 +318,16 @@
             }
         }
         
-        // Включение уведомлений (вызывается по кнопке)
         async function enableNotifications() {
-            // Для iOS PWA нужно сначала добавить на экран, потом разрешить
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             
             if (isIOS && !window.navigator.standalone) {
                 updateNotificationStatus("📱 Для уведомлений на iPhone добавьте сайт на главный экран, затем нажмите кнопку снова");
-                // Всё равно пробуем запросить разрешение
             }
             
             await requestNotificationPermission();
         }
         
-        // Обновление статуса в интерфейсе
         function updateNotificationStatus(text) {
             const statusDiv = document.getElementById("notificationStatus");
             if (statusDiv) {
@@ -346,7 +335,6 @@
             }
         }
         
-        // Проверка текущего статуса при загрузке
         function checkNotificationStatus() {
             if ("Notification" in window) {
                 if (Notification.permission === "granted") {
@@ -367,8 +355,75 @@
             }
         }
         
-        // ========== КОНЕЦ УВЕДОМЛЕНИЙ ==========
-
+        // ========== "ПЕЧАТАЕТ..." ==========
+        let typingTimeout = null;
+        let isCurrentlyTyping = false;
+        const typingIndicator = document.getElementById("typingIndicator");
+        
+        // Отправляем статус печатания на сервер
+        function sendTypingStatus(isTyping) {
+            if (!SELECTED_USER_ID) return;
+            
+            if (isTyping === isCurrentlyTyping) return;
+            
+            isCurrentlyTyping = isTyping;
+            
+            socket.send(JSON.stringify({
+                type: "typing",
+                receiver_id: SELECTED_USER_ID,
+                is_typing: isTyping
+            }));
+        }
+        
+        // Показываем/скрываем индикатор печатания
+        function showTypingIndicator(senderId, isTyping) {
+            if (SELECTED_USER_ID !== senderId) return;
+            
+            if (typingIndicator) {
+                if (isTyping) {
+                    typingIndicator.style.display = "block";
+                    // Скрываем статус "В сети" когда показываем "печатает"
+                    const statusDiv = document.getElementById("selectedUserStatus");
+                    if (statusDiv) statusDiv.style.display = "none";
+                } else {
+                    typingIndicator.style.display = "none";
+                    const statusDiv = document.getElementById("selectedUserStatus");
+                    if (statusDiv) statusDiv.style.display = "block";
+                }
+            }
+        }
+        
+        // Отслеживаем ввод в поле сообщения
+        function setupTypingDetection() {
+            const input = document.getElementById("messageInput");
+            if (!input) return;
+            
+            input.addEventListener("input", function() {
+                const isTyping = this.value.length > 0;
+                
+                sendTypingStatus(isTyping);
+                
+                // Сбрасываем таймер
+                if (typingTimeout) clearTimeout(typingTimeout);
+                
+                if (isTyping) {
+                    // Если пользователь печатает, отправляем сигнал каждые 2 секунды
+                    typingTimeout = setTimeout(() => {
+                        sendTypingStatus(false);
+                        isCurrentlyTyping = false;
+                    }, 2000);
+                }
+            });
+            
+            input.addEventListener("blur", function() {
+                sendTypingStatus(false);
+                if (typingTimeout) clearTimeout(typingTimeout);
+                isCurrentlyTyping = false;
+            });
+        }
+        
+        // ========== ОСТАЛЬНОЙ КОД ЧАТА ==========
+        
         const messagesBox = document.getElementById("messagesBox");
         const input = document.getElementById("messageInput");
         const photoInput = document.getElementById("photoInput");
@@ -410,7 +465,11 @@
             const selectedWrap = document.getElementById("selectedUserAvatarWrap");
 
             if (selectedStatus && SELECTED_USER_ID !== null) {
-                selectedStatus.textContent = onlineSet.has(SELECTED_USER_ID) ? "В сети" : "Не в сети";
+                // Проверяем, не показываем ли сейчас "печатает"
+                if (typingIndicator && typingIndicator.style.display !== "block") {
+                    selectedStatus.textContent = onlineSet.has(SELECTED_USER_ID) ? "В сети" : "Не в сети";
+                    selectedStatus.style.display = "block";
+                }
             }
 
             if (selectedWrap && SELECTED_USER_ID !== null) {
@@ -574,16 +633,19 @@
                 }
                 return;
             }
+            
+            if (data.type === "typing") {
+                // Обработка статуса "печатает"
+                showTypingIndicator(data.sender_id, data.is_typing);
+                return;
+            }
 
             if (data.type === "message") {
                 const isFromOther = data.sender_id !== CURRENT_USER_ID;
                 
-                // Уведомление только если сообщение от другого пользователя
                 if (isFromOther) {
-                    // Воспроизводим звук
                     playNotificationSound();
                     
-                    // Формируем текст уведомления
                     let notificationBody = "";
                     if (data.message_type === "photo") {
                         notificationBody = "📷 Отправил(а) фото";
@@ -594,7 +656,6 @@
                         }
                     }
                     
-                    // Показываем браузерное уведомление
                     showBrowserNotification(
                         `Новое сообщение от ${data.sender_email || "пользователя"}`,
                         notificationBody,
@@ -671,11 +732,17 @@
                 return;
             }
 
+            // Отправляем сообщение
             socket.send(JSON.stringify({
                 type: "message",
                 receiver_id: SELECTED_USER_ID,
                 content: content
             }));
+            
+            // Сбрасываем статус печатания
+            sendTypingStatus(false);
+            if (typingTimeout) clearTimeout(typingTimeout);
+            isCurrentlyTyping = false;
 
             input.value = "";
         }
@@ -697,7 +764,7 @@
             });
         }
 
-        // Push-уведомления (оставляем как есть, они не мешают)
+        // Push-уведомления
         function urlBase64ToUint8Array(base64String) {
             const padding = "=".repeat((4 - base64String.length % 4) % 4);
             const base64 = (base64String + padding)
@@ -818,15 +885,13 @@
             }
         }
 
-        // Инициализация при загрузке
         window.addEventListener("load", async () => {
             await registerServiceWorker();
             await initPushStatus();
             checkNotificationStatus();
+            setupTypingDetection(); // Включаем отслеживание печатания
             
-            // Небольшая хитрость: при первом клике в любом месте включаем звуковой контекст
             const enableAudioOnFirstClick = () => {
-                // Создаём тихий звук для активации аудиоконтекста
                 const silentAudio = new Audio();
                 silentAudio.volume = 0;
                 silentAudio.play().catch(() => {});
@@ -838,7 +903,6 @@
             document.addEventListener("touchstart", enableAudioOnFirstClick);
         });
 
-        // Кнопка включения уведомлений
         if (notifBtn) {
             notifBtn.addEventListener("click", async function() {
                 await enableNotifications();
