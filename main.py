@@ -467,29 +467,25 @@ async def login_user(
 
     response = RedirectResponse(url="/chat", status_code=303)
     
-    # Оптимальные параметры для куки
+    # Устанавливаем куку с правильными параметрами
     if remember_me:
-        # 30 дней
-        response.set_cookie(
-            key="user_id",
-            value=str(user.id),
-            httponly=True,
-            max_age=30 * 24 * 60 * 60,
-            secure=False,  # Для HTTPS поставь True
-            samesite="lax",
-            path="/"
-        )
+        max_age = 30 * 24 * 60 * 60  # 30 дней
     else:
-        # 7 дней (всё равно запоминаем, чтобы не вылетало)
-        response.set_cookie(
-            key="user_id",
-            value=str(user.id),
-            httponly=True,
-            max_age=7 * 24 * 60 * 60,
-            secure=False,
-            samesite="lax",
-            path="/"
-        )
+        max_age = 7 * 24 * 60 * 60  # 7 дней
+    
+    # Вычисляем expires для старых браузеров
+    expires = datetime.now(timezone.utc) + timedelta(seconds=max_age)
+    
+    response.set_cookie(
+        key="user_id",
+        value=str(user.id),
+        httponly=True,
+        max_age=max_age,
+        expires=expires,
+        secure=True,  # Важно: на Railway (HTTPS) должно быть True
+        samesite="lax",
+        path="/"
+    )
     
     return response
 
