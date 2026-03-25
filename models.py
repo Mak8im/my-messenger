@@ -9,7 +9,6 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
-    # Важно: timezone=True, чтобы SQLAlchemy хранил время с часовым поясом
     last_activity = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=True)
 
 
