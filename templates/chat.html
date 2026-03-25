@@ -317,14 +317,14 @@
             if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
         }
         
-        // ИСПРАВЛЕННАЯ ФУНКЦИЯ ФОРМАТИРОВАНИЯ ВРЕМЕНИ - БЕЗ СДВИГА ЧАСОВОГО ПОЯСА
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ - просто считаем разницу в миллисекундах
         function formatLastSeen(lastActivity) {
             if (!lastActivity) return "Не в сети";
             
             const now = new Date();
             const last = new Date(lastActivity);
             
-            // Вычисляем разницу в миллисекундах (работает с UTC автоматически)
+            // Разница в миллисекундах (работает с UTC автоматически)
             const diffMs = now.getTime() - last.getTime();
             const diffSec = Math.floor(diffMs / 1000);
             
