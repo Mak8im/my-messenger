@@ -88,32 +88,24 @@ async def push_public_key():
 def format_message_time(dt):
     if not dt:
         return ""
+    # dt уже с часовым поясом, но для отображения времени сообщения используем локальное время
+    # Для простоты оставляем как есть, так как это только время HH:MM
     return dt.strftime("%H:%M")
 
 
 def format_last_seen(last_activity):
-    """Форматирует время последней активности - просто считаем разницу в секундах"""
+    """Форматирует время последней активности (всегда в UTC)"""
     if not last_activity:
         return "Не в сети"
-    
-    # Если last_activity это строка, конвертируем в datetime
-    if isinstance(last_activity, str):
-        try:
-            last_activity = datetime.fromisoformat(last_activity.replace('Z', '+00:00'))
-        except:
-            return "Не в сети"
-    
-    # Получаем текущее время в UTC
-    now = datetime.now(timezone.utc)
-    
-    # Если last_activity без часового пояса, добавляем UTC
+
+    # Убеждаемся, что last_activity имеет часовой пояс UTC
     if last_activity.tzinfo is None:
         last_activity = last_activity.replace(tzinfo=timezone.utc)
-    
-    # Считаем разницу в секундах
+
+    now = datetime.now(timezone.utc)
     diff = now - last_activity
     seconds = diff.total_seconds()
-    
+
     if seconds < 60:
         return "был(а) только что"
     elif seconds < 3600:
@@ -360,9 +352,13 @@ class ConnectionManager:
         all_users = db.query(User).all()
         status_data = {}
         for user in all_users:
+            # Передаём дату в формате ISO с "Z" (UTC)
+            last_activity_str = user.last_activity.isoformat() if user.last_activity else None
+            if last_activity_str and not last_activity_str.endswith('Z'):
+                last_activity_str += 'Z'
             status_data[user.id] = {
                 "is_online": user.id in self.online_users,
-                "last_activity": user.last_activity.isoformat() if user.last_activity else None
+                "last_activity": last_activity_str
             }
         
         await self.broadcast_all({
@@ -542,6 +538,8 @@ async def chat_page(
     
     can_backup = current_user.email in ALLOWED_BACKUP_EMAILS
 
+    # Передаём текущего пользователя с last_activity в правильном формате для шаблона
+    # В шаблоне используется format_last_seen, которая уже работает с UTC
     return templates.TemplateResponse(
         request=request,
         name="chat.html",
@@ -731,9 +729,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
         all_users = db.query(User).all()
         status_data = {}
         for user in all_users:
+            last_activity_str = user.last_activity.isoformat() if user.last_activity else None
+            if last_activity_str and not last_activity_str.endswith('Z'):
+                last_activity_str += 'Z'
             status_data[user.id] = {
                 "is_online": user.id in manager.online_users,
-                "last_activity": user.last_activity.isoformat() if user.last_activity else None
+                "last_activity": last_activity_str
             }
         
         await manager.send_to_user(user_id, {
