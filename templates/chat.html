@@ -27,10 +27,10 @@
                 </div>
 
                 <div class="tg-current-user">
-                    <div class="avatar">{{ current_user.email[0]|upper }}</div>
+                    <div class="avatar" id="sidebarAvatar">{{ current_user.email[0]|upper }}</div>
                     <div class="tg-current-user-meta">
                         <div class="tg-current-user-label">Ты вошёл как</div>
-                        <div class="tg-current-user-email">{{ current_user.email }}</div>
+                        <div class="tg-current-user-email" id="sidebarUserName">{{ current_user.full_name or current_user.email }}</div>
                     </div>
                 </div>
 
@@ -48,9 +48,15 @@
                                 class="tg-dialog-item user-card {% if selected_user and selected_user.id == dialog.user.id %}active{% endif %}"
                                 data-user-id="{{ dialog.user.id }}"
                                 data-user-email="{{ dialog.user.email }}"
+                                data-user-name="{{ dialog.user.full_name or dialog.user.email }}"
+                                data-user-username="{{ dialog.user.username or '' }}"
                             >
                                 <div class="user-avatar-wrap tg-dialog-avatar-wrap">
-                                    <div class="user-avatar tg-dialog-avatar">{{ dialog.user.email[0]|upper }}</div>
+                                    {% if dialog.avatar_url %}
+                                        <img src="{{ dialog.avatar_url }}" class="user-avatar tg-dialog-avatar" style="object-fit: cover;">
+                                    {% else %}
+                                        <div class="user-avatar tg-dialog-avatar">{{ dialog.user.email[0]|upper }}</div>
+                                    {% endif %}
                                     {% if dialog.is_online %}
                                         <span class="online-dot"></span>
                                     {% endif %}
@@ -58,7 +64,7 @@
 
                                 <div class="tg-dialog-main">
                                     <div class="tg-dialog-top">
-                                        <div class="tg-dialog-name user-name">{{ dialog.user.email }}</div>
+                                        <div class="tg-dialog-name user-name">{{ dialog.display_name }}</div>
                                         <div class="tg-dialog-time dialog-time">{{ dialog.time }}</div>
                                     </div>
                                     <div class="tg-dialog-bottom">
@@ -94,11 +100,18 @@
 
                         <div class="chat-user">
                             <div class="chat-user-avatar-wrap" id="selectedUserAvatarWrap">
-                                <div class="chat-user-avatar">{{ selected_user.email[0]|upper }}</div>
+                                {% if selected_user.avatar %}
+                                    <img src="/avatars/{{ selected_user.avatar }}" class="chat-user-avatar" style="object-fit: cover;">
+                                {% else %}
+                                    <div class="chat-user-avatar">{{ selected_user.email[0]|upper }}</div>
+                                {% endif %}
                                 <span id="selectedUserOnlineDot" class="online-dot" style="display: none;"></span>
                             </div>
                             <div>
-                                <div class="chat-user-name">{{ selected_user.email }}</div>
+                                <div class="chat-user-name">{{ selected_user.full_name or selected_user.email }}</div>
+                                {% if selected_user.username %}
+                                    <div class="chat-user-username" style="font-size: 12px; color: #7a7f85;">{{ selected_user.username }}</div>
+                                {% endif %}
                                 <div class="chat-user-status" id="selectedUserStatus">
                                     {{ selected_user_status }}
                                 </div>
@@ -128,13 +141,13 @@
                             <div class="message-row" data-message-id="{{ msg.id }}">
                                 <div class="message-bubble">
                                     {% if msg.message_type == "photo" and msg.file_path %}
-                                        <div class="message-author">{{ selected_user.email }}</div>
+                                        <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
                                         <a href="/uploads/{{ msg.file_path }}" target="_blank" class="photo-link">
                                             <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
                                         </a>
                                         <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
                                     {% else %}
-                                        <div class="message-author">{{ selected_user.email }}</div>
+                                        <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
                                         <div class="message-text">{{ msg.content }}</div>
                                     {% endif %}
                                     <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
@@ -181,14 +194,61 @@
             </div>
             <div class="modal-body">
                 <div class="tg-settings-panel">
+                    <!-- ПРОФИЛЬ -->
                     <div class="tg-settings-card">
-                        <div class="tg-settings-title">Аккаунт</div>
-                        <div class="tg-settings-row">
-                            <span>Email</span>
-                            <strong>{{ current_user.email }}</strong>
+                        <div class="tg-settings-title">Мой аккаунт</div>
+                        
+                        <!-- Аватар -->
+                        <div class="profile-avatar-section">
+                            <div class="profile-avatar-wrapper">
+                                <div id="profileAvatar" class="profile-avatar">
+                                    {{ current_user.email[0]|upper }}
+                                </div>
+                                <button class="profile-avatar-edit" id="changeAvatarBtn">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                        <circle cx="12" cy="13" r="4"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                            <div id="avatarPreview" style="display: none;"></div>
+                            <button id="deleteAvatarBtn" class="profile-delete-avatar" style="display: none;">🗑️ Удалить фото</button>
                         </div>
+
+                        <!-- Имя -->
+                        <div class="profile-field">
+                            <label class="profile-label">Имя</label>
+                            <input type="text" id="profileFullName" class="profile-input" placeholder="Ваше имя" value="{{ current_user.full_name or '' }}">
+                        </div>
+
+                        <!-- Имя пользователя (с @) -->
+                        <div class="profile-field">
+                            <label class="profile-label">Имя пользователя</label>
+                            <div class="profile-username-wrapper">
+                                <span class="profile-username-at">@</span>
+                                <input type="text" id="profileUsername" class="profile-input" placeholder="username" value="{{ (current_user.username or '')[1:] }}">
+                            </div>
+                            <div class="profile-hint">Только буквы, цифры и подчеркивание</div>
+                        </div>
+
+                        <!-- Почта (только для чтения) -->
+                        <div class="profile-field">
+                            <label class="profile-label">Почта</label>
+                            <input type="email" id="profileEmail" class="profile-input" value="{{ current_user.email }}" readonly disabled style="background: #f3f4f6;">
+                        </div>
+
+                        <!-- Описание профиля -->
+                        <div class="profile-field">
+                            <label class="profile-label">Описание профиля</label>
+                            <textarea id="profileBio" class="profile-textarea" rows="3" placeholder="О себе...">{{ current_user.bio or '' }}</textarea>
+                        </div>
+
+                        <div id="profileSaveStatus" class="profile-save-status"></div>
+                        <button id="saveProfileBtn" class="profile-save-btn">Сохранить изменения</button>
                     </div>
 
+                    <!-- Уведомления -->
                     <div class="tg-settings-card">
                         <div class="tg-settings-title">Уведомления</div>
                         <div class="tg-settings-text" style="margin-bottom: 10px;">
@@ -293,6 +353,7 @@
                 modal.style.display = "flex";
                 document.body.style.overflow = "hidden";
                 updateModalNotificationStatus();
+                loadProfileData();
             }
         }
         
@@ -312,6 +373,166 @@
         if (settingsTrigger) settingsTrigger.addEventListener("click", openModal);
         if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
         
+        // ========== ПРОФИЛЬ ==========
+        let currentAvatarUrl = null;
+        
+        async function loadProfileData() {
+            try {
+                const response = await fetch("/api/profile");
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    document.getElementById("profileFullName").value = data.full_name || "";
+                    document.getElementById("profileUsername").value = (data.username || "").substring(1);
+                    document.getElementById("profileEmail").value = data.email;
+                    document.getElementById("profileBio").value = data.bio || "";
+                    
+                    if (data.avatar) {
+                        currentAvatarUrl = data.avatar;
+                        const avatarDiv = document.getElementById("profileAvatar");
+                        avatarDiv.innerHTML = `<img src="${data.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                        document.getElementById("deleteAvatarBtn").style.display = "block";
+                    } else {
+                        currentAvatarUrl = null;
+                        const avatarDiv = document.getElementById("profileAvatar");
+                        avatarDiv.innerHTML = "{{ current_user.email[0]|upper }}";
+                        document.getElementById("deleteAvatarBtn").style.display = "none";
+                    }
+                    
+                    // Обновляем сайдбар
+                    updateSidebarProfile(data);
+                }
+            } catch (error) {
+                console.error("Ошибка загрузки профиля:", error);
+            }
+        }
+        
+        function updateSidebarProfile(profile) {
+            const sidebarUserName = document.getElementById("sidebarUserName");
+            if (sidebarUserName) {
+                sidebarUserName.textContent = profile.full_name || profile.email;
+            }
+            
+            const sidebarAvatar = document.getElementById("sidebarAvatar");
+            if (sidebarAvatar) {
+                if (profile.avatar) {
+                    sidebarAvatar.innerHTML = `<img src="${profile.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                } else {
+                    sidebarAvatar.innerHTML = profile.email[0].toUpperCase();
+                }
+            }
+        }
+        
+        async function saveProfile() {
+            const fullName = document.getElementById("profileFullName").value.trim();
+            const username = document.getElementById("profileUsername").value.trim();
+            const bio = document.getElementById("profileBio").value.trim();
+            
+            const formData = new FormData();
+            if (fullName) formData.append("full_name", fullName);
+            if (username) formData.append("username", username);
+            if (bio) formData.append("bio", bio);
+            
+            const statusDiv = document.getElementById("profileSaveStatus");
+            statusDiv.textContent = "⏳ Сохранение...";
+            statusDiv.style.color = "#6b7280";
+            
+            try {
+                const response = await fetch("/api/profile", {
+                    method: "PUT",
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.textContent = "✅ Профиль сохранён!";
+                    statusDiv.style.color = "#10b981";
+                    setTimeout(() => { statusDiv.textContent = ""; }, 3000);
+                    
+                    // Обновляем сайдбар
+                    updateSidebarProfile(data);
+                    
+                    // Обновляем имя в шапке чата если есть
+                    if (SELECTED_USER_ID === CURRENT_USER_ID) {
+                        document.querySelector(".chat-user-name").textContent = data.full_name || data.email;
+                    }
+                } else {
+                    const error = await response.json();
+                    statusDiv.textContent = "❌ Ошибка: " + (error.detail || "неизвестная ошибка");
+                    statusDiv.style.color = "#ef4444";
+                }
+            } catch (error) {
+                statusDiv.textContent = "❌ Ошибка сохранения";
+                statusDiv.style.color = "#ef4444";
+            }
+        }
+        
+        async function uploadAvatar(file) {
+            const formData = new FormData();
+            formData.append("avatar", file);
+            
+            const statusDiv = document.getElementById("profileSaveStatus");
+            statusDiv.textContent = "⏳ Загрузка фото...";
+            statusDiv.style.color = "#6b7280";
+            
+            try {
+                const response = await fetch("/api/avatar", {
+                    method: "POST",
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const avatarDiv = document.getElementById("profileAvatar");
+                    avatarDiv.innerHTML = `<img src="${data.avatar_url}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                    document.getElementById("deleteAvatarBtn").style.display = "block";
+                    currentAvatarUrl = data.avatar_url;
+                    statusDiv.textContent = "✅ Фото загружено! Сохраните профиль.";
+                    statusDiv.style.color = "#10b981";
+                    
+                    // Обновляем сайдбар
+                    updateSidebarProfile({ avatar: data.avatar_url, email: "{{ current_user.email }}", full_name: document.getElementById("profileFullName").value });
+                } else {
+                    const error = await response.json();
+                    statusDiv.textContent = "❌ Ошибка: " + (error.detail || "неизвестная ошибка");
+                    statusDiv.style.color = "#ef4444";
+                }
+            } catch (error) {
+                statusDiv.textContent = "❌ Ошибка загрузки";
+                statusDiv.style.color = "#ef4444";
+            }
+        }
+        
+        async function deleteAvatar() {
+            const statusDiv = document.getElementById("profileSaveStatus");
+            statusDiv.textContent = "⏳ Удаление фото...";
+            statusDiv.style.color = "#6b7280";
+            
+            try {
+                const response = await fetch("/api/avatar", {
+                    method: "DELETE"
+                });
+                
+                if (response.ok) {
+                    const avatarDiv = document.getElementById("profileAvatar");
+                    avatarDiv.innerHTML = "{{ current_user.email[0]|upper }}";
+                    document.getElementById("deleteAvatarBtn").style.display = "none";
+                    currentAvatarUrl = null;
+                    statusDiv.textContent = "✅ Фото удалено! Сохраните профиль.";
+                    statusDiv.style.color = "#10b981";
+                    
+                    // Обновляем сайдбар
+                    updateSidebarProfile({ avatar: null, email: "{{ current_user.email }}", full_name: document.getElementById("profileFullName").value });
+                } else {
+                    statusDiv.textContent = "❌ Ошибка удаления";
+                    statusDiv.style.color = "#ef4444";
+                }
+            } catch (error) {
+                statusDiv.textContent = "❌ Ошибка удаления";
+                statusDiv.style.color = "#ef4444";
+            }
+        }
+        
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function scrollToBottom() {
             if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
@@ -323,7 +544,6 @@
             const now = new Date();
             const last = new Date(lastActivity);
             
-            // Вычисляем разницу в миллисекундах (работает с UTC автоматически)
             const diffMs = now.getTime() - last.getTime();
             const diffSec = Math.floor(diffMs / 1000);
             
@@ -636,13 +856,6 @@
         socket.onmessage = function(event) {
             const data = JSON.parse(event.data);
             
-            // Логируем presence данные полностью для отладки
-            if (data.type === "presence") {
-                console.log("📨 PRESENCE DATA:", JSON.stringify(data, null, 2));
-            } else {
-                console.log("📨 Received:", data);
-            }
-            
             if (data.type === "presence") {
                 updateUserStatuses(data.user_status || {});
                 return;
@@ -855,6 +1068,29 @@
         if (notifBtnModal) notifBtnModal.addEventListener("click", enableNotifications);
         if (pushBtnModal) pushBtnModal.addEventListener("click", subscribeToPush);
         
+        // Профиль кнопки
+        const saveProfileBtn = document.getElementById("saveProfileBtn");
+        const changeAvatarBtn = document.getElementById("changeAvatarBtn");
+        const avatarInput = document.getElementById("avatarInput");
+        const deleteAvatarBtn = document.getElementById("deleteAvatarBtn");
+        
+        if (saveProfileBtn) saveProfileBtn.addEventListener("click", saveProfile);
+        if (changeAvatarBtn) {
+            changeAvatarBtn.addEventListener("click", () => {
+                avatarInput.click();
+            });
+        }
+        if (avatarInput) {
+            avatarInput.addEventListener("change", (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    uploadAvatar(e.target.files[0]);
+                }
+            });
+        }
+        if (deleteAvatarBtn) {
+            deleteAvatarBtn.addEventListener("click", deleteAvatar);
+        }
+        
         if (messageInput) {
             messageInput.addEventListener("keydown", (e) => {
                 if (e.key === "Enter") {
@@ -875,8 +1111,9 @@
             dialogSearch.addEventListener("input", function() {
                 const val = this.value.trim().toLowerCase();
                 document.querySelectorAll(".tg-dialog-item").forEach(item => {
-                    const email = (item.dataset.userEmail || "").toLowerCase();
-                    item.style.display = email.includes(val) ? "" : "none";
+                    const name = (item.dataset.userName || item.dataset.userEmail || "").toLowerCase();
+                    const username = (item.dataset.userUsername || "").toLowerCase();
+                    item.style.display = (name.includes(val) || username.includes(val)) ? "" : "none";
                 });
             });
         }
@@ -888,10 +1125,9 @@
         const panelSettings = document.getElementById("panelSettings");
         const searchWrap = document.getElementById("searchWrap");
         
-        // Добавляем обработчик для кнопки "Настройки" в нижней навигации
         if (tabSettingsBtn) {
             tabSettingsBtn.addEventListener("click", function() {
-                openModal();  // открываем модальное окно настроек
+                openModal();
             });
         }
         
