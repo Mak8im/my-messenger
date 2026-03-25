@@ -92,23 +92,25 @@ def format_message_time(dt):
 
 
 def format_last_seen(last_activity):
-    """Форматирует время последней активности (всегда в UTC)"""
+    """Форматирует время последней активности - просто считаем разницу в секундах"""
     if not last_activity:
         return "Не в сети"
     
     # Если last_activity это строка, конвертируем в datetime
     if isinstance(last_activity, str):
         try:
-            last_activity = datetime.fromisoformat(last_activity)
+            last_activity = datetime.fromisoformat(last_activity.replace('Z', '+00:00'))
         except:
             return "Не в сети"
     
-    # Убеждаемся что last_activity в UTC
+    # Получаем текущее время в UTC
+    now = datetime.now(timezone.utc)
+    
+    # Если last_activity без часового пояса, добавляем UTC
     if last_activity.tzinfo is None:
-        # Если нет часового пояса, считаем что это UTC
         last_activity = last_activity.replace(tzinfo=timezone.utc)
     
-    now = datetime.now(timezone.utc)
+    # Считаем разницу в секундах
     diff = now - last_activity
     seconds = diff.total_seconds()
     
