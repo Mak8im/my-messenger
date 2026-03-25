@@ -10,6 +10,12 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
     last_activity = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=True)
+    
+    # Новые поля для профиля
+    full_name = Column(String, nullable=True, default="")
+    username = Column(String, unique=True, nullable=True, index=True)
+    bio = Column(Text, nullable=True, default="")
+    avatar = Column(String, nullable=True)
 
 
 class Message(Base):
