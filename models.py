@@ -9,7 +9,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
-    last_activity = Column(DateTime, default=datetime.utcnow, nullable=True)
+    # Важно: timezone=True, чтобы SQLAlchemy хранил время с часовым поясом
+    last_activity = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=True)
 
 
 class Message(Base):
@@ -25,7 +26,7 @@ class Message(Base):
     file_name = Column(String, nullable=True)
     file_path = Column(String, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
 
 
