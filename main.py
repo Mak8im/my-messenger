@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
 import uuid
@@ -92,6 +92,7 @@ def format_message_time(dt):
 
 
 def format_last_seen(last_activity):
+    """Форматирует время последней активности (всегда в UTC)"""
     if not last_activity:
         return "Не в сети"
     
@@ -102,7 +103,12 @@ def format_last_seen(last_activity):
         except:
             return "Не в сети"
     
-    now = datetime.utcnow()
+    # Убеждаемся что last_activity в UTC
+    if last_activity.tzinfo is None:
+        # Если нет часового пояса, считаем что это UTC
+        last_activity = last_activity.replace(tzinfo=timezone.utc)
+    
+    now = datetime.now(timezone.utc)
     diff = now - last_activity
     seconds = diff.total_seconds()
     
@@ -183,7 +189,6 @@ def build_dialogs_for_user(current_user: User, db: Session, online_users: set):
         
         is_online = user.id in online_users
         
-        # ВАЖНО: Берём last_activity из БД, а не из памяти
         if is_online:
             status_text = "В сети"
         else:
@@ -279,10 +284,9 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[user_id].append(websocket)
         
-        # Обновляем last_activity в БД при подключении
         user = db.query(User).filter(User.id == user_id).first()
         if user:
-            user.last_activity = datetime.utcnow()
+            user.last_activity = datetime.now(timezone.utc)
             db.commit()
         
         was_offline = user_id not in self.online_users
@@ -300,22 +304,18 @@ class ConnectionManager:
                 del self.active_connections[user_id]
                 if user_id in self.online_users:
                     self.online_users.remove(user_id)
-                    # Обновляем last_activity в БД на момент выхода
                     user = db.query(User).filter(User.id == user_id).first()
                     if user:
-                        user.last_activity = datetime.utcnow()
+                        user.last_activity = datetime.now(timezone.utc)
                         db.commit()
-                        print(f"User {user_id} disconnected, last_activity updated to {user.last_activity}")  # Отладка
                     await self.broadcast_presence(db)
 
     async def update_activity(self, user_id: int, db: Session):
-        # Обновляем last_activity в БД при любом действии
         user = db.query(User).filter(User.id == user_id).first()
         if user:
-            user.last_activity = datetime.utcnow()
+            user.last_activity = datetime.now(timezone.utc)
             db.commit()
         
-        # Если пользователь был оффлайн, добавляем в онлайн
         if user_id not in self.online_users:
             self.online_users.add(user_id)
             await self.broadcast_presence(db)
@@ -355,7 +355,6 @@ class ConnectionManager:
                     del self.active_connections[uid]
 
     async def broadcast_presence(self, db: Session):
-        """Отправляем всем пользователям актуальные статусы из БД"""
         all_users = db.query(User).all()
         status_data = {}
         for user in all_users:
@@ -370,16 +369,13 @@ class ConnectionManager:
         })
     
     async def force_logout_user(self, user_id: int, db: Session):
-        """Принудительно выводит пользователя и обновляет статус в БД"""
         if user_id in self.online_users:
             self.online_users.remove(user_id)
         
-        # Обновляем last_activity в БД на момент выхода
         user = db.query(User).filter(User.id == user_id).first()
         if user:
-            user.last_activity = datetime.utcnow()
+            user.last_activity = datetime.now(timezone.utc)
             db.commit()
-            print(f"User {user_id} force logout, last_activity updated to {user.last_activity}")  # Отладка
         
         await self.broadcast_presence(db)
         
@@ -459,10 +455,8 @@ async def login_user(
             context={"error": "Неверный email или пароль"}
         )
 
-    # Обновляем last_activity при входе
-    user.last_activity = datetime.utcnow()
+    user.last_activity = datetime.now(timezone.utc)
     db.commit()
-    print(f"User {user.id} logged in, last_activity updated to {user.last_activity}")  # Отладка
 
     response = RedirectResponse(url="/chat", status_code=303)
     
@@ -493,20 +487,16 @@ async def chat_page(
     if not current_user:
         return RedirectResponse(url="/", status_code=303)
 
-    # ВАЖНО: Принудительно обновляем current_user из БД
     db.refresh(current_user)
     
-    # ОБНОВЛЯЕМ last_activity ПРИ КАЖДОМ ЗАХОДЕ В ЧАТ
-    current_user.last_activity = datetime.utcnow()
+    current_user.last_activity = datetime.now(timezone.utc)
     db.commit()
-    print(f"User {current_user.id} loaded chat page, last_activity updated to {current_user.last_activity}")  # Отладка
 
     messages = []
     selected_user = None
 
     if selected_user_id:
         selected_user = db.query(User).filter(User.id == selected_user_id).first()
-        # Принудительно обновляем selected_user из БД
         if selected_user:
             db.refresh(selected_user)
 
@@ -541,7 +531,6 @@ async def chat_page(
 
     dialogs = build_dialogs_for_user(current_user, db, manager.online_users)
     
-    # Статус выбранного пользователя - БЕРЁМ ИЗ БД
     selected_user_status = "Не в сети"
     if selected_user:
         if selected_user.id in manager.online_users:
@@ -628,7 +617,7 @@ async def send_photo(
         content="",
         file_name=photo.filename or "image",
         file_path=safe_name,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         is_read=False
     )
     db.add(new_message)
@@ -737,7 +726,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
         
         typing_timeout = {}
         
-        # Отправляем текущие статусы новому пользователю
         all_users = db.query(User).all()
         status_data = {}
         for user in all_users:
@@ -831,7 +819,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                         receiver_id=receiver_id,
                         message_type="text",
                         content=content,
-                        created_at=datetime.utcnow(),
+                        created_at=datetime.now(timezone.utc),
                         is_read=False
                     )
                     db.add(new_message)
@@ -921,7 +909,7 @@ async def download_backup(
     if not db_path.exists():
         raise HTTPException(status_code=404, detail="Файл базы данных не найден")
     
-    backup_name = f"messenger_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    backup_name = f"messenger_backup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.db"
     
     return FileResponse(
         path=db_path,
@@ -948,7 +936,7 @@ async def restore_backup(
     db_path = BASE_DIR / "messenger.db"
     
     if db_path.exists():
-        backup_path = BASE_DIR / f"messenger_backup_auto_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        backup_path = BASE_DIR / f"messenger_backup_auto_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.db"
         shutil.copy(db_path, backup_path)
     
     try:
