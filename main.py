@@ -96,14 +96,12 @@ def format_last_seen(last_activity):
     if not last_activity:
         return "Не в сети"
 
-    # Если last_activity это строка, конвертируем в datetime
     if isinstance(last_activity, str):
         try:
             last_activity = datetime.fromisoformat(last_activity.replace('Z', '+00:00'))
         except:
             return "Не в сети"
 
-    # Убеждаемся, что last_activity имеет часовой пояс UTC
     if last_activity.tzinfo is None:
         last_activity = last_activity.replace(tzinfo=timezone.utc)
 
@@ -129,7 +127,10 @@ def format_last_seen(last_activity):
 def get_current_user(user_id: str | None, db: Session):
     if not user_id:
         return None
-    return db.query(User).filter(User.id == int(user_id)).first()
+    try:
+        return db.query(User).filter(User.id == int(user_id)).first()
+    except:
+        return None
 
 
 def get_unread_count(current_user_id: int, other_user_id: int, db: Session) -> int:
@@ -354,14 +355,11 @@ class ConnectionManager:
                     del self.active_connections[uid]
 
     async def broadcast_presence(self, db: Session):
-        """Отправляем всем пользователям актуальные статусы из БД"""
         all_users = db.query(User).all()
         status_data = {}
         for user in all_users:
-            # Форматируем дату с Z на конце для правильного парсинга на клиенте
             if user.last_activity:
                 last_activity_str = user.last_activity.isoformat()
-                # Добавляем Z если нет часового пояса в строке
                 if not last_activity_str.endswith('Z') and '+' not in last_activity_str:
                     last_activity_str += 'Z'
             else:
@@ -469,23 +467,30 @@ async def login_user(
 
     response = RedirectResponse(url="/chat", status_code=303)
     
-    # Кука будет жить:
-    # - 30 дней если remember_me = True
-    # - 7 дней если remember_me = False (всё равно запоминаем, но меньше)
+    # Оптимальные параметры для куки
     if remember_me:
+        # 30 дней
         response.set_cookie(
             key="user_id",
             value=str(user.id),
             httponly=True,
-            max_age=30 * 24 * 60 * 60  # 30 дней
+            max_age=30 * 24 * 60 * 60,
+            secure=False,  # Для HTTPS поставь True
+            samesite="lax",
+            path="/"
         )
     else:
+        # 7 дней (всё равно запоминаем, чтобы не вылетало)
         response.set_cookie(
             key="user_id",
             value=str(user.id),
             httponly=True,
-            max_age=7 * 24 * 60 * 60  # 7 дней (всё равно запоминаем)
+            max_age=7 * 24 * 60 * 60,
+            secure=False,
+            samesite="lax",
+            path="/"
         )
+    
     return response
 
 
@@ -727,7 +732,7 @@ async def logout(
         await manager.force_logout_user(uid, db)
     
     response = RedirectResponse(url="/", status_code=303)
-    response.delete_cookie("user_id")
+    response.delete_cookie("user_id", path="/")
     return response
 
 
@@ -742,7 +747,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
         all_users = db.query(User).all()
         status_data = {}
         for user in all_users:
-            # Форматируем дату с Z на конце
             if user.last_activity:
                 last_activity_str = user.last_activity.isoformat()
                 if not last_activity_str.endswith('Z') and '+' not in last_activity_str:
