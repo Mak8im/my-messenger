@@ -92,11 +92,9 @@ def format_message_time(dt):
 
 
 def format_last_seen(last_activity):
-    """Форматирует время последней активности"""
     if not last_activity:
         return "Не в сети"
     
-    now = datetime.utcnow()
     # Если last_activity это строка, конвертируем в datetime
     if isinstance(last_activity, str):
         try:
@@ -104,6 +102,7 @@ def format_last_seen(last_activity):
         except:
             return "Не в сети"
     
+    now = datetime.utcnow()
     diff = now - last_activity
     seconds = diff.total_seconds()
     
@@ -306,6 +305,7 @@ class ConnectionManager:
                     if user:
                         user.last_activity = datetime.utcnow()
                         db.commit()
+                        print(f"User {user_id} disconnected, last_activity updated to {user.last_activity}")  # Отладка
                     await self.broadcast_presence(db)
 
     async def update_activity(self, user_id: int, db: Session):
@@ -379,6 +379,7 @@ class ConnectionManager:
         if user:
             user.last_activity = datetime.utcnow()
             db.commit()
+            print(f"User {user_id} force logout, last_activity updated to {user.last_activity}")  # Отладка
         
         await self.broadcast_presence(db)
         
@@ -461,6 +462,7 @@ async def login_user(
     # Обновляем last_activity при входе
     user.last_activity = datetime.utcnow()
     db.commit()
+    print(f"User {user.id} logged in, last_activity updated to {user.last_activity}")  # Отладка
 
     response = RedirectResponse(url="/chat", status_code=303)
     
@@ -491,15 +493,22 @@ async def chat_page(
     if not current_user:
         return RedirectResponse(url="/", status_code=303)
 
+    # ВАЖНО: Принудительно обновляем current_user из БД
+    db.refresh(current_user)
+    
     # ОБНОВЛЯЕМ last_activity ПРИ КАЖДОМ ЗАХОДЕ В ЧАТ
     current_user.last_activity = datetime.utcnow()
     db.commit()
+    print(f"User {current_user.id} loaded chat page, last_activity updated to {current_user.last_activity}")  # Отладка
 
     messages = []
     selected_user = None
 
     if selected_user_id:
         selected_user = db.query(User).filter(User.id == selected_user_id).first()
+        # Принудительно обновляем selected_user из БД
+        if selected_user:
+            db.refresh(selected_user)
 
         if selected_user:
             unread_messages = (
