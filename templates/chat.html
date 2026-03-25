@@ -256,6 +256,7 @@
     {% endif %}
 
     <script>
+        // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
         const CURRENT_USER_ID = {{ current_user.id }};
         const SELECTED_USER_ID = {% if selected_user %}{{ selected_user.id }}{% else %}null{% endif %};
         const SELECTED_USER_EMAIL = {% if selected_user %}"{{ selected_user.email }}"{% else %}""{% endif %};
@@ -269,9 +270,11 @@
         
         let userStatuses = {};
         
+        // ========== WEBSOCKET ==========
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const socket = new WebSocket(`${protocol}://${window.location.host}/ws/${CURRENT_USER_ID}`);
         
+        // DOM элементы
         const messagesBox = document.getElementById("messagesBox");
         const messageInput = document.getElementById("messageInput");
         const photoInput = document.getElementById("photoInput");
@@ -280,6 +283,7 @@
         const selectedUserStatus = document.getElementById("selectedUserStatus");
         const selectedUserOnlineDot = document.getElementById("selectedUserOnlineDot");
         
+        // ========== МОДАЛЬНОЕ ОКНО ==========
         const modal = document.getElementById("settingsModal");
         const settingsTrigger = document.getElementById("settingsTrigger");
         const closeModalBtn = document.getElementById("closeModalBtn");
@@ -308,16 +312,20 @@
         if (settingsTrigger) settingsTrigger.addEventListener("click", openModal);
         if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
         
+        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
         function scrollToBottom() {
             if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
         }
         
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ ФОРМАТИРОВАНИЯ ВРЕМЕНИ - БЕЗ СДВИГА ЧАСОВОГО ПОЯСА
         function formatLastSeen(lastActivity) {
             if (!lastActivity) return "Не в сети";
             
             const now = new Date();
             const last = new Date(lastActivity);
-            const diffMs = now - last;
+            
+            // Вычисляем разницу в миллисекундах (работает с UTC автоматически)
+            const diffMs = now.getTime() - last.getTime();
             const diffSec = Math.floor(diffMs / 1000);
             
             if (diffSec < 60) return "был(а) только что";
@@ -334,6 +342,7 @@
             return `был(а) ${days} дн назад`;
         }
         
+        // ========== ОБНОВЛЕНИЕ СТАТУСОВ ==========
         function updateUserStatuses(statusData) {
             userStatuses = statusData;
             
@@ -383,6 +392,7 @@
             }
         }
         
+        // ========== УВЕДОМЛЕНИЯ ==========
         const notificationSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
         notificationSound.load();
         
@@ -478,6 +488,7 @@
             }
         }
         
+        // ========== "ПЕЧАТАЕТ..." ==========
         function sendTypingStatus(isTyping) {
             if (!SELECTED_USER_ID) return;
             if (isTyping === isCurrentlyTyping) return;
@@ -519,6 +530,7 @@
             });
         }
         
+        // ========== ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ==========
         function updateUnreadBadge(userId, count) {
             const badge = document.querySelector(`[data-badge-for="${userId}"]`);
             if (!badge) return;
@@ -588,6 +600,7 @@
             scrollToBottom();
         }
         
+        // ========== ОТПРАВКА СООБЩЕНИЙ ==========
         function sendMessage() {
             if (!messageInput) return;
             const content = messageInput.value.trim();
@@ -607,6 +620,7 @@
             messageInput.value = "";
         }
         
+        // ========== WEBSOCKET ОБРАБОТЧИКИ ==========
         socket.onopen = function() {
             console.log("✅ WebSocket connected");
             if (SELECTED_USER_ID !== null) {
@@ -681,6 +695,7 @@
             }
         };
         
+        // ========== PUSH (БЕТА) ==========
         function urlBase64ToUint8Array(base64String) {
             const padding = "=".repeat((4 - base64String.length % 4) % 4);
             const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -760,6 +775,7 @@
             return await registration.pushManager.getSubscription();
         }
         
+        // ========== BACKUP ФУНКЦИИ ==========
         if (CAN_BACKUP) {
             const downloadBackupBtn = document.getElementById("downloadBackupBtn");
             const backupFileInput = document.getElementById("backupFileInput");
@@ -808,6 +824,7 @@
             }
         }
         
+        // ========== ИНИЦИАЛИЗАЦИЯ ==========
         window.addEventListener("load", async () => {
             await registerServiceWorker();
             await initPushStatus();
