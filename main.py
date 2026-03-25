@@ -469,18 +469,22 @@ async def login_user(
 
     response = RedirectResponse(url="/chat", status_code=303)
     
+    # Кука будет жить:
+    # - 30 дней если remember_me = True
+    # - 7 дней если remember_me = False (всё равно запоминаем, но меньше)
     if remember_me:
         response.set_cookie(
             key="user_id",
             value=str(user.id),
             httponly=True,
-            max_age=30 * 24 * 60 * 60
+            max_age=30 * 24 * 60 * 60  # 30 дней
         )
     else:
         response.set_cookie(
             key="user_id",
             value=str(user.id),
-            httponly=True
+            httponly=True,
+            max_age=7 * 24 * 60 * 60  # 7 дней (всё равно запоминаем)
         )
     return response
 
