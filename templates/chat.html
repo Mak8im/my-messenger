@@ -881,11 +881,19 @@
             });
         }
         
+        // === МОБИЛЬНАЯ НАВИГАЦИЯ ===
         const tabChatsBtn = document.getElementById("tabChatsBtn");
         const tabSettingsBtn = document.getElementById("tabSettingsBtn");
         const panelChats = document.getElementById("panelChats");
         const panelSettings = document.getElementById("panelSettings");
         const searchWrap = document.getElementById("searchWrap");
+        
+        // Добавляем обработчик для кнопки "Настройки" в нижней навигации
+        if (tabSettingsBtn) {
+            tabSettingsBtn.addEventListener("click", function() {
+                openModal();  // открываем модальное окно настроек
+            });
+        }
         
         if (tabChatsBtn && tabSettingsBtn && panelChats && panelSettings) {
             tabChatsBtn.addEventListener("click", () => {
