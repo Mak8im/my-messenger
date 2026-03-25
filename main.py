@@ -5,6 +5,8 @@ import json
 import uuid
 import asyncio
 import shutil
+import re
+from typing import Optional
 
 from fastapi import (
     FastAPI,
@@ -38,10 +40,15 @@ Base.metadata.create_all(bind=engine)
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 UPLOADS_DIR = BASE_DIR / "uploads"
+AVATARS_DIR = BASE_DIR / "avatars"
+
 UPLOADS_DIR.mkdir(exist_ok=True)
+AVATARS_DIR.mkdir(exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
+
 templates = Jinja2Templates(directory="templates")
 
 VAPID_PUBLIC_KEY = "BNwWM6Ck0sZ828Jq5mb56yFN4bS8mzj3eCA3sA1bxUYl7ysSZdCRSWZvrT7V9p7m9DBBX2WwHOkBemAJfo0Ya8M"
@@ -194,6 +201,10 @@ def build_dialogs_for_user(current_user: User, db: Session, online_users: set):
         else:
             status_text = format_last_seen(user.last_activity)
         
+        display_name = user.full_name if user.full_name else user.email
+        if user.username:
+            display_name = f"{display_name} ({user.username})"
+        
         dialogs.append({
             "user": user,
             "last_message": preview,
@@ -201,7 +212,9 @@ def build_dialogs_for_user(current_user: User, db: Session, online_users: set):
             "last_message_id": last_message_id,
             "unread_count": unread_count,
             "is_online": is_online,
-            "status_text": status_text
+            "status_text": status_text,
+            "display_name": display_name,
+            "avatar_url": f"/avatars/{user.avatar}" if user.avatar else None
         })
 
     dialogs.sort(key=lambda x: x["last_message_id"], reverse=True)
@@ -398,21 +411,17 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-# ========== ИСПРАВЛЕННЫЙ РОУТ / ==========
 @app.get("/", response_class=HTMLResponse)
 async def home(
     request: Request,
     user_id: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    # Проверяем, есть ли кука и валидный ли пользователь
     if user_id:
         user = get_current_user(user_id, db)
         if user:
-            # Если пользователь авторизован, перенаправляем на чат
             return RedirectResponse(url="/chat", status_code=303)
     
-    # Если не авторизован, показываем страницу логина
     return templates.TemplateResponse(
         request=request,
         name="login.html",
@@ -581,6 +590,154 @@ async def chat_page(
         }
     )
 
+
+# ========== ПРОФИЛЬ API ==========
+
+@app.get("/api/profile")
+async def get_profile(
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name or "",
+        "username": current_user.username or "",
+        "bio": current_user.bio or "",
+        "avatar": f"/avatars/{current_user.avatar}" if current_user.avatar else None
+    }
+
+
+@app.put("/api/profile")
+async def update_profile(
+    full_name: Optional[str] = Form(None),
+    username: Optional[str] = Form(None),
+    bio: Optional[str] = Form(None),
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    if full_name is not None:
+        current_user.full_name = full_name.strip()
+    
+    if bio is not None:
+        current_user.bio = bio.strip()
+    
+    if username is not None:
+        username = username.strip()
+        if username and not username.startswith("@"):
+            username = "@" + username
+        
+        if username:
+            clean_username = username[1:]
+            if not re.match(r'^[a-zA-Z0-9_]+$', clean_username):
+                raise HTTPException(status_code=400, detail="Имя пользователя может содержать только буквы, цифры и подчеркивание")
+            
+            existing = db.query(User).filter(User.username == username, User.id != current_user.id).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Имя пользователя уже занято")
+        
+        current_user.username = username if username else None
+    
+    db.commit()
+    
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name or "",
+        "username": current_user.username or "",
+        "bio": current_user.bio or "",
+        "avatar": f"/avatars/{current_user.avatar}" if current_user.avatar else None
+    }
+
+
+@app.post("/api/avatar")
+async def upload_avatar(
+    avatar: UploadFile = File(...),
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    if not avatar.content_type or not avatar.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Файл должен быть изображением")
+    
+    if current_user.avatar:
+        old_path = AVATARS_DIR / current_user.avatar
+        if old_path.exists():
+            old_path.unlink()
+    
+    extension = Path(avatar.filename or "avatar.jpg").suffix
+    safe_name = f"avatar_{current_user.id}_{uuid.uuid4().hex}{extension}"
+    save_path = AVATARS_DIR / safe_name
+    
+    with save_path.open("wb") as buffer:
+        content = await avatar.read()
+        buffer.write(content)
+    
+    current_user.avatar = safe_name
+    db.commit()
+    
+    return {"avatar_url": f"/avatars/{safe_name}"}
+
+
+@app.delete("/api/avatar")
+async def delete_avatar(
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    if current_user.avatar:
+        avatar_path = AVATARS_DIR / current_user.avatar
+        if avatar_path.exists():
+            avatar_path.unlink()
+        current_user.avatar = None
+        db.commit()
+    
+    return {"status": "ok"}
+
+
+@app.get("/api/user/{user_id_or_username}")
+async def get_user_info(
+    user_id_or_username: str,
+    db: Session = Depends(get_db)
+):
+    user = None
+    if user_id_or_username.isdigit():
+        user = db.query(User).filter(User.id == int(user_id_or_username)).first()
+    
+    if not user:
+        username = user_id_or_username
+        if not username.startswith("@"):
+            username = "@" + username
+        user = db.query(User).filter(User.username == username).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name or "",
+        "username": user.username or "",
+        "bio": user.bio or "",
+        "avatar": f"/avatars/{user.avatar}" if user.avatar else None
+    }
+
+
+# ========== ДРУГИЕ РОУТЫ ==========
 
 @app.post("/subscribe")
 async def subscribe(
