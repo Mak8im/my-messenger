@@ -19,7 +19,7 @@ class Message(Base):
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     receiver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    message_type = Column(String, default="text", nullable=False)  # text / photo
+    message_type = Column(String, default="text", nullable=False)
     content = Column(Text, nullable=True)
 
     file_name = Column(String, nullable=True)
