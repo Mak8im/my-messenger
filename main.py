@@ -398,8 +398,21 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+# ========== ИСПРАВЛЕННЫЙ РОУТ / ==========
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
+async def home(
+    request: Request,
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    # Проверяем, есть ли кука и валидный ли пользователь
+    if user_id:
+        user = get_current_user(user_id, db)
+        if user:
+            # Если пользователь авторизован, перенаправляем на чат
+            return RedirectResponse(url="/chat", status_code=303)
+    
+    # Если не авторизован, показываем страницу логина
     return templates.TemplateResponse(
         request=request,
         name="login.html",
@@ -467,13 +480,11 @@ async def login_user(
 
     response = RedirectResponse(url="/chat", status_code=303)
     
-    # Устанавливаем куку с правильными параметрами
     if remember_me:
-        max_age = 30 * 24 * 60 * 60  # 30 дней
+        max_age = 30 * 24 * 60 * 60
     else:
-        max_age = 7 * 24 * 60 * 60  # 7 дней
+        max_age = 7 * 24 * 60 * 60
     
-    # Вычисляем expires для старых браузеров
     expires = datetime.now(timezone.utc) + timedelta(seconds=max_age)
     
     response.set_cookie(
@@ -482,7 +493,7 @@ async def login_user(
         httponly=True,
         max_age=max_age,
         expires=expires,
-        secure=True,  # Важно: на Railway (HTTPS) должно быть True
+        secure=True,
         samesite="lax",
         path="/"
     )
