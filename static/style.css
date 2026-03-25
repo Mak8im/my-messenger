@@ -1314,3 +1314,211 @@ body:not(.auth-page) {
     margin-top: 2px;
     line-height: 1.3;
 }
+
+/* ========== ПРОФИЛЬ В НАСТРОЙКАХ ========== */
+
+.profile-avatar-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 24px;
+    position: relative;
+}
+
+.profile-avatar-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.profile-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3390ec, #2563eb);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: bold;
+    overflow: hidden;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-avatar-edit {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #3390ec;
+    border: 3px solid white;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.profile-avatar-edit:hover {
+    transform: scale(1.05);
+    background: #2563eb;
+}
+
+.profile-delete-avatar {
+    margin-top: 12px;
+    background: none;
+    border: none;
+    color: #ef4444;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.profile-delete-avatar:hover {
+    background: #fee2e2;
+}
+
+.profile-field {
+    margin-bottom: 20px;
+}
+
+.profile-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.profile-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    background: #ffffff;
+}
+
+.profile-input:focus {
+    outline: none;
+    border-color: #3390ec;
+    box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.1);
+}
+
+.profile-username-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.profile-username-at {
+    font-size: 16px;
+    font-weight: 500;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.profile-username-wrapper .profile-input {
+    flex: 1;
+}
+
+.profile-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+}
+
+.profile-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s ease;
+}
+
+.profile-textarea:focus {
+    outline: none;
+    border-color: #3390ec;
+    box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.1);
+}
+
+.profile-save-status {
+    font-size: 13px;
+    margin: 12px 0;
+    text-align: center;
+}
+
+.profile-save-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #3390ec, #2563eb);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+}
+
+.profile-save-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(51, 144, 236, 0.3);
+}
+
+.profile-save-btn:active {
+    transform: scale(0.98);
+}
+
+/* ========== АВАТАРЫ В ДИАЛОГАХ ========== */
+
+.user-avatar,
+.tg-dialog-avatar,
+.chat-user-avatar {
+    overflow: hidden;
+}
+
+.user-avatar img,
+.tg-dialog-avatar img,
+.chat-user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.tg-current-user .avatar {
+    overflow: hidden;
+}
+
+.tg-current-user .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ========== ИМЯ ПОЛЬЗОВАТЕЛЯ В ШАПКЕ ЧАТА ========== */
+
+.chat-user-username {
+    font-size: 12px;
+    color: #7a7f85;
+    margin-top: 2px;
+}
