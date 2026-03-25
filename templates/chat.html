@@ -317,14 +317,13 @@
             if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
         }
         
-        // ИСПРАВЛЕННАЯ ФУНКЦИЯ - просто считаем разницу в миллисекундах
         function formatLastSeen(lastActivity) {
             if (!lastActivity) return "Не в сети";
             
             const now = new Date();
             const last = new Date(lastActivity);
             
-            // Разница в миллисекундах (работает с UTC автоматически)
+            // Вычисляем разницу в миллисекундах (работает с UTC автоматически)
             const diffMs = now.getTime() - last.getTime();
             const diffSec = Math.floor(diffMs / 1000);
             
@@ -636,7 +635,13 @@
         
         socket.onmessage = function(event) {
             const data = JSON.parse(event.data);
-            console.log("📨 Received:", data);
+            
+            // Логируем presence данные полностью для отладки
+            if (data.type === "presence") {
+                console.log("📨 PRESENCE DATA:", JSON.stringify(data, null, 2));
+            } else {
+                console.log("📨 Received:", data);
+            }
             
             if (data.type === "presence") {
                 updateUserStatuses(data.user_status || {});
