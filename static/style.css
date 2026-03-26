@@ -6,7 +6,7 @@ html, body {
     margin: 0;
     padding: 0;
     height: 100%;
-    font-family: Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* AUTH */
@@ -246,19 +246,29 @@ body:not(.auth-page) {
     min-width: 0;
 }
 
+/* AVATARS */
 .avatar,
 .user-avatar,
 .chat-user-avatar {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: #3390ec;
+    background: linear-gradient(135deg, #3390ec, #2563eb);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
     flex-shrink: 0;
+    overflow: hidden;
+}
+
+.avatar img,
+.user-avatar img,
+.chat-user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .user-avatar-wrap,
@@ -278,10 +288,14 @@ body:not(.auth-page) {
     border-radius: 50%;
 }
 
+/* MESSAGES */
 .messages-box {
     flex: 1;
     overflow-y: auto;
     padding: 18px;
+    background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.6), rgba(255,255,255,0) 30%),
+        #e7ebf0;
 }
 
 .message-row {
@@ -328,11 +342,12 @@ body:not(.auth-page) {
     margin-top: 4px;
 }
 
+/* MESSAGE FORM */
 .message-form {
     display: flex;
     gap: 8px;
     padding: 10px 12px;
-    background: #f7f7f7;
+    background: #eef1f4;
     border-top: 1px solid #e8e8e8;
 }
 
@@ -428,8 +443,7 @@ body:not(.auth-page) {
     line-height: 1.5;
 }
 
-/* TELEGRAM STYLE */
-
+/* TELEGRAM STYLE SIDEBAR */
 .telegram-app {
     background: #ffffff;
 }
@@ -513,6 +527,7 @@ body:not(.auth-page) {
 .tg-dialogs-list {
     padding: 0;
     background: #ffffff;
+    overflow-y: auto;
 }
 
 .tg-dialog-item {
@@ -541,7 +556,6 @@ body:not(.auth-page) {
     width: 52px;
     height: 52px;
     font-size: 18px;
-    background: #3390ec;
 }
 
 .tg-dialog-main {
@@ -606,6 +620,13 @@ body:not(.auth-page) {
     display: none;
 }
 
+.tg-dialog-status {
+    font-size: 11px;
+    color: #7a7f85;
+    margin-top: 2px;
+}
+
+/* CHAT HEADER */
 .tg-chat-header {
     background: #ffffff;
     border-bottom: 1px solid #ececec;
@@ -646,84 +667,31 @@ body:not(.auth-page) {
     word-break: break-all;
 }
 
+.chat-user-username {
+    font-size: 12px;
+    color: #7a7f85;
+    margin-top: 2px;
+}
+
 .chat-user-status {
     font-size: 12px;
     color: #7a7f85;
     margin-top: 2px;
 }
 
-.tg-messages-box {
-    background:
-        radial-gradient(circle at top left, rgba(255,255,255,0.6), rgba(255,255,255,0) 30%),
-        #e7ebf0;
-}
-
-.tg-message-form {
-    background: #eef1f4;
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-}
-
-.tg-message-input {
-    background: #fff;
-}
-
-.tg-send-btn {
-    background: #3390ec;
-}
-
-.tg-settings-panel {
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    overflow-y: auto;
-}
-
-.tg-settings-card {
-    background: #ffffff;
-    border: 1px solid #e8ebef;
-    border-radius: 16px;
-    padding: 14px;
-}
-
-.tg-settings-title {
-    font-size: 15px;
-    font-weight: bold;
-    margin-bottom: 10px;
-    color: #111827;
-}
-
-.tg-settings-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 14px;
-    color: #374151;
-    flex-wrap: wrap;
-}
-
-.tg-settings-text {
-    font-size: 14px;
-    line-height: 1.5;
+.chat-user-typing {
+    font-size: 12px;
     color: #6b7280;
+    margin-top: 2px;
+    animation: pulse 1.2s ease-in-out infinite;
 }
 
-.tg-settings-logout {
-    display: block;
-    text-align: center;
-    text-decoration: none;
-    background: #ef4444;
-    color: white;
-    padding: 14px;
-    border-radius: 14px;
-    font-weight: bold;
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
 }
 
-.tg-mobile-bottom-nav {
-    display: none;
-}
-
-/* Кнопка настроек в левом нижнем углу */
+/* SETTINGS BUTTON */
 .tg-settings-trigger {
     position: absolute;
     bottom: 20px;
@@ -755,270 +723,7 @@ body:not(.auth-page) {
     transform: scale(0.98);
 }
 
-/* На ПК кнопка настроек видна, на телефоне скрыта (там есть нижняя навигация) */
-@media (max-width: 768px) {
-    .tg-settings-trigger {
-        display: none;
-    }
-}
-
-/* Кнопка уведомлений */
-#enableNotificationsBtn {
-    transition: all 0.2s ease;
-}
-
-#enableNotificationsBtn:hover {
-    transform: scale(1.02);
-    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
-}
-
-#notificationStatus {
-    padding: 8px;
-    background: #f8fafc;
-    border-radius: 12px;
-    text-align: center;
-}
-
-/* Индикатор "печатает..." */
-.chat-user-typing {
-    font-size: 12px;
-    color: #6b7280;
-    margin-top: 2px;
-    animation: pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-
-@media (max-width: 768px) {
-    .telegram-app {
-        display: block;
-        height: 100vh;
-        overflow: hidden;
-    }
-
-    .sidebar,
-    .chat-area {
-        width: 100%;
-        min-width: 100%;
-        height: 100vh;
-    }
-
-    .sidebar {
-        border-right: none;
-        padding-bottom: 76px;
-    }
-
-    .mobile-hidden {
-        display: none !important;
-    }
-
-    .mobile-hidden-chat {
-        display: none !important;
-    }
-
-    .tg-back-btn {
-        display: inline-block;
-    }
-
-    .tg-sidebar-header {
-        padding-top: max(12px, env(safe-area-inset-top));
-    }
-
-    .tg-chat-header {
-        padding-top: max(10px, env(safe-area-inset-top));
-    }
-
-    .tg-dialog-item {
-        padding: 12px;
-    }
-
-    .tg-dialog-avatar {
-        width: 54px;
-        height: 54px;
-    }
-
-    .messages-box {
-        padding: 10px;
-    }
-
-    .message-bubble {
-        max-width: 82%;
-    }
-
-    .message-text {
-        font-size: 14px;
-    }
-
-    .message-input {
-        font-size: 14px;
-    }
-
-    .chat-photo {
-        max-width: 180px;
-    }
-
-    .tg-mobile-bottom-nav {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        background: rgba(255,255,255,0.96);
-        border-top: 1px solid #e5e7eb;
-        backdrop-filter: blur(10px);
-        padding-bottom: env(safe-area-inset-bottom);
-        z-index: 20;
-    }
-
-    .tg-mobile-tab {
-        border: none;
-        background: transparent;
-        padding: 14px 10px;
-        font-size: 14px;
-        font-weight: 600;
-        color: #6b7280;
-        cursor: pointer;
-    }
-
-    .tg-mobile-tab.active {
-        color: #3390ec;
-    }
-}
-
-@media (min-width: 769px) {
-    .tg-back-btn {
-        display: none !important;
-    }
-
-    .sidebar {
-        display: flex !important;
-    }
-
-    .chat-area {
-        display: flex !important;
-    }
-
-    .tg-main-panel {
-        display: flex !important;
-        flex-direction: column;
-    }
-
-    #panelSettings {
-        display: none !important;
-    }
-    
-    #panelSettings.active {
-        display: flex !important;
-    }
-}
-
-@media (max-width: 420px) {
-    .tg-brand {
-        font-size: 18px;
-    }
-
-    .tg-current-user-email,
-    .tg-dialog-name,
-    .chat-user-name {
-        font-size: 13px;
-    }
-
-    .tg-dialog-preview,
-    .chat-user-status {
-        font-size: 12px;
-    }
-
-    .tg-dialog-avatar,
-    .chat-user-avatar {
-        width: 48px;
-        height: 48px;
-    }
-
-    .message-bubble {
-        max-width: 88%;
-    }
-
-    .send-btn,
-    .attach-btn {
-        width: 44px;
-        height: 44px;
-    }
-}
-
-@media (max-width: 900px) {
-    .auth-wrapper {
-        grid-template-columns: 1fr;
-    }
-
-    .auth-left {
-        padding: 30px 20px 10px;
-    }
-
-    .auth-title-big {
-        font-size: 36px;
-        max-width: 100%;
-    }
-
-    .auth-description {
-        font-size: 16px;
-        max-width: 100%;
-    }
-
-    .auth-right {
-        padding: 18px 14px 24px;
-        align-items: flex-start;
-    }
-
-    .auth-card {
-        max-width: 100%;
-        border-radius: 22px;
-        padding: 28px 18px 22px;
-    }
-}
-
-@media (max-width: 420px) {
-    .auth-left {
-        padding: 24px 14px 6px;
-    }
-
-    .auth-title-big {
-        font-size: 30px;
-    }
-
-    .auth-description {
-        font-size: 14px;
-    }
-
-    .auth-feature-card {
-        padding: 14px;
-        border-radius: 14px;
-    }
-
-    .auth-card {
-        padding: 24px 14px 18px;
-        border-radius: 18px;
-    }
-
-    .auth-card-title {
-        font-size: 24px;
-    }
-
-    .auth-input {
-        padding: 12px 13px;
-        font-size: 14px;
-    }
-
-    .auth-button {
-        padding: 13px 14px;
-        font-size: 14px;
-    }
-}
-
-/* Модальное окно настроек (как в Telegram) */
+/* MODAL WINDOWS */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -1045,558 +750,14 @@ body:not(.auth-page) {
     animation: slideUp 0.2s ease;
 }
 
-.modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 20px;
-    border-bottom: 1px solid #e8e8e8;
-    background: #ffffff;
-}
-
-.modal-title {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: #111827;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 28px;
-    cursor: pointer;
-    color: #6b7280;
-    padding: 0;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-}
-
-.modal-close:hover {
-    background: #f3f4f6;
-    color: #111827;
-}
-
-.modal-body {
-    overflow-y: auto;
-    max-height: calc(85vh - 70px);
-    padding: 0;
-}
-
-.modal-body .tg-settings-panel {
-    padding: 16px;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Кнопка настроек в левом нижнем углу */
-.tg-settings-trigger {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    z-index: 100;
-}
-
-.settings-btn {
-    background: linear-gradient(135deg, #3390ec, #2563eb);
-    color: white;
-    border: none;
-    border-radius: 30px;
-    padding: 12px 24px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transition: all 0.2s ease;
-    font-family: inherit;
-}
-
-.settings-btn:hover {
-    transform: scale(1.02);
-    background: linear-gradient(135deg, #3b9af5, #2b6ef0);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-}
-
-.settings-btn:active {
-    transform: scale(0.98);
-}
-
-/* На ПК кнопка настроек видна, на телефоне скрыта (там есть нижняя навигация) */
-@media (max-width: 768px) {
-    .tg-settings-trigger {
-        display: none;
-    }
-}
-
-
-/* Модальное окно настроек (как в Telegram) */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    animation: fadeIn 0.2s ease;
-}
-
-.modal-container {
-    background: #ffffff;
-    border-radius: 20px;
-    width: 90%;
-    max-width: 480px;
-    max-height: 85vh;
-    overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-    animation: slideUp 0.2s ease;
-}
-
-.modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 20px;
-    border-bottom: 1px solid #e8e8e8;
-    background: #ffffff;
-}
-
-.modal-title {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: #111827;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 28px;
-    cursor: pointer;
-    color: #6b7280;
-    padding: 0;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-}
-
-.modal-close:hover {
-    background: #f3f4f6;
-    color: #111827;
-}
-
-.modal-body {
-    overflow-y: auto;
-    max-height: calc(85vh - 70px);
-    padding: 0;
-}
-
-.modal-body .tg-settings-panel {
-    padding: 16px;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Кнопка настроек в левом нижнем углу */
-.tg-settings-trigger {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    z-index: 100;
-}
-
-.settings-btn {
-    background: linear-gradient(135deg, #3390ec, #2563eb);
-    color: white;
-    border: none;
-    border-radius: 30px;
-    padding: 12px 24px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transition: all 0.2s ease;
-    font-family: inherit;
-}
-
-.settings-btn:hover {
-    transform: scale(1.02);
-    background: linear-gradient(135deg, #3b9af5, #2b6ef0);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-}
-
-.settings-btn:active {
-    transform: scale(0.98);
-}
-
-/* На ПК кнопка настроек видна, на телефоне скрыта (там есть нижняя навигация) */
-@media (max-width: 768px) {
-    .tg-settings-trigger {
-        display: none;
-    }
-}
-
-/* Кнопка уведомлений */
-#enableNotificationsBtnModal {
-    transition: all 0.2s ease;
-}
-
-#enableNotificationsBtnModal:hover {
-    transform: scale(1.02);
-    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
-}
-
-#notificationStatusModal {
-    padding: 8px;
-    background: #f8fafc;
-    border-radius: 12px;
-    text-align: center;
-}
-
-/* Индикатор "печатает..." */
-.chat-user-typing {
-    font-size: 12px;
-    color: #6b7280;
-    margin-top: 2px;
-    animation: pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-
-/* Дополнительный стиль для статуса в диалогах */
-.tg-dialog-status {
-    font-size: 11px;
-    color: #7a7f85;
-    margin-top: 2px;
-    line-height: 1.3;
-}
-
-/* ========== ПРОФИЛЬ В НАСТРОЙКАХ ========== */
-
-.profile-avatar-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 24px;
-    position: relative;
-}
-
-.profile-avatar-wrapper {
-    position: relative;
-    display: inline-block;
-}
-
-.profile-avatar {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #3390ec, #2563eb);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 48px;
-    font-weight: bold;
-    overflow: hidden;
-}
-
-.profile-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.profile-avatar-edit {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: #3390ec;
-    border: 3px solid white;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    padding: 0;
-}
-
-.profile-avatar-edit:hover {
-    transform: scale(1.05);
-    background: #2563eb;
-}
-
-.profile-delete-avatar {
-    margin-top: 12px;
-    background: none;
-    border: none;
-    color: #ef4444;
-    font-size: 13px;
-    cursor: pointer;
-    padding: 6px 12px;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-}
-
-.profile-delete-avatar:hover {
-    background: #fee2e2;
-}
-
-.profile-field {
-    margin-bottom: 20px;
-}
-
-.profile-label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 6px;
-}
-
-.profile-input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    font-size: 14px;
-    transition: all 0.2s ease;
-    background: #ffffff;
-}
-
-.profile-input:focus {
-    outline: none;
-    border-color: #3390ec;
-    box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.1);
-}
-
-.profile-username-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.profile-username-at {
-    font-size: 16px;
-    font-weight: 500;
-    color: #6b7280;
-    background: #f3f4f6;
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-}
-
-.profile-username-wrapper .profile-input {
-    flex: 1;
-}
-
-.profile-hint {
-    font-size: 11px;
-    color: #9ca3af;
-    margin-top: 4px;
-}
-
-.profile-textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    font-size: 14px;
-    font-family: inherit;
-    resize: vertical;
-    transition: all 0.2s ease;
-}
-
-.profile-textarea:focus {
-    outline: none;
-    border-color: #3390ec;
-    box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.1);
-}
-
-.profile-save-status {
-    font-size: 13px;
-    margin: 12px 0;
-    text-align: center;
-}
-
-.profile-save-btn {
-    width: 100%;
-    padding: 12px;
-    background: linear-gradient(135deg, #3390ec, #2563eb);
-    color: white;
-    border: none;
-    border-radius: 14px;
-    font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: 8px;
-}
-
-.profile-save-btn:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(51, 144, 236, 0.3);
-}
-
-.profile-save-btn:active {
-    transform: scale(0.98);
-}
-
-/* ========== АВАТАРЫ В ДИАЛОГАХ ========== */
-
-.user-avatar,
-.tg-dialog-avatar,
-.chat-user-avatar {
-    overflow: hidden;
-}
-
-.user-avatar img,
-.tg-dialog-avatar img,
-.chat-user-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.tg-current-user .avatar {
-    overflow: hidden;
-}
-
-.tg-current-user .avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* ========== ИМЯ ПОЛЬЗОВАТЕЛЯ В ШАПКЕ ЧАТА ========== */
-
-.chat-user-username {
-    font-size: 12px;
-    color: #7a7f85;
-    margin-top: 2px;
-}
-/* ========== НАСТРОЙКИ (СПИСОК) ========== */
-.tg-settings-list {
-    padding: 0;
-}
-.settings-category {
-    margin-bottom: 24px;
-}
-.settings-category-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #8e9aaf;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: 12px 16px 8px;
-}
-.settings-item {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    background: #ffffff;
-    cursor: pointer;
-    transition: background 0.2s;
-    border-radius: 10px;
-    margin: 2px 8px;
-}
-.settings-item:hover {
-    background: #f0f2f5;
-}
-.settings-item-icon {
-    width: 32px;
-    font-size: 20px;
-    margin-right: 12px;
-}
-.settings-item-label {
-    flex: 1;
-    font-size: 16px;
-    color: #111827;
-}
-.settings-item-arrow {
-    color: #8e9aaf;
-    font-size: 18px;
-}
-.settings-logout {
-    margin-top: 20px;
-    padding: 12px 16px;
-    border-top: 1px solid #e5e7eb;
-}
-.settings-logout-btn {
-    display: block;
-    text-align: center;
-    color: #ef4444;
-    text-decoration: none;
-    font-weight: 500;
-    padding: 10px;
-    border-radius: 12px;
-    background: #fef2f2;
-}
-
-/* ========== МОДАЛЬНЫЕ ОКНА ========== */
-.modal-container {
-    background: #ffffff;
-    border-radius: 20px;
-    width: 90%;
-    max-width: 480px;
-    max-height: 85vh;
-    overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-    animation: slideUp 0.2s ease;
-}
 .modal-container.modal-medium {
     max-width: 520px;
 }
+
 .modal-container.modal-small {
     max-width: 360px;
 }
+
 .modal-header {
     display: flex;
     align-items: center;
@@ -1604,6 +765,7 @@ body:not(.auth-page) {
     border-bottom: 1px solid #e8e8e8;
     background: #ffffff;
 }
+
 .modal-header .modal-back {
     background: none;
     border: none;
@@ -1620,9 +782,11 @@ body:not(.auth-page) {
     border-radius: 50%;
     transition: background 0.2s;
 }
+
 .modal-header .modal-back:hover {
     background: #f0f2f5;
 }
+
 .modal-title {
     margin: 0;
     font-size: 20px;
@@ -1630,6 +794,7 @@ body:not(.auth-page) {
     color: #111827;
     flex: 1;
 }
+
 .modal-close {
     background: none;
     border: none;
@@ -1645,17 +810,100 @@ body:not(.auth-page) {
     border-radius: 50%;
     transition: all 0.2s ease;
 }
+
 .modal-close:hover {
     background: #f3f4f6;
     color: #111827;
 }
+
 .modal-body {
     overflow-y: auto;
     max-height: calc(85vh - 70px);
     padding: 16px;
 }
 
-/* ========== ПРОФИЛЬ ========== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* SETTINGS LIST */
+.tg-settings-list {
+    padding: 0;
+}
+
+.settings-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.settings-item:hover {
+    background: #f8f9fa;
+}
+
+.settings-item-icon {
+    width: 32px;
+    font-size: 20px;
+    margin-right: 14px;
+}
+
+.settings-item-label {
+    flex: 1;
+    font-size: 16px;
+    color: #111827;
+}
+
+.settings-item-arrow {
+    color: #cbd5e1;
+    font-size: 18px;
+}
+
+.settings-logout {
+    margin-top: 20px;
+    padding: 12px 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.settings-logout-btn {
+    display: block;
+    text-align: center;
+    color: #ef4444;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 12px;
+    border-radius: 12px;
+    background: #fef2f2;
+}
+
+.tg-settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.tg-settings-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
+/* PROFILE */
 .profile-avatar-section {
     display: flex;
     flex-direction: column;
@@ -1663,10 +911,12 @@ body:not(.auth-page) {
     margin-bottom: 24px;
     position: relative;
 }
+
 .profile-avatar-wrapper {
     position: relative;
     display: inline-block;
 }
+
 .profile-avatar {
     width: 100px;
     height: 100px;
@@ -1680,11 +930,13 @@ body:not(.auth-page) {
     font-weight: bold;
     overflow: hidden;
 }
+
 .profile-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
+
 .profile-avatar-edit {
     position: absolute;
     bottom: 0;
@@ -1702,10 +954,12 @@ body:not(.auth-page) {
     transition: all 0.2s ease;
     padding: 0;
 }
+
 .profile-avatar-edit:hover {
     transform: scale(1.05);
     background: #2563eb;
 }
+
 .profile-delete-avatar {
     margin-top: 12px;
     background: none;
@@ -1717,12 +971,15 @@ body:not(.auth-page) {
     border-radius: 8px;
     transition: all 0.2s ease;
 }
+
 .profile-delete-avatar:hover {
     background: #fee2e2;
 }
+
 .profile-field {
     margin-bottom: 20px;
 }
+
 .profile-label {
     display: block;
     font-size: 13px;
@@ -1730,6 +987,7 @@ body:not(.auth-page) {
     color: #374151;
     margin-bottom: 6px;
 }
+
 .profile-input {
     width: 100%;
     padding: 10px 12px;
@@ -1739,16 +997,19 @@ body:not(.auth-page) {
     transition: all 0.2s ease;
     background: #ffffff;
 }
+
 .profile-input:focus {
     outline: none;
     border-color: #3390ec;
     box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.1);
 }
+
 .profile-username-wrapper {
     display: flex;
     align-items: center;
     gap: 4px;
 }
+
 .profile-username-at {
     font-size: 16px;
     font-weight: 500;
@@ -1758,14 +1019,17 @@ body:not(.auth-page) {
     border-radius: 12px;
     border: 1px solid #e5e7eb;
 }
+
 .profile-username-wrapper .profile-input {
     flex: 1;
 }
+
 .profile-hint {
     font-size: 11px;
     color: #9ca3af;
     margin-top: 4px;
 }
+
 .profile-textarea {
     width: 100%;
     padding: 10px 12px;
@@ -1776,16 +1040,19 @@ body:not(.auth-page) {
     resize: vertical;
     transition: all 0.2s ease;
 }
+
 .profile-textarea:focus {
     outline: none;
     border-color: #3390ec;
     box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.1);
 }
+
 .profile-save-status {
     font-size: 13px;
     margin: 12px 0;
     text-align: center;
 }
+
 .profile-save-btn {
     width: 100%;
     padding: 12px;
@@ -1799,15 +1066,17 @@ body:not(.auth-page) {
     transition: all 0.2s ease;
     margin-top: 8px;
 }
+
 .profile-save-btn:hover {
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(51, 144, 236, 0.3);
 }
+
 .profile-save-btn:active {
     transform: scale(0.98);
 }
 
-/* ========== УВЕДОМЛЕНИЯ ========== */
+/* NOTIFICATIONS SETTINGS */
 .settings-item-row {
     display: flex;
     align-items: center;
@@ -1816,33 +1085,40 @@ body:not(.auth-page) {
     border-bottom: 1px solid #e5e7eb;
     cursor: pointer;
 }
+
 .settings-item-row.clickable:hover {
     background: #f9fafb;
 }
+
 .settings-item-info {
     flex: 1;
 }
+
 .settings-item-label {
     font-size: 16px;
     font-weight: 500;
     color: #111827;
     margin-bottom: 4px;
 }
+
 .settings-item-description {
     font-size: 13px;
     color: #6b7280;
 }
+
 .switch {
     position: relative;
     display: inline-block;
     width: 50px;
     height: 24px;
 }
+
 .switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
+
 .slider {
     position: absolute;
     cursor: pointer;
@@ -1854,6 +1130,7 @@ body:not(.auth-page) {
     transition: 0.4s;
     border-radius: 34px;
 }
+
 .slider:before {
     position: absolute;
     content: "";
@@ -1865,18 +1142,21 @@ body:not(.auth-page) {
     transition: 0.4s;
     border-radius: 50%;
 }
+
 input:checked + .slider {
     background-color: #3390ec;
 }
+
 input:checked + .slider:before {
     transform: translateX(26px);
 }
 
-/* ========== ВЫБОР ЗВУКА ========== */
+/* SOUND PICKER */
 .sound-list {
     display: flex;
     flex-direction: column;
 }
+
 .sound-item {
     display: flex;
     justify-content: space-between;
@@ -1886,67 +1166,262 @@ input:checked + .slider:before {
     border-radius: 12px;
     transition: background 0.2s;
 }
+
 .sound-item:hover {
     background: #f0f2f5;
 }
+
 .sound-item.selected {
     background: #eaf3ff;
 }
+
 .sound-check {
     color: #3390ec;
     font-weight: bold;
     font-size: 16px;
 }
 
-/* ========== ЯЗЫК ========== */
-.language-item {
-    padding: 12px 16px;
-    margin: 4px 0;
+/* MOBILE RESPONSIVE */
+@media (max-width: 768px) {
+    .tg-settings-trigger {
+        display: none;
+    }
+    
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        height: 100vh;
+        border-right: none;
+        padding-bottom: 76px;
+    }
+    
+    .chat-area {
+        width: 100%;
+        min-width: 100%;
+        height: 100vh;
+    }
+    
+    .mobile-hidden {
+        display: none !important;
+    }
+    
+    .mobile-hidden-chat {
+        display: none !important;
+    }
+    
+    .tg-back-btn {
+        display: inline-block;
+    }
+    
+    .tg-sidebar-header {
+        padding-top: max(12px, env(safe-area-inset-top));
+    }
+    
+    .tg-chat-header {
+        padding-top: max(10px, env(safe-area-inset-top));
+    }
+    
+    .tg-dialog-item {
+        padding: 12px;
+    }
+    
+    .tg-dialog-avatar {
+        width: 54px;
+        height: 54px;
+    }
+    
+    .messages-box {
+        padding: 10px;
+    }
+    
+    .message-bubble {
+        max-width: 82%;
+    }
+    
+    .message-text {
+        font-size: 14px;
+    }
+    
+    .message-input {
+        font-size: 14px;
+    }
+    
+    .chat-photo {
+        max-width: 180px;
+    }
+    
+    .tg-mobile-bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        background: rgba(255,255,255,0.96);
+        border-top: 1px solid #e5e7eb;
+        backdrop-filter: blur(10px);
+        padding-bottom: env(safe-area-inset-bottom);
+        z-index: 20;
+    }
+    
+    .tg-mobile-tab {
+        border: none;
+        background: transparent;
+        padding: 14px 10px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+    }
+    
+    .tg-mobile-tab.active {
+        color: #3390ec;
+    }
+}
+
+@media (min-width: 769px) {
+    .tg-back-btn {
+        display: none !important;
+    }
+    
+    .sidebar {
+        display: flex !important;
+    }
+    
+    .chat-area {
+        display: flex !important;
+    }
+    
+    .tg-main-panel {
+        display: flex !important;
+        flex-direction: column;
+    }
+    
+    #panelSettings {
+        display: none !important;
+    }
+    
+    #panelSettings.active {
+        display: flex !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .tg-brand {
+        font-size: 18px;
+    }
+    
+    .tg-current-user-email,
+    .tg-dialog-name,
+    .chat-user-name {
+        font-size: 13px;
+    }
+    
+    .tg-dialog-preview,
+    .chat-user-status {
+        font-size: 12px;
+    }
+    
+    .tg-dialog-avatar,
+    .chat-user-avatar {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .message-bubble {
+        max-width: 88%;
+    }
+    
+    .send-btn,
+    .attach-btn {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* AUTH RESPONSIVE */
+@media (max-width: 900px) {
+    .auth-wrapper {
+        grid-template-columns: 1fr;
+    }
+    
+    .auth-left {
+        padding: 30px 20px 10px;
+    }
+    
+    .auth-title-big {
+        font-size: 36px;
+        max-width: 100%;
+    }
+    
+    .auth-description {
+        font-size: 16px;
+        max-width: 100%;
+    }
+    
+    .auth-right {
+        padding: 18px 14px 24px;
+        align-items: flex-start;
+    }
+    
+    .auth-card {
+        max-width: 100%;
+        border-radius: 22px;
+        padding: 28px 18px 22px;
+    }
+}
+
+@media (max-width: 420px) {
+    .auth-left {
+        padding: 24px 14px 6px;
+    }
+    
+    .auth-title-big {
+        font-size: 30px;
+    }
+    
+    .auth-description {
+        font-size: 14px;
+    }
+    
+    .auth-feature-card {
+        padding: 14px;
+        border-radius: 14px;
+    }
+    
+    .auth-card {
+        padding: 24px 14px 18px;
+        border-radius: 18px;
+    }
+    
+    .auth-card-title {
+        font-size: 24px;
+    }
+    
+    .auth-input {
+        padding: 12px 13px;
+        font-size: 14px;
+    }
+    
+    .auth-button {
+        padding: 13px 14px;
+        font-size: 14px;
+    }
+}
+
+/* Notification button styles */
+#enableNotificationsBtnModal {
+    transition: all 0.2s ease;
+}
+
+#enableNotificationsBtnModal:hover {
+    transform: scale(1.02);
+    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
+}
+
+#notificationStatusModal {
+    padding: 8px;
+    background: #f8fafc;
     border-radius: 12px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.language-item:hover {
-    background: #f0f2f5;
-}
-.language-item.active {
-    background: #eaf3ff;
-    color: #3390ec;
-    font-weight: 500;
-}
-
-/* ========== О ПРИЛОЖЕНИИ ========== */
-.about-version {
-    font-size: 18px;
-    font-weight: bold;
     text-align: center;
-    margin-bottom: 12px;
-    color: #3390ec;
-}
-.about-text {
-    text-align: center;
-    color: #6b7280;
-    font-size: 14px;
-}
-
-/* ========== АВАТАРЫ В ДИАЛОГАХ ========== */
-.user-avatar,
-.tg-dialog-avatar,
-.chat-user-avatar {
-    overflow: hidden;
-}
-.user-avatar img,
-.tg-dialog-avatar img,
-.chat-user-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-.tg-current-user .avatar {
-    overflow: hidden;
-}
-.tg-current-user .avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
 }
