@@ -390,6 +390,31 @@
         </div>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО "Мои звёзды" (кликер) -->
+    <div id="starsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-small">
+            <div class="modal-header">
+                <button class="modal-back" id="starsBackBtn">←</button>
+                <h3 class="modal-title">Мои звёзды</h3>
+                <button class="modal-close" id="closeStarsModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="stars-clicker">
+                    <div class="stars-counter" id="starsCounter">0.000</div>
+                    <div class="star-coin" id="starCoin">
+                        <div class="star-coin-inner">
+                            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stars-hint">Нажми на монету, чтобы получить 0.001 звезды</div>
+                    <div class="stars-total" id="starsTotalText"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- МОДАЛЬНОЕ ОКНО "Резервное копирование" -->
     {% if can_backup %}
     <div id="backupModal" class="modal-overlay" style="display: none;">
@@ -474,6 +499,7 @@
             account: document.getElementById("accountModal"),
             notifications: document.getElementById("notificationsModal"),
             soundPicker: document.getElementById("soundPickerModal"),
+            stars: document.getElementById("starsModal"),
             backup: document.getElementById("backupModal")
         };
         
@@ -483,6 +509,7 @@
                 document.body.style.overflow = "hidden";
                 if (modalId === "main") loadProfileData();
                 if (modalId === "notifications") loadNotificationsSettings();
+                if (modalId === "stars") loadStarsData();
             }
         }
         
@@ -510,11 +537,12 @@
             });
         });
         
+        // Кнопка "Мои звёзды"
         const starsItem = document.getElementById("starsItem");
         if (starsItem) {
             starsItem.addEventListener("click", () => {
                 closeModal("main");
-                alert("⭐ Мои звёзды — скоро здесь появятся награды и достижения!");
+                openModal("stars");
             });
         }
         
@@ -535,6 +563,7 @@
             account: document.getElementById("accountBackBtn"),
             notifications: document.getElementById("notificationsBackBtn"),
             soundPicker: document.getElementById("soundPickerBackBtn"),
+            stars: document.getElementById("starsBackBtn"),
             backup: document.getElementById("backupBackBtn")
         };
         for (let key in backBtns) {
@@ -1255,11 +1284,83 @@
             if (pushStatusDiv) pushStatusDiv.style.display = "none";
         }
         
-        async function getExistingSubscription() {
-            const registration = await navigator.serviceWorker.ready;
-            return await registration.pushManager.getSubscription();
+        // ========== ЗВЁЗДЫ (КЛИКЕР) ==========
+        async function loadStarsData() {
+            try {
+                const response = await fetch("/api/stars");
+                if (response.ok) {
+                    const data = await response.json();
+                    const stars = data.stars || 0;
+                    const starsCounter = document.getElementById("starsCounter");
+                    const starsTotalText = document.getElementById("starsTotalText");
+                    
+                    if (starsCounter) {
+                        starsCounter.textContent = stars.toFixed(3);
+                    }
+                    if (starsTotalText) {
+                        starsTotalText.textContent = `Всего звёзд: ${stars.toFixed(3)}`;
+                    }
+                }
+            } catch (error) {
+                console.error("Ошибка загрузки звёзд:", error);
+            }
         }
         
+        async function clickStar() {
+            const starCoin = document.getElementById("starCoin");
+            if (starCoin) {
+                starCoin.style.transform = "scale(0.95)";
+                setTimeout(() => {
+                    starCoin.style.transform = "";
+                }, 150);
+            }
+            
+            try {
+                const response = await fetch("/api/stars/click", {
+                    method: "POST"
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const stars = data.stars || 0;
+                    const starsCounter = document.getElementById("starsCounter");
+                    const starsTotalText = document.getElementById("starsTotalText");
+                    
+                    if (starsCounter) {
+                        starsCounter.textContent = stars.toFixed(3);
+                    }
+                    if (starsTotalText) {
+                        starsTotalText.textContent = `Всего звёзд: ${stars.toFixed(3)}`;
+                    }
+                    
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
+                    }
+                }
+            } catch (error) {
+                console.error("Ошибка клика:", error);
+            }
+        }
+        
+        // Навешиваем обработчик на монету
+        document.addEventListener("click", (e) => {
+            const starCoin = document.getElementById("starCoin");
+            if (starCoin && (starCoin.contains(e.target) || starCoin === e.target)) {
+                clickStar();
+            }
+        });
+        
+        // Закрытие модалки звёзд по клику на фон
+        const starsModal = document.getElementById("starsModal");
+        if (starsModal) {
+            starsModal.addEventListener("click", (e) => {
+                if (e.target === starsModal) {
+                    closeModal("stars");
+                }
+            });
+        }
+        
+        // ========== BACKUP ФУНКЦИИ ==========
         if (CAN_BACKUP) {
             const downloadBackupBtn = document.getElementById("downloadBackupBtn");
             const backupFileInput = document.getElementById("backupFileInput");
