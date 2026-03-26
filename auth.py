@@ -28,8 +28,21 @@ def create_user(db: Session, email: str, password: str):
     return new_user
 
 
-def authenticate_user(db: Session, email: str, password: str):
-    user = db.query(User).filter(User.email == email).first()
+def authenticate_user(db: Session, identifier: str, password: str):
+    """
+    Проверяет пользователя по email или username (с @)
+    Пример: "user@mail.com" или "@username"
+    """
+    user = None
+    
+    # Если введено что-то с @ и похоже на email (содержит точку после @)
+    if '@' in identifier and '.' in identifier:
+        user = db.query(User).filter(User.email == identifier).first()
+    else:
+        # Иначе считаем, что это username (добавляем @ если отсутствует)
+        username = identifier if identifier.startswith('@') else '@' + identifier
+        user = db.query(User).filter(User.username == username).first()
+    
     if not user:
         return None
 
