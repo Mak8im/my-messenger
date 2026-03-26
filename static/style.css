@@ -1514,3 +1514,75 @@ input:checked + .slider:before {
 .message-status {
     transition: all 0.2s ease;
 }
+/* Stars Clicker */
+.stars-clicker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.stars-counter {
+    font-size: 48px;
+    font-weight: bold;
+    color: #f59e0b;
+    text-align: center;
+    margin-bottom: 30px;
+    font-family: monospace;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
+}
+
+.star-coin {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    margin-bottom: 30px;
+}
+
+.star-coin:hover {
+    transform: scale(1.05);
+}
+
+.star-coin:active {
+    transform: scale(0.95);
+}
+
+.star-coin-inner {
+    width: 140px;
+    height: 140px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4);
+    transition: all 0.2s ease;
+}
+
+.star-coin-inner svg {
+    width: 80px;
+    height: 80px;
+    color: #ffffff;
+    stroke: #ffffff;
+    fill: rgba(255, 255, 255, 0.3);
+}
+
+.star-coin:active .star-coin-inner {
+    transform: scale(0.98);
+    box-shadow: 0 5px 15px rgba(245, 158, 11, 0.5);
+}
+
+.stars-hint {
+    font-size: 13px;
+    color: #6b7280;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.stars-total {
+    font-size: 14px;
+    color: #f59e0b;
+    text-align: center;
+    font-weight: bold;
+}
