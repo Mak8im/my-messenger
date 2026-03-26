@@ -836,41 +836,44 @@ body:not(.auth-page) {
     }
 }
 
-/* SETTINGS LIST (ГЛАВНОЕ ОКНО) */
+/* ===== ГЛАВНОЕ ОКНО НАСТРОЕК (усиленные стили) ===== */
 .tg-settings-list {
     padding: 0;
     margin: 0;
+    background: #ffffff !important;
 }
 
 .settings-item {
-    display: flex;
-    align-items: center;
-    padding: 14px 16px;
-    background: #ffffff;
-    cursor: pointer;
-    transition: background 0.2s;
-    border-bottom: 1px solid #f0f0f0;
+    display: flex !important;
+    align-items: center !important;
+    padding: 14px 16px !important;
+    background: #ffffff !important;
+    cursor: pointer !important;
+    transition: background 0.2s !important;
+    border-bottom: 1px solid #f0f0f0 !important;
 }
 
 .settings-item:hover {
-    background: #f8f9fa;
+    background: #f8f9fa !important;
 }
 
 .settings-item-icon {
-    width: 32px;
-    font-size: 20px;
-    margin-right: 14px;
+    width: 32px !important;
+    font-size: 20px !important;
+    margin-right: 14px !important;
+    color: #111827 !important;
 }
 
 .settings-item-label {
-    flex: 1;
-    font-size: 16px;
-    color: #111827;
+    flex: 1 !important;
+    font-size: 16px !important;
+    color: #111827 !important;
+    font-weight: normal !important;
 }
 
 .settings-item-arrow {
-    color: #cbd5e1;
-    font-size: 18px;
+    color: #cbd5e1 !important;
+    font-size: 18px !important;
 }
 
 .settings-logout {
@@ -890,7 +893,7 @@ body:not(.auth-page) {
     background: #fef2f2;
 }
 
-/* SETTINGS PANEL (внутренние окна) */
+/* Остальные стили для вложенных окон */
 .tg-settings-panel {
     display: flex;
     flex-direction: column;
