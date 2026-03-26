@@ -35,6 +35,7 @@ class Message(Base):
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
+    is_delivered = Column(Boolean, default=False, nullable=False)  # НОВОЕ ПОЛЕ
 
 
 class PushSubscription(Base):
