@@ -99,7 +99,6 @@ def format_message_time(dt):
 
 
 def format_last_seen(last_activity):
-    """Форматирует время последней активности"""
     if not last_activity:
         return "Не в сети"
 
@@ -709,34 +708,6 @@ async def delete_avatar(
     return {"status": "ok"}
 
 
-@app.get("/api/user/{user_id_or_username}")
-async def get_user_info(
-    user_id_or_username: str,
-    db: Session = Depends(get_db)
-):
-    user = None
-    if user_id_or_username.isdigit():
-        user = db.query(User).filter(User.id == int(user_id_or_username)).first()
-    
-    if not user:
-        username = user_id_or_username
-        if not username.startswith("@"):
-            username = "@" + username
-        user = db.query(User).filter(User.username == username).first()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    
-    return {
-        "id": user.id,
-        "email": user.email,
-        "full_name": user.full_name or "",
-        "username": user.username or "",
-        "bio": user.bio or "",
-        "avatar": f"/avatars/{user.avatar}" if user.avatar else None
-    }
-
-
 # ========== НАСТРОЙКИ УВЕДОМЛЕНИЙ ==========
 
 @app.get("/api/notification-sound")
@@ -761,7 +732,6 @@ async def set_notification_sound(
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
-    # Валидация: разрешённые звуки
     allowed_sounds = ["default", "nicesound", "tg", "vk", "icq", "facebook", "samsung", "apple"]
     if sound not in allowed_sounds:
         raise HTTPException(status_code=400, detail="Недопустимый звук")
