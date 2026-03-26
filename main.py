@@ -788,6 +788,35 @@ async def set_notification_sound(
     return {"sound": sound}
 
 
+# ========== ЗВЁЗДЫ (КЛИКЕР) ==========
+
+@app.get("/api/stars")
+async def get_stars(
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    return {"stars": current_user.stars or 0.0}
+
+
+@app.post("/api/stars/click")
+async def click_star(
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    current_user.stars = (current_user.stars or 0.0) + 0.001
+    db.commit()
+    
+    return {"stars": current_user.stars}
+
+
 # ========== ДРУГИЕ РОУТЫ ==========
 
 @app.post("/subscribe")
