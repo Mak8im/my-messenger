@@ -99,7 +99,6 @@ def format_message_time(dt):
         return ""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    # Прибавляем 3 часа
     local_dt = dt + timedelta(hours=3)
     return local_dt.strftime("%H:%M")
 
@@ -843,7 +842,7 @@ async def send_photo(
         file_path=safe_name,
         created_at=datetime.now(timezone.utc),
         is_read=False,
-        is_delivered=False  # НОВОЕ ПОЛЕ
+        is_delivered=False
     )
     db.add(new_message)
     db.commit()
@@ -857,7 +856,7 @@ async def send_photo(
     outgoing_to_sender = {
         "type": "message",
         "message_type": "photo",
-        "message_id": new_message.id,  # ДОБАВИЛИ ID
+        "message_id": new_message.id,
         "sender_id": current_user.id,
         "receiver_id": receiver_id,
         "content": "",
@@ -867,14 +866,14 @@ async def send_photo(
         "download_url": download_url,
         "file_name": new_message.file_name or "image",
         "sender_email": current_user.email,
-        "is_read": False,  # СТАТУС ПРОЧИТАНО
-        "is_delivered": False  # СТАТУС ДОСТАВЛЕНО
+        "is_read": False,
+        "is_delivered": False
     }
 
     outgoing_to_receiver = {
         "type": "message",
         "message_type": "photo",
-        "message_id": new_message.id,  # ДОБАВИЛИ ID
+        "message_id": new_message.id,
         "sender_id": current_user.id,
         "receiver_id": receiver_id,
         "content": "",
@@ -891,11 +890,9 @@ async def send_photo(
     await manager.send_to_user(current_user.id, outgoing_to_sender)
     await manager.send_to_user(receiver_id, outgoing_to_receiver)
 
-    # После отправки помечаем как доставленное
     new_message.is_delivered = True
     db.commit()
     
-    # Отправляем обновление статуса доставки отправителю
     await manager.send_to_user(current_user.id, {
         "type": "delivered",
         "message_id": new_message.id,
@@ -1013,18 +1010,17 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                         msg.is_read = True
                         updated_ids.append(msg.id)
 
-                    if unread_messages:
+                    if updated_ids:
                         db.commit()
                         
-                        # Отправляем отправителю обновление о прочтении
-                        for msg in unread_messages:
-                            await manager.send_to_user(msg.sender_id, {
+                        for msg_id in updated_ids:
+                            await manager.send_to_user(other_user_id, {
                                 "type": "read",
-                                "message_id": msg.id,
+                                "message_id": msg_id,
                                 "is_read": True
                             })
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Read error: {e}")
 
                 await manager.send_to_user(user_id, {
                     "type": "read_update",
@@ -1080,7 +1076,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                         content=content,
                         created_at=datetime.now(timezone.utc),
                         is_read=False,
-                        is_delivered=False  # НОВОЕ ПОЛЕ
+                        is_delivered=False
                     )
                     db.add(new_message)
                     db.commit()
@@ -1088,7 +1084,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
 
                     unread_count_for_receiver = get_unread_count(receiver_id, user_id, db)
                     
-                    # Помечаем как доставленное (получатель в сети или нет)
                     new_message.is_delivered = True
                     db.commit()
 
@@ -1107,21 +1102,21 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                 outgoing_to_sender = {
                     "type": "message",
                     "message_type": "text",
-                    "message_id": new_message.id,  # ДОБАВИЛИ ID
+                    "message_id": new_message.id,
                     "sender_id": user_id,
                     "receiver_id": receiver_id,
                     "content": content,
                     "time": format_message_time(new_message.created_at),
                     "unread_count": 0,
                     "sender_email": sender_email,
-                    "is_read": False,  # СТАТУС ПРОЧИТАНО
-                    "is_delivered": True  # СТАТУС ДОСТАВЛЕНО (отправлено сразу)
+                    "is_read": False,
+                    "is_delivered": True
                 }
 
                 outgoing_to_receiver = {
                     "type": "message",
                     "message_type": "text",
-                    "message_id": new_message.id,  # ДОБАВИЛИ ID
+                    "message_id": new_message.id,
                     "sender_id": user_id,
                     "receiver_id": receiver_id,
                     "content": content,
