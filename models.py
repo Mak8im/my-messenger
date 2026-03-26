@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean, Float
 from database import Base
 from datetime import datetime
 
@@ -17,7 +17,10 @@ class User(Base):
     avatar = Column(String, nullable=True)
     
     # Настройки уведомлений
-    notification_sound = Column(String, nullable=True, default="default")  # имя звукового файла
+    notification_sound = Column(String, nullable=True, default="default")
+    
+    # Звёзды (кликер)
+    stars = Column(Float, nullable=True, default=0.0)
 
 
 class Message(Base):
@@ -35,7 +38,7 @@ class Message(Base):
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
-    is_delivered = Column(Boolean, default=False, nullable=False)  # НОВОЕ ПОЛЕ
+    is_delivered = Column(Boolean, default=False, nullable=False)
 
 
 class PushSubscription(Base):
