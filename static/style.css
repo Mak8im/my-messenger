@@ -10,7 +10,6 @@ html, body {
 }
 
 /* AUTH */
-
 .auth-page {
     min-height: 100vh;
     background:
@@ -216,7 +215,6 @@ html, body {
 }
 
 /* CHAT */
-
 body:not(.auth-page) {
     background: #f3f5f8;
     color: #111827;
@@ -838,9 +836,10 @@ body:not(.auth-page) {
     }
 }
 
-/* SETTINGS LIST */
+/* SETTINGS LIST (ГЛАВНОЕ ОКНО) */
 .tg-settings-list {
     padding: 0;
+    margin: 0;
 }
 
 .settings-item {
@@ -891,6 +890,7 @@ body:not(.auth-page) {
     background: #fef2f2;
 }
 
+/* SETTINGS PANEL (внутренние окна) */
 .tg-settings-panel {
     display: flex;
     flex-direction: column;
