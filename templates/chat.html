@@ -195,25 +195,23 @@
             </div>
             <div class="modal-body">
                 <div class="tg-settings-list">
-                    <div class="settings-category">
-                        <div class="settings-item" data-settings-page="account">
-                            <div class="settings-item-icon">👤</div>
-                            <div class="settings-item-label">Мой аккаунт</div>
-                            <div class="settings-item-arrow">→</div>
-                        </div>
-                        <div class="settings-item" data-settings-page="notifications">
-                            <div class="settings-item-icon">🔔</div>
-                            <div class="settings-item-label">Уведомления и звуки</div>
-                            <div class="settings-item-arrow">→</div>
-                        </div>
-                        {% if can_backup %}
-                        <div class="settings-item" data-settings-page="backup">
-                            <div class="settings-item-icon">💾</div>
-                            <div class="settings-item-label">Резервное копирование</div>
-                            <div class="settings-item-arrow">→</div>
-                        </div>
-                        {% endif %}
+                    <div class="settings-item" data-settings-page="account">
+                        <div class="settings-item-icon">👤</div>
+                        <div class="settings-item-label">Мой аккаунт</div>
+                        <div class="settings-item-arrow">→</div>
                     </div>
+                    <div class="settings-item" data-settings-page="notifications">
+                        <div class="settings-item-icon">🔔</div>
+                        <div class="settings-item-label">Уведомления и звуки</div>
+                        <div class="settings-item-arrow">→</div>
+                    </div>
+                    {% if can_backup %}
+                    <div class="settings-item" data-settings-page="backup">
+                        <div class="settings-item-icon">💾</div>
+                        <div class="settings-item-label">Резервное копирование</div>
+                        <div class="settings-item-arrow">→</div>
+                    </div>
+                    {% endif %}
                     <div class="settings-logout">
                         <a href="/logout" class="settings-logout-btn">Выйти из аккаунта</a>
                     </div>
