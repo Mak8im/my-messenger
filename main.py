@@ -737,6 +737,41 @@ async def get_user_info(
     }
 
 
+# ========== НАСТРОЙКИ УВЕДОМЛЕНИЙ ==========
+
+@app.get("/api/notification-sound")
+async def get_notification_sound(
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    return {"sound": current_user.notification_sound or "default"}
+
+
+@app.put("/api/notification-sound")
+async def set_notification_sound(
+    sound: str = Body(..., embed=True),
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    # Валидация: разрешённые звуки
+    allowed_sounds = ["default", "nicesound", "tg", "vk", "icq", "facebook", "samsung", "apple"]
+    if sound not in allowed_sounds:
+        raise HTTPException(status_code=400, detail="Недопустимый звук")
+    
+    current_user.notification_sound = sound
+    db.commit()
+    
+    return {"sound": sound}
+
+
 # ========== ДРУГИЕ РОУТЫ ==========
 
 @app.post("/subscribe")
