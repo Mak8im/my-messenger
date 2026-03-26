@@ -1586,3 +1586,230 @@ input:checked + .slider:before {
     text-align: center;
     font-weight: bold;
 }
+
+/* Voice Messages */
+.voice-message {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+    padding: 8px 12px;
+    min-width: 180px;
+}
+
+.message-bubble.own .voice-message {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.voice-play-btn {
+    background: #3390ec;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+    flex-shrink: 0;
+}
+
+.voice-play-btn:hover {
+    transform: scale(1.05);
+    background: #3b9af5;
+}
+
+.voice-play-btn:active {
+    transform: scale(0.95);
+}
+
+.voice-waveform {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 30px;
+    flex: 1;
+}
+
+.voice-waveform .wave {
+    width: 3px;
+    height: 8px;
+    background: #7a7f85;
+    border-radius: 2px;
+    transition: height 0.1s ease;
+}
+
+.message-bubble.own .voice-waveform .wave {
+    background: #e0e0e0;
+}
+
+.voice-waveform.playing .wave {
+    animation: wave-animation 0.5s ease infinite alternate;
+}
+
+.voice-waveform.playing .wave:nth-child(1) { animation-delay: 0s; height: 12px; }
+.voice-waveform.playing .wave:nth-child(2) { animation-delay: 0.1s; height: 18px; }
+.voice-waveform.playing .wave:nth-child(3) { animation-delay: 0.2s; height: 24px; }
+.voice-waveform.playing .wave:nth-child(4) { animation-delay: 0.3s; height: 18px; }
+.voice-waveform.playing .wave:nth-child(5) { animation-delay: 0.4s; height: 12px; }
+.voice-waveform.playing .wave:nth-child(6) { animation-delay: 0.5s; height: 8px; }
+
+@keyframes wave-animation {
+    0% { height: 8px; }
+    100% { height: 24px; }
+}
+
+.voice-duration {
+    font-size: 12px;
+    color: #7a7f85;
+    font-family: monospace;
+    min-width: 40px;
+    text-align: right;
+}
+
+.message-bubble.own .voice-duration {
+    color: #e0e0e0;
+}
+
+/* Voice Recording Indicator */
+.voice-recording-indicator {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 30px;
+    padding: 15px 25px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.2s ease;
+}
+
+.recording-wave {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.recording-wave span {
+    width: 4px;
+    height: 20px;
+    background: #ff4444;
+    border-radius: 2px;
+    animation: recording-wave 0.5s ease infinite alternate;
+}
+
+.recording-wave span:nth-child(1) { animation-delay: 0s; height: 12px; }
+.recording-wave span:nth-child(2) { animation-delay: 0.1s; height: 20px; }
+.recording-wave span:nth-child(3) { animation-delay: 0.2s; height: 28px; }
+.recording-wave span:nth-child(4) { animation-delay: 0.3s; height: 20px; }
+.recording-wave span:nth-child(5) { animation-delay: 0.4s; height: 12px; }
+
+@keyframes recording-wave {
+    0% { height: 8px; }
+    100% { height: 32px; }
+}
+
+.recording-time {
+    color: white;
+    font-size: 18px;
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.stop-recording-btn {
+    background: #ff4444;
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.stop-recording-btn:hover {
+    background: #ff6666;
+    transform: scale(1.02);
+}
+
+.recording-hint {
+    color: #aaa;
+    font-size: 12px;
+    margin-left: 10px;
+}
+
+/* Action Buttons Container */
+.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.voice-record-btn {
+    background: #3390ec;
+    border: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+    flex-shrink: 0;
+}
+
+.voice-record-btn:hover {
+    transform: scale(1.05);
+    background: #3b9af5;
+}
+
+.voice-record-btn:active {
+    transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+    .voice-recording-indicator {
+        bottom: 100px;
+        padding: 12px 20px;
+        gap: 12px;
+    }
+    
+    .recording-time {
+        font-size: 16px;
+    }
+    
+    .stop-recording-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    
+    .recording-hint {
+        font-size: 10px;
+    }
+    
+    .voice-message {
+        min-width: 140px;
+        padding: 6px 10px;
+    }
+    
+    .voice-play-btn {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .voice-play-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+}
