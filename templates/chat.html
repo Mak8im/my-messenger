@@ -1378,5 +1378,45 @@
             });
         }
     </script>
+    <!-- Диагностика уведомлений -->
+<script>
+    setTimeout(() => {
+        console.log('=== ДИАГНОСТИКА УВЕДОМЛЕНИЙ ===');
+        console.log('1. Notification API:', 'Notification' in window ? '✅ есть' : '❌ нет');
+        console.log('2. PushManager:', 'PushManager' in window ? '✅ есть' : '❌ нет');
+        console.log('3. Service Worker:', 'serviceWorker' in navigator ? '✅ есть' : '❌ нет');
+        console.log('4. Разрешение:', Notification.permission);
+        console.log('5. HTTPS:', location.protocol === 'https:' ? '✅ да' : '❌ нет (надо HTTPS)');
+        console.log('6. Режим:', window.navigator.standalone ? '📱 PWA (с иконки)' : '🌐 Браузер');
+        
+        if (Notification.permission === 'granted') {
+            new Notification('Messenger', { 
+                body: '✅ Уведомления работают!',
+                icon: '/static/icon.svg'
+            });
+            console.log('✅ Тестовое уведомление отправлено');
+        } else if (Notification.permission === 'denied') {
+            console.log('❌ Разрешение ЗАПРЕЩЕНО. Зайди: Настройки → Safari → Уведомления → разреши');
+            alert('❌ Уведомления запрещены в настройках iPhone. Зайди: Настройки → Safari → Уведомления → разреши для этого сайта');
+        } else {
+            console.log('⚠️ Разрешение не запрошено. Нажми кнопку включения');
+        }
+        
+        // Проверка Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(reg => {
+                console.log('7. Service Worker статус:', reg.active ? '✅ активен' : '❌ не активен');
+                reg.pushManager.getSubscription().then(sub => {
+                    console.log('8. Push подписка:', sub ? '✅ есть' : '❌ нет');
+                    if (sub) {
+                        console.log('   - endpoint:', sub.endpoint.substring(0, 50) + '...');
+                    }
+                });
+            }).catch(e => console.log('SW ошибка:', e));
+        }
+        
+        console.log('=============================');
+    }, 1000);
+</script>
 </body>
 </html>
