@@ -140,7 +140,16 @@
                                     {% else %}
                                         <div class="message-text">{{ msg.content }}</div>
                                     {% endif %}
-                                    <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
+                                    <div class="message-time-wrapper">
+                                        <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
+                                        <div class="message-status">
+                                            {% if msg.is_read %}
+                                                <span class="checkmark checkmark-double">✓✓</span>
+                                            {% else %}
+                                                <span class="checkmark checkmark-single">✓</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         {% else %}
@@ -156,7 +165,9 @@
                                         <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
                                         <div class="message-text">{{ msg.content }}</div>
                                     {% endif %}
-                                    <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
+                                    <div class="message-time-wrapper">
+                                        <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
+                                    </div>
                                 </div>
                             </div>
                         {% endif %}
@@ -429,6 +440,9 @@
         let isCurrentlyTyping = false;
         let userStatuses = {};
         let currentNotificationSound = "default";
+        
+        // Хранилище статусов сообщений
+        let messageStatuses = {}; // { messageId: { isRead, isDelivered } }
         
         const soundNames = {
             "default": "Базовый",
@@ -969,6 +983,25 @@
             }
         }
         
+        // ========== СТАТУСЫ СООБЩЕНИЙ ==========
+        function updateMessageStatus(messageId, isRead, isDelivered) {
+            const messageRow = document.querySelector(`.message-row[data-message-id="${messageId}"]`);
+            if (!messageRow) return;
+            
+            const statusSpan = messageRow.querySelector('.message-status');
+            if (statusSpan) {
+                if (isRead) {
+                    statusSpan.innerHTML = '<span class="checkmark checkmark-double">✓✓</span>';
+                } else if (isDelivered) {
+                    statusSpan.innerHTML = '<span class="checkmark checkmark-single">✓</span>';
+                } else {
+                    statusSpan.innerHTML = '<span class="checkmark checkmark-single" style="opacity: 0.5;">✓</span>';
+                }
+            }
+            
+            messageStatuses[messageId] = { isRead, isDelivered };
+        }
+        
         // ========== "ПЕЧАТАЕТ..." ==========
         function sendTypingStatus(isTyping) {
             if (!SELECTED_USER_ID) return;
@@ -1037,11 +1070,12 @@
             if (list && card.parentNode === list) list.prepend(card);
         }
         
-        function appendMessageToChat(senderId, messageType, content, time, senderEmail, fileUrl, downloadUrl, fileName) {
+        function appendMessageToChat(senderId, messageType, content, time, senderEmail, fileUrl, downloadUrl, fileName, messageId, isRead, isDelivered) {
             if (!messagesBox) return;
             const isOwn = senderId === CURRENT_USER_ID;
             const row = document.createElement("div");
             row.className = `message-row ${isOwn ? "own" : ""}`;
+            row.setAttribute("data-message-id", messageId);
             const bubble = document.createElement("div");
             bubble.className = `message-bubble ${isOwn ? "own" : ""}`;
             if (!isOwn) {
@@ -1072,12 +1106,36 @@
                 text.textContent = content || "";
                 bubble.appendChild(text);
             }
+            
+            // Время и статус
+            const timeWrapper = document.createElement("div");
+            timeWrapper.className = "message-time-wrapper";
             const timeDiv = document.createElement("div");
             timeDiv.className = "message-time";
             timeDiv.textContent = time || "";
-            bubble.appendChild(timeDiv);
+            timeWrapper.appendChild(timeDiv);
+            
+            if (isOwn) {
+                const statusSpan = document.createElement("div");
+                statusSpan.className = "message-status";
+                if (isRead) {
+                    statusSpan.innerHTML = '<span class="checkmark checkmark-double">✓✓</span>';
+                } else if (isDelivered) {
+                    statusSpan.innerHTML = '<span class="checkmark checkmark-single">✓</span>';
+                } else {
+                    statusSpan.innerHTML = '<span class="checkmark checkmark-single" style="opacity: 0.5;">✓</span>';
+                }
+                timeWrapper.appendChild(statusSpan);
+            }
+            
+            bubble.appendChild(timeWrapper);
             row.appendChild(bubble);
             messagesBox.appendChild(row);
+            
+            if (isOwn) {
+                messageStatuses[messageId] = { isRead, isDelivered };
+            }
+            
             scrollToBottom();
         }
         
@@ -1117,18 +1175,32 @@
         
         socket.onmessage = function(event) {
             const data = JSON.parse(event.data);
+            
             if (data.type === "presence") {
                 updateUserStatuses(data.user_status || {});
                 return;
             }
+            
             if (data.type === "read_update") {
                 if (data.chat_user_id) updateUnreadBadge(data.chat_user_id, 0);
                 return;
             }
+            
+            if (data.type === "read") {
+                updateMessageStatus(data.message_id, data.is_read, true);
+                return;
+            }
+            
+            if (data.type === "delivered") {
+                updateMessageStatus(data.message_id, false, data.is_delivered);
+                return;
+            }
+            
             if (data.type === "typing") {
                 showTypingIndicator(data.sender_id, data.is_typing);
                 return;
             }
+            
             if (data.type === "message") {
                 const isFromOther = data.sender_id !== CURRENT_USER_ID;
                 if (isFromOther) {
@@ -1166,7 +1238,10 @@
                         data.sender_email,
                         data.file_url,
                         data.download_url,
-                        data.file_name
+                        data.file_name,
+                        data.message_id,
+                        data.is_read || false,
+                        data.is_delivered || false
                     );
                 }
             }
