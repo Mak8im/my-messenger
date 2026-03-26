@@ -27,7 +27,13 @@
                 </div>
 
                 <div class="tg-current-user">
-                    <div class="avatar" id="sidebarAvatar">{{ current_user.email[0]|upper }}</div>
+                    <div class="avatar" id="sidebarAvatar">
+                        {% if current_user.avatar %}
+                            <img src="/avatars/{{ current_user.avatar }}" style="width: 100%; height: 100%; object-fit: cover;">
+                        {% else %}
+                            {{ current_user.email[0]|upper }}
+                        {% endif %}
+                    </div>
                     <div class="tg-current-user-meta">
                         <div class="tg-current-user-label">Ты вошёл как</div>
                         <div class="tg-current-user-email" id="sidebarUserName">{{ current_user.full_name or current_user.email }}</div>
@@ -205,6 +211,11 @@
                         <div class="settings-item-label">Уведомления и звуки</div>
                         <div class="settings-item-arrow">→</div>
                     </div>
+                    <div class="settings-item" id="starsItem">
+                        <div class="settings-item-icon">⭐</div>
+                        <div class="settings-item-label">Мои звёзды</div>
+                        <div class="settings-item-arrow">→</div>
+                    </div>
                     {% if can_backup %}
                     <div class="settings-item" data-settings-page="backup">
                         <div class="settings-item-icon">💾</div>
@@ -233,7 +244,11 @@
                     <div class="profile-avatar-section">
                         <div class="profile-avatar-wrapper">
                             <div id="profileAvatar" class="profile-avatar">
-                                {{ current_user.email[0]|upper }}
+                                {% if current_user.avatar %}
+                                    <img src="/avatars/{{ current_user.avatar }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                {% else %}
+                                    {{ current_user.email[0]|upper }}
+                                {% endif %}
                             </div>
                             <button class="profile-avatar-edit" id="changeAvatarBtn">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -477,6 +492,15 @@
             });
         });
         
+        // Кнопка "Мои звёзды" (заглушка)
+        const starsItem = document.getElementById("starsItem");
+        if (starsItem) {
+            starsItem.addEventListener("click", () => {
+                closeModal("main");
+                alert("⭐ Мои звёзды — скоро здесь появятся награды и достижения!");
+            });
+        }
+        
         // Кнопка настроек в сайдбаре
         const settingsTrigger = document.getElementById("settingsTrigger");
         if (settingsTrigger) settingsTrigger.addEventListener("click", () => openModal("main"));
@@ -669,7 +693,6 @@
             const toggle = document.getElementById("notificationsToggle");
             if (toggle) {
                 toggle.checked = notificationPermissionGranted && notificationsEnabled;
-                // Убираем старый listener, чтобы не дублировать
                 const newToggle = toggle.cloneNode(true);
                 toggle.parentNode.replaceChild(newToggle, toggle);
                 newToggle.addEventListener("change", async (e) => {
@@ -1260,7 +1283,6 @@
         // Кнопка "Выбор звука"
         const selectSoundRow = document.getElementById("selectSoundRow");
         if (selectSoundRow) {
-            // Убираем старый listener, если есть
             const newSelectSoundRow = selectSoundRow.cloneNode(true);
             selectSoundRow.parentNode.replaceChild(newSelectSoundRow, selectSoundRow);
             newSelectSoundRow.addEventListener("click", () => {
