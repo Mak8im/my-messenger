@@ -470,18 +470,18 @@ async def register_user(
 @app.post("/login", response_class=HTMLResponse)
 async def login_user(
     request: Request,
-    email: str = Form(...),
+    identifier: str = Form(...),
     password: str = Form(...),
     remember_me: bool = Form(False),
     db: Session = Depends(get_db)
 ):
-    user = authenticate_user(db, email, password)
+    user = authenticate_user(db, identifier, password)
 
     if user is None:
         return templates.TemplateResponse(
             request=request,
             name="login.html",
-            context={"error": "Неверный email или пароль"}
+            context={"error": "Неверный email или имя пользователя"}
         )
 
     user.last_activity = datetime.now(timezone.utc)
@@ -496,7 +496,6 @@ async def login_user(
     
     expires = datetime.now(timezone.utc) + timedelta(seconds=max_age)
     
-    # Определяем, используется ли HTTPS (для локальной разработки отключаем secure)
     is_secure = request.url.scheme == "https"
     
     response.set_cookie(
@@ -505,7 +504,7 @@ async def login_user(
         httponly=True,
         max_age=max_age,
         expires=expires,
-        secure=is_secure,  # только если HTTPS
+        secure=is_secure,
         samesite="lax",
         path="/"
     )
@@ -1113,7 +1112,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
         db.close()
 
 
-# ========== BACKUP ФУНКЦИИ (исправлены) ==========
+# ========== BACKUP ФУНКЦИИ ==========
 
 def check_backup_permission(current_user: User):
     if current_user.email not in ALLOWED_BACKUP_EMAILS:
@@ -1136,15 +1135,12 @@ async def download_backup(
     if not db_path.exists():
         raise HTTPException(status_code=404, detail="Файл базы данных не найден")
     
-    # Создаём временный zip-архив
     temp_zip = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
     temp_zip.close()
     
     with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        # Добавляем базу данных
         zipf.write(db_path, arcname="messenger.db")
         
-        # Добавляем папку с аватарами, если она существует
         if AVATARS_DIR.exists():
             for file in AVATARS_DIR.iterdir():
                 if file.is_file():
@@ -1172,11 +1168,9 @@ async def restore_backup(
     
     check_backup_permission(current_user)
     
-    # Проверяем расширение файла
     if not backup_file.filename.endswith('.zip'):
         raise HTTPException(status_code=400, detail="Файл должен быть zip-архивом")
     
-    # Сохраняем загруженный файл во временную папку
     temp_dir = tempfile.mkdtemp()
     temp_zip_path = Path(temp_dir) / "backup.zip"
     
@@ -1185,11 +1179,9 @@ async def restore_backup(
             content = await backup_file.read()
             f.write(content)
         
-        # Распаковываем архив
         with zipfile.ZipFile(temp_zip_path, 'r') as zipf:
             zipf.extractall(temp_dir)
         
-        # Создаём резервную копию текущей базы и аватаров
         db_path = BASE_DIR / "messenger.db"
         if db_path.exists():
             backup_db = BASE_DIR / f"messenger_backup_auto_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.db"
@@ -1201,19 +1193,15 @@ async def restore_backup(
                 shutil.rmtree(backup_avatars)
             shutil.copytree(AVATARS_DIR, backup_avatars)
         
-        # Восстанавливаем базу данных
         extracted_db = Path(temp_dir) / "messenger.db"
         if extracted_db.exists():
             shutil.copy(extracted_db, db_path)
         
-        # Восстанавливаем аватары
         extracted_avatars = Path(temp_dir) / "avatars"
         if extracted_avatars.exists():
-            # Удаляем старые аватары
             if AVATARS_DIR.exists():
                 shutil.rmtree(AVATARS_DIR)
             AVATARS_DIR.mkdir(exist_ok=True)
-            # Копируем новые
             for file in extracted_avatars.iterdir():
                 if file.is_file():
                     shutil.copy(file, AVATARS_DIR / file.name)
@@ -1226,6 +1214,5 @@ async def restore_backup(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при восстановлении: {str(e)}")
     finally:
-        # Удаляем временную папку
         if Path(temp_dir).exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
