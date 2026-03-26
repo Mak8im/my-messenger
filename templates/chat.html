@@ -137,6 +137,20 @@
                                             <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
                                         </a>
                                         <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
+                                    {% elif msg.message_type == "voice" and msg.file_path %}
+                                        <div class="voice-message">
+                                            <button class="voice-play-btn" data-message-id="{{ msg.id }}" data-audio-url="/uploads/{{ msg.file_path }}">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                                </svg>
+                                            </button>
+                                            <div class="voice-waveform" id="waveform-{{ msg.id }}">
+                                                <span class="wave"></span><span class="wave"></span><span class="wave"></span>
+                                                <span class="wave"></span><span class="wave"></span><span class="wave"></span>
+                                            </div>
+                                            <span class="voice-duration" id="duration-{{ msg.id }}">--:--</span>
+                                        </div>
+                                        <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
                                     {% else %}
                                         <div class="message-text">{{ msg.content }}</div>
                                     {% endif %}
@@ -162,6 +176,21 @@
                                         <a href="/uploads/{{ msg.file_path }}" target="_blank" class="photo-link">
                                             <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
                                         </a>
+                                        <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
+                                    {% elif msg.message_type == "voice" and msg.file_path %}
+                                        <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
+                                        <div class="voice-message">
+                                            <button class="voice-play-btn" data-message-id="{{ msg.id }}" data-audio-url="/uploads/{{ msg.file_path }}">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                                </svg>
+                                            </button>
+                                            <div class="voice-waveform" id="waveform-{{ msg.id }}">
+                                                <span class="wave"></span><span class="wave"></span><span class="wave"></span>
+                                                <span class="wave"></span><span class="wave"></span><span class="wave"></span>
+                                            </div>
+                                            <span class="voice-duration" id="duration-{{ msg.id }}">--:--</span>
+                                        </div>
                                         <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
                                     {% else %}
                                         <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
@@ -190,7 +219,30 @@
                         placeholder="Сообщение"
                         autocomplete="off"
                     >
-                    <button class="send-btn tg-send-btn" onclick="sendMessage()">➤</button>
+                    
+                    <!-- Контейнер для кнопок (микрофон/стрелочка) -->
+                    <div class="action-buttons">
+                        <button id="voiceRecordBtn" class="voice-record-btn" style="display: flex;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" y1="19" x2="12" y2="22"/>
+                            </svg>
+                        </button>
+                        <button id="sendBtn" class="send-btn tg-send-btn" style="display: none;" onclick="sendMessage()">➤</button>
+                    </div>
+                </div>
+
+                <!-- Индикатор записи голоса -->
+                <div id="voiceRecordingIndicator" class="voice-recording-indicator" style="display: none;">
+                    <div class="recording-wave">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="recording-time" id="recordingTime">0:00</div>
+                    <div class="recording-actions">
+                        <button id="stopRecordingBtn" class="stop-recording-btn">⏹️ Остановить</button>
+                    </div>
+                    <div class="recording-hint" id="recordingHint">Отпусти для отправки, свайп вверх для удержания</div>
                 </div>
             {% else %}
                 <div class="empty-chat tg-empty-chat">
@@ -403,7 +455,7 @@
                     <div class="stars-counter" id="starsCounter">0.000</div>
                     <div class="star-coin" id="starCoin">
                         <div class="star-coin-inner">
-                            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                             </svg>
                         </div>
@@ -470,6 +522,24 @@
         
         let messageStatuses = {};
         
+        // ========== ГОЛОСОВЫЕ СООБЩЕНИЯ ==========
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let recordingStartTime = null;
+        let recordingTimer = null;
+        let swipeUpDetected = false;
+        let startY = 0;
+        let isHolding = false;
+        
+        const voiceRecordBtn = document.getElementById("voiceRecordBtn");
+        const sendBtn = document.getElementById("sendBtn");
+        const messageInput = document.getElementById("messageInput");
+        const recordingIndicator = document.getElementById("voiceRecordingIndicator");
+        const recordingTimeSpan = document.getElementById("recordingTime");
+        const stopRecordingBtn = document.getElementById("stopRecordingBtn");
+        const recordingHint = document.getElementById("recordingHint");
+        
         const soundNames = {
             "default": "Базовый",
             "nicesound": "Красивый звук",
@@ -481,12 +551,224 @@
             "apple": "Айфон"
         };
         
+        // Функция обновления кнопок (микрофон/стрелочка)
+        function updateActionButtons() {
+            if (!messageInput || !voiceRecordBtn || !sendBtn) return;
+            
+            const hasText = messageInput.value.trim().length > 0;
+            
+            if (hasText) {
+                voiceRecordBtn.style.display = "none";
+                sendBtn.style.display = "flex";
+            } else {
+                voiceRecordBtn.style.display = "flex";
+                sendBtn.style.display = "none";
+            }
+        }
+        
+        // Запись голоса
+        async function startRecording() {
+            if (isRecording) return;
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    await sendVoiceMessage(audioBlob);
+                    
+                    // Останавливаем все треки
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Скрываем индикатор записи
+                    recordingIndicator.style.display = "none";
+                    if (recordingTimer) clearInterval(recordingTimer);
+                    isRecording = false;
+                };
+                
+                mediaRecorder.start(100);
+                isRecording = true;
+                recordingStartTime = Date.now();
+                
+                // Показываем индикатор записи
+                recordingIndicator.style.display = "flex";
+                recordingHint.textContent = swipeUpDetected ? "Запись идёт... Нажми остановить" : "Отпусти для отправки, свайп вверх для удержания";
+                
+                // Таймер для отображения длительности
+                recordingTimer = setInterval(() => {
+                    if (!recordingStartTime) return;
+                    const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = elapsed % 60;
+                    recordingTimeSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }, 100);
+                
+            } catch (err) {
+                console.error("Ошибка доступа к микрофону:", err);
+                alert("Не удалось получить доступ к микрофону. Проверьте разрешения.");
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                if (recordingTimer) clearInterval(recordingTimer);
+                recordingIndicator.style.display = "none";
+            }
+        }
+        
+        async function sendVoiceMessage(audioBlob) {
+            if (!SELECTED_USER_ID) return;
+            
+            const formData = new FormData();
+            formData.append("receiver_id", SELECTED_USER_ID);
+            formData.append("voice", audioBlob, "voice.webm");
+            
+            try {
+                const response = await fetch("/send-voice", {
+                    method: "POST",
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    console.log("Голосовое сообщение отправлено");
+                } else {
+                    console.error("Ошибка отправки голосового сообщения");
+                }
+            } catch (error) {
+                console.error("Ошибка:", error);
+            }
+        }
+        
+        // Обработчики для голосовой записи
+        if (voiceRecordBtn) {
+            // Нажатие на микрофон
+            voiceRecordBtn.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+                startY = e.clientY;
+                isHolding = true;
+                swipeUpDetected = false;
+                startRecording();
+            });
+            
+            voiceRecordBtn.addEventListener("mouseup", (e) => {
+                if (!isHolding) return;
+                isHolding = false;
+                
+                if (!swipeUpDetected && isRecording) {
+                    stopRecording();
+                }
+            });
+            
+            voiceRecordBtn.addEventListener("mousemove", (e) => {
+                if (!isHolding) return;
+                const deltaY = startY - e.clientY;
+                if (deltaY > 50 && !swipeUpDetected) {
+                    swipeUpDetected = true;
+                    recordingHint.textContent = "Запись идёт... Нажми остановить";
+                }
+            });
+            
+            // Для touch-устройств
+            voiceRecordBtn.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                startY = e.touches[0].clientY;
+                isHolding = true;
+                swipeUpDetected = false;
+                startRecording();
+            });
+            
+            voiceRecordBtn.addEventListener("touchend", (e) => {
+                if (!isHolding) return;
+                isHolding = false;
+                
+                if (!swipeUpDetected && isRecording) {
+                    stopRecording();
+                }
+            });
+            
+            voiceRecordBtn.addEventListener("touchmove", (e) => {
+                if (!isHolding) return;
+                const deltaY = startY - e.touches[0].clientY;
+                if (deltaY > 50 && !swipeUpDetected) {
+                    swipeUpDetected = true;
+                    recordingHint.textContent = "Запись идёт... Нажми остановить";
+                }
+            });
+        }
+        
+        if (stopRecordingBtn) {
+            stopRecordingBtn.addEventListener("click", () => {
+                if (isRecording) {
+                    stopRecording();
+                }
+            });
+        }
+        
+        // Плеер для голосовых сообщений
+        function setupVoicePlayers() {
+            document.querySelectorAll('.voice-play-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const audioUrl = this.dataset.audioUrl;
+                    const messageId = this.dataset.messageId;
+                    const waveform = document.getElementById(`waveform-${messageId}`);
+                    
+                    if (this.classList.contains('playing')) {
+                        // Остановить
+                        if (window.currentAudio) {
+                            window.currentAudio.pause();
+                            window.currentAudio = null;
+                        }
+                        this.classList.remove('playing');
+                        if (waveform) waveform.classList.remove('playing');
+                        this.querySelector('svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                    } else {
+                        // Остановить предыдущий
+                        if (window.currentAudio) {
+                            window.currentAudio.pause();
+                            const prevBtn = document.querySelector('.voice-play-btn.playing');
+                            if (prevBtn) {
+                                prevBtn.classList.remove('playing');
+                                const prevId = prevBtn.dataset.messageId;
+                                const prevWaveform = document.getElementById(`waveform-${prevId}`);
+                                if (prevWaveform) prevWaveform.classList.remove('playing');
+                                prevBtn.querySelector('svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                            }
+                        }
+                        
+                        // Воспроизвести новый
+                        const audio = new Audio(audioUrl);
+                        window.currentAudio = audio;
+                        this.classList.add('playing');
+                        if (waveform) waveform.classList.add('playing');
+                        this.querySelector('svg').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+                        
+                        audio.play();
+                        audio.onended = () => {
+                            this.classList.remove('playing');
+                            if (waveform) waveform.classList.remove('playing');
+                            this.querySelector('svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                            window.currentAudio = null;
+                        };
+                    }
+                });
+            });
+        }
+        
         // ========== WEBSOCKET ==========
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const socket = new WebSocket(`${protocol}://${window.location.host}/ws/${CURRENT_USER_ID}`);
         
         const messagesBox = document.getElementById("messagesBox");
-        const messageInput = document.getElementById("messageInput");
         const photoInput = document.getElementById("photoInput");
         const photoForm = document.getElementById("photoForm");
         const typingIndicator = document.getElementById("typingIndicator");
@@ -537,7 +819,6 @@
             });
         });
         
-        // Кнопка "Мои звёзды"
         const starsItem = document.getElementById("starsItem");
         if (starsItem) {
             starsItem.addEventListener("click", () => {
@@ -1054,6 +1335,7 @@
                         isCurrentlyTyping = false;
                     }, 2000);
                 }
+                updateActionButtons();
             });
             messageInput.addEventListener("blur", () => {
                 sendTypingStatus(false);
@@ -1080,7 +1362,10 @@
             if (!card) return;
             const lastMsg = card.querySelector(".last-message");
             const dialogTime = card.querySelector(".dialog-time");
-            let preview = messageType === "photo" ? "📷 Фото" : (content || "");
+            let preview = "";
+            if (messageType === "photo") preview = "📷 Фото";
+            else if (messageType === "voice") preview = "🎤 Голосовое";
+            else preview = content || "";
             if (lastMsg) lastMsg.textContent = (isMine ? "Ты: " : "") + preview;
             if (dialogTime) dialogTime.textContent = time || "";
             const list = document.getElementById("dialogsList");
@@ -1101,6 +1386,7 @@
                 author.textContent = senderEmail || SELECTED_USER_EMAIL;
                 bubble.appendChild(author);
             }
+            
             if (messageType === "photo" && fileUrl) {
                 const link = document.createElement("a");
                 link.href = fileUrl;
@@ -1117,6 +1403,47 @@
                 download.className = "download-link";
                 download.textContent = "Скачать";
                 bubble.appendChild(download);
+            } else if (messageType === "voice" && fileUrl) {
+                const voiceDiv = document.createElement("div");
+                voiceDiv.className = "voice-message";
+                const playBtn = document.createElement("button");
+                playBtn.className = "voice-play-btn";
+                playBtn.dataset.messageId = messageId;
+                playBtn.dataset.audioUrl = fileUrl;
+                playBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+                
+                const waveform = document.createElement("div");
+                waveform.className = "voice-waveform";
+                waveform.id = `waveform-${messageId}`;
+                for (let i = 0; i < 6; i++) {
+                    const wave = document.createElement("span");
+                    wave.className = "wave";
+                    waveform.appendChild(wave);
+                }
+                
+                const durationSpan = document.createElement("span");
+                durationSpan.className = "voice-duration";
+                durationSpan.id = `duration-${messageId}`;
+                durationSpan.textContent = "--:--";
+                
+                voiceDiv.appendChild(playBtn);
+                voiceDiv.appendChild(waveform);
+                voiceDiv.appendChild(durationSpan);
+                bubble.appendChild(voiceDiv);
+                
+                const download = document.createElement("a");
+                download.href = downloadUrl;
+                download.className = "download-link";
+                download.textContent = "Скачать";
+                bubble.appendChild(download);
+                
+                // Получаем длительность
+                const audio = new Audio(fileUrl);
+                audio.addEventListener("loadedmetadata", () => {
+                    const minutes = Math.floor(audio.duration / 60);
+                    const seconds = Math.floor(audio.duration % 60);
+                    durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                });
             } else {
                 const text = document.createElement("div");
                 text.className = "message-text";
@@ -1152,6 +1479,52 @@
                 messageStatuses[messageId] = { isRead, isDelivered };
             }
             
+            // Навешиваем обработчик на кнопку воспроизведения
+            if (messageType === "voice") {
+                const playBtn = row.querySelector('.voice-play-btn');
+                if (playBtn) {
+                    playBtn.addEventListener('click', function() {
+                        const audioUrl = this.dataset.audioUrl;
+                        const msgId = this.dataset.messageId;
+                        const waveformDiv = document.getElementById(`waveform-${msgId}`);
+                        
+                        if (this.classList.contains('playing')) {
+                            if (window.currentAudio) {
+                                window.currentAudio.pause();
+                                window.currentAudio = null;
+                            }
+                            this.classList.remove('playing');
+                            if (waveformDiv) waveformDiv.classList.remove('playing');
+                            this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+                        } else {
+                            if (window.currentAudio) {
+                                window.currentAudio.pause();
+                                const prevBtn = document.querySelector('.voice-play-btn.playing');
+                                if (prevBtn) {
+                                    prevBtn.classList.remove('playing');
+                                    const prevId = prevBtn.dataset.messageId;
+                                    const prevWaveform = document.getElementById(`waveform-${prevId}`);
+                                    if (prevWaveform) prevWaveform.classList.remove('playing');
+                                    prevBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+                                }
+                            }
+                            const audio = new Audio(audioUrl);
+                            window.currentAudio = audio;
+                            this.classList.add('playing');
+                            if (waveformDiv) waveformDiv.classList.add('playing');
+                            this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                            audio.play();
+                            audio.onended = () => {
+                                this.classList.remove('playing');
+                                if (waveformDiv) waveformDiv.classList.remove('playing');
+                                this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+                                window.currentAudio = null;
+                            };
+                        }
+                    });
+                }
+            }
+            
             scrollToBottom();
         }
         
@@ -1172,6 +1545,7 @@
             if (typingTimeout) clearTimeout(typingTimeout);
             isCurrentlyTyping = false;
             messageInput.value = "";
+            updateActionButtons();
         }
         
         socket.onopen = function() {
@@ -1219,7 +1593,10 @@
                 const isFromOther = data.sender_id !== CURRENT_USER_ID;
                 if (isFromOther) {
                     playNotificationSound();
-                    let notifBody = data.message_type === "photo" ? "📷 Фото" : (data.content || "");
+                    let notifBody = "";
+                    if (data.message_type === "photo") notifBody = "📷 Фото";
+                    else if (data.message_type === "voice") notifBody = "🎤 Голосовое";
+                    else notifBody = data.content || "";
                     if (notifBody.length > 100) notifBody = notifBody.substring(0, 100) + "...";
                     showBrowserNotification(`Новое сообщение от ${data.sender_email || "пользователя"}`, notifBody);
                 }
@@ -1342,7 +1719,6 @@
             }
         }
         
-        // Навешиваем обработчик на монету
         document.addEventListener("click", (e) => {
             const starCoin = document.getElementById("starCoin");
             if (starCoin && (starCoin.contains(e.target) || starCoin === e.target)) {
@@ -1350,7 +1726,6 @@
             }
         });
         
-        // Закрытие модалки звёзд по клику на фон
         const starsModal = document.getElementById("starsModal");
         if (starsModal) {
             starsModal.addEventListener("click", (e) => {
@@ -1414,6 +1789,7 @@
             await initPushStatus();
             checkNotificationStatus();
             setupTypingDetection();
+            updateActionButtons();
             
             const enableAudio = () => {
                 const silent = new Audio();
