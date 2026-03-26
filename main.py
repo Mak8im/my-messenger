@@ -7,6 +7,7 @@ import asyncio
 import shutil
 import re
 import zipfile
+import tempfile
 from typing import Optional
 from fastapi import (
     FastAPI,
@@ -750,7 +751,6 @@ async def get_notification_sound(
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
-    # Возвращаем звук по умолчанию, если поле пустое
     sound = current_user.notification_sound or "default"
     return {"sound": sound}
 
@@ -1137,9 +1137,6 @@ async def download_backup(
         raise HTTPException(status_code=404, detail="Файл базы данных не найден")
     
     # Создаём временный zip-архив
-    import tempfile
-    import zipfile
-    
     temp_zip = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
     temp_zip.close()
     
@@ -1180,17 +1177,14 @@ async def restore_backup(
         raise HTTPException(status_code=400, detail="Файл должен быть zip-архивом")
     
     # Сохраняем загруженный файл во временную папку
-    import tempfile
-    import zipfile
-    
     temp_dir = tempfile.mkdtemp()
     temp_zip_path = Path(temp_dir) / "backup.zip"
     
-    with open(temp_zip_path, "wb") as f:
-        content = await backup_file.read()
-        f.write(content)
-    
     try:
+        with open(temp_zip_path, "wb") as f:
+            content = await backup_file.read()
+            f.write(content)
+        
         # Распаковываем архив
         with zipfile.ZipFile(temp_zip_path, 'r') as zipf:
             zipf.extractall(temp_dir)
@@ -1233,5 +1227,5 @@ async def restore_backup(
         raise HTTPException(status_code=500, detail=f"Ошибка при восстановлении: {str(e)}")
     finally:
         # Удаляем временную папку
-        import shutil
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        if Path(temp_dir).exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
