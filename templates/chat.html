@@ -186,7 +186,7 @@
         </main>
     </div>
 
-    <!-- ГЛАВНОЕ МОДАЛЬНОЕ ОКНО НАСТРОЕК (список пунктов) -->
+    <!-- ГЛАВНОЕ МОДАЛЬНОЕ ОКНО НАСТРОЕК -->
     <div id="settingsModal" class="modal-overlay" style="display: none;">
         <div class="modal-container">
             <div class="modal-header">
@@ -196,7 +196,6 @@
             <div class="modal-body">
                 <div class="tg-settings-list">
                     <div class="settings-category">
-                        <div class="settings-category-title">Общие</div>
                         <div class="settings-item" data-settings-page="account">
                             <div class="settings-item-icon">👤</div>
                             <div class="settings-item-label">Мой аккаунт</div>
@@ -207,32 +206,13 @@
                             <div class="settings-item-label">Уведомления и звуки</div>
                             <div class="settings-item-arrow">→</div>
                         </div>
-                    </div>
-                    <div class="settings-category">
-                        <div class="settings-category-title">Приложение</div>
-                        <div class="settings-item" data-settings-page="language">
-                            <div class="settings-item-icon">🌐</div>
-                            <div class="settings-item-label">Язык</div>
-                            <div class="settings-item-arrow">→</div>
-                        </div>
-                    </div>
-                    {% if can_backup %}
-                    <div class="settings-category">
-                        <div class="settings-category-title">Данные</div>
+                        {% if can_backup %}
                         <div class="settings-item" data-settings-page="backup">
                             <div class="settings-item-icon">💾</div>
                             <div class="settings-item-label">Резервное копирование</div>
                             <div class="settings-item-arrow">→</div>
                         </div>
-                    </div>
-                    {% endif %}
-                    <div class="settings-category">
-                        <div class="settings-category-title">Поддержка</div>
-                        <div class="settings-item" data-settings-page="about">
-                            <div class="settings-item-icon">ℹ️</div>
-                            <div class="settings-item-label">О приложении</div>
-                            <div class="settings-item-arrow">→</div>
-                        </div>
+                        {% endif %}
                     </div>
                     <div class="settings-logout">
                         <a href="/logout" class="settings-logout-btn">Выйти из аккаунта</a>
@@ -332,7 +312,7 @@
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО ВЫБОРА ЗВУКА (маленькое) -->
+    <!-- МОДАЛЬНОЕ ОКНО ВЫБОРА ЗВУКА -->
     <div id="soundPickerModal" class="modal-overlay" style="display: none;">
         <div class="modal-container modal-small">
             <div class="modal-header">
@@ -379,7 +359,7 @@
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО "Резервное копирование" (если доступно) -->
+    <!-- МОДАЛЬНОЕ ОКНО "Резервное копирование" -->
     {% if can_backup %}
     <div id="backupModal" class="modal-overlay" style="display: none;">
         <div class="modal-container modal-medium">
@@ -410,40 +390,6 @@
     </div>
     {% endif %}
 
-    <!-- МОДАЛЬНОЕ ОКНО "Язык" (заглушка) -->
-    <div id="languageModal" class="modal-overlay" style="display: none;">
-        <div class="modal-container modal-medium">
-            <div class="modal-header">
-                <button class="modal-back" id="languageBackBtn">←</button>
-                <h3 class="modal-title">Язык</h3>
-                <button class="modal-close" id="closeLanguageModalBtn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="tg-settings-panel">
-                    <div class="language-item active">Русский</div>
-                    <div class="language-item">English</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- МОДАЛЬНОЕ ОКНО "О приложении" -->
-    <div id="aboutModal" class="modal-overlay" style="display: none;">
-        <div class="modal-container modal-medium">
-            <div class="modal-header">
-                <button class="modal-back" id="aboutBackBtn">←</button>
-                <h3 class="modal-title">О приложении</h3>
-                <button class="modal-close" id="closeAboutModalBtn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="tg-settings-panel">
-                    <div class="about-version">Messenger v1.0</div>
-                    <div class="about-text">Личный мессенджер с реальным временем и PWA.</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {% if not selected_user %}
     <div class="tg-mobile-bottom-nav">
         <button class="tg-mobile-tab active" id="tabChatsBtn" type="button">Чаты</button>
@@ -466,7 +412,6 @@
         let userStatuses = {};
         let currentNotificationSound = "default";
         
-        // Словарь для названий звуков
         const soundNames = {
             "default": "Базовый",
             "nicesound": "Красивый звук",
@@ -497,8 +442,6 @@
             account: document.getElementById("accountModal"),
             notifications: document.getElementById("notificationsModal"),
             soundPicker: document.getElementById("soundPickerModal"),
-            language: document.getElementById("languageModal"),
-            about: document.getElementById("aboutModal"),
             backup: document.getElementById("backupModal")
         };
         
@@ -532,9 +475,7 @@
                 closeModal("main");
                 if (page === "account") openModal("account");
                 else if (page === "notifications") openModal("notifications");
-                else if (page === "language") openModal("language");
                 else if (page === "backup" && CAN_BACKUP) openModal("backup");
-                else if (page === "about") openModal("about");
             });
         });
         
@@ -558,8 +499,6 @@
             account: document.getElementById("accountBackBtn"),
             notifications: document.getElementById("notificationsBackBtn"),
             soundPicker: document.getElementById("soundPickerBackBtn"),
-            language: document.getElementById("languageBackBtn"),
-            about: document.getElementById("aboutBackBtn"),
             backup: document.getElementById("backupBackBtn")
         };
         for (let key in backBtns) {
@@ -715,7 +654,6 @@
         
         // ========== УВЕДОМЛЕНИЯ И ЗВУКИ ==========
         async function loadNotificationsSettings() {
-            // Получить текущий звук
             try {
                 const response = await fetch("/api/notification-sound");
                 if (response.ok) {
@@ -730,7 +668,6 @@
                 console.error("Ошибка загрузки звука:", error);
             }
             
-            // Статус уведомлений
             const toggle = document.getElementById("notificationsToggle");
             if (toggle) {
                 toggle.checked = notificationPermissionGranted && notificationsEnabled;
@@ -759,7 +696,6 @@
                     if (selectedSoundNameSpan) {
                         selectedSoundNameSpan.textContent = soundNames[sound] || "Базовый";
                     }
-                    // Обновляем звук в плеере уведомлений
                     const soundUrl = `/static/sounds/${sound}.mp3`;
                     notificationSound.src = soundUrl;
                     notificationSound.load();
@@ -771,7 +707,6 @@
             }
         }
         
-        // Звуковой плеер для превью
         let previewAudio = null;
         function playSoundPreview(soundName) {
             if (previewAudio) {
@@ -1323,7 +1258,6 @@
         if (selectSoundRow) {
             selectSoundRow.addEventListener("click", () => {
                 openModal("soundPicker");
-                // Заполнить список выбранным звуком
                 document.querySelectorAll(".sound-item").forEach(item => {
                     const sound = item.dataset.sound;
                     if (sound === currentNotificationSound) {
@@ -1348,7 +1282,7 @@
             });
         });
         
-        // Кнопка уведомлений в главном окне (если есть)
+        // Кнопка уведомлений
         const enableNotificationsBtn = document.getElementById("enableNotificationsBtnModal");
         if (enableNotificationsBtn) enableNotificationsBtn.addEventListener("click", enableNotifications);
         const enablePushBtn = document.getElementById("enablePushBtnModal");
