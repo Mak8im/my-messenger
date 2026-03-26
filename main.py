@@ -6,8 +6,8 @@ import uuid
 import asyncio
 import shutil
 import re
+import zipfile
 from typing import Optional
-
 from fastapi import (
     FastAPI,
     Request,
@@ -495,13 +495,16 @@ async def login_user(
     
     expires = datetime.now(timezone.utc) + timedelta(seconds=max_age)
     
+    # Определяем, используется ли HTTPS (для локальной разработки отключаем secure)
+    is_secure = request.url.scheme == "https"
+    
     response.set_cookie(
         key="user_id",
         value=str(user.id),
         httponly=True,
         max_age=max_age,
         expires=expires,
-        secure=True,
+        secure=is_secure,  # только если HTTPS
         samesite="lax",
         path="/"
     )
@@ -708,6 +711,34 @@ async def delete_avatar(
     return {"status": "ok"}
 
 
+@app.get("/api/user/{user_id_or_username}")
+async def get_user_info(
+    user_id_or_username: str,
+    db: Session = Depends(get_db)
+):
+    user = None
+    if user_id_or_username.isdigit():
+        user = db.query(User).filter(User.id == int(user_id_or_username)).first()
+    
+    if not user:
+        username = user_id_or_username
+        if not username.startswith("@"):
+            username = "@" + username
+        user = db.query(User).filter(User.username == username).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name or "",
+        "username": user.username or "",
+        "bio": user.bio or "",
+        "avatar": f"/avatars/{user.avatar}" if user.avatar else None
+    }
+
+
 # ========== НАСТРОЙКИ УВЕДОМЛЕНИЙ ==========
 
 @app.get("/api/notification-sound")
@@ -719,7 +750,9 @@ async def get_notification_sound(
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
-    return {"sound": current_user.notification_sound or "default"}
+    # Возвращаем звук по умолчанию, если поле пустое
+    sound = current_user.notification_sound or "default"
+    return {"sound": sound}
 
 
 @app.put("/api/notification-sound")
@@ -1080,7 +1113,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
         db.close()
 
 
-# ========== BACKUP ФУНКЦИИ ==========
+# ========== BACKUP ФУНКЦИИ (исправлены) ==========
 
 def check_backup_permission(current_user: User):
     if current_user.email not in ALLOWED_BACKUP_EMAILS:
@@ -1103,12 +1136,30 @@ async def download_backup(
     if not db_path.exists():
         raise HTTPException(status_code=404, detail="Файл базы данных не найден")
     
-    backup_name = f"messenger_backup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.db"
+    # Создаём временный zip-архив
+    import tempfile
+    import zipfile
+    
+    temp_zip = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    temp_zip.close()
+    
+    with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        # Добавляем базу данных
+        zipf.write(db_path, arcname="messenger.db")
+        
+        # Добавляем папку с аватарами, если она существует
+        if AVATARS_DIR.exists():
+            for file in AVATARS_DIR.iterdir():
+                if file.is_file():
+                    zipf.write(file, arcname=f"avatars/{file.name}")
+    
+    backup_name = f"messenger_backup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.zip"
     
     return FileResponse(
-        path=db_path,
+        path=temp_zip.name,
         filename=backup_name,
-        media_type="application/octet-stream"
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={backup_name}"}
     )
 
 
@@ -1124,23 +1175,63 @@ async def restore_backup(
     
     check_backup_permission(current_user)
     
-    if not backup_file.filename.endswith('.db'):
-        raise HTTPException(status_code=400, detail="Файл должен иметь расширение .db")
+    # Проверяем расширение файла
+    if not backup_file.filename.endswith('.zip'):
+        raise HTTPException(status_code=400, detail="Файл должен быть zip-архивом")
     
-    db_path = BASE_DIR / "messenger.db"
+    # Сохраняем загруженный файл во временную папку
+    import tempfile
+    import zipfile
     
-    if db_path.exists():
-        backup_path = BASE_DIR / f"messenger_backup_auto_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.db"
-        shutil.copy(db_path, backup_path)
+    temp_dir = tempfile.mkdtemp()
+    temp_zip_path = Path(temp_dir) / "backup.zip"
+    
+    with open(temp_zip_path, "wb") as f:
+        content = await backup_file.read()
+        f.write(content)
     
     try:
-        content = await backup_file.read()
-        with open(db_path, "wb") as f:
-            f.write(content)
+        # Распаковываем архив
+        with zipfile.ZipFile(temp_zip_path, 'r') as zipf:
+            zipf.extractall(temp_dir)
+        
+        # Создаём резервную копию текущей базы и аватаров
+        db_path = BASE_DIR / "messenger.db"
+        if db_path.exists():
+            backup_db = BASE_DIR / f"messenger_backup_auto_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.db"
+            shutil.copy(db_path, backup_db)
+        
+        if AVATARS_DIR.exists():
+            backup_avatars = BASE_DIR / f"avatars_backup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+            if backup_avatars.exists():
+                shutil.rmtree(backup_avatars)
+            shutil.copytree(AVATARS_DIR, backup_avatars)
+        
+        # Восстанавливаем базу данных
+        extracted_db = Path(temp_dir) / "messenger.db"
+        if extracted_db.exists():
+            shutil.copy(extracted_db, db_path)
+        
+        # Восстанавливаем аватары
+        extracted_avatars = Path(temp_dir) / "avatars"
+        if extracted_avatars.exists():
+            # Удаляем старые аватары
+            if AVATARS_DIR.exists():
+                shutil.rmtree(AVATARS_DIR)
+            AVATARS_DIR.mkdir(exist_ok=True)
+            # Копируем новые
+            for file in extracted_avatars.iterdir():
+                if file.is_file():
+                    shutil.copy(file, AVATARS_DIR / file.name)
         
         return JSONResponse({
             "status": "success",
-            "message": "База данных восстановлена. Обновите страницу."
+            "message": "База данных и аватары восстановлены. Обновите страницу."
         })
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при восстановлении: {str(e)}")
+    finally:
+        # Удаляем временную папку
+        import shutil
+        shutil.rmtree(temp_dir, ignore_errors=True)
