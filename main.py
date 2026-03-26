@@ -949,6 +949,104 @@ async def send_photo(
 
     return RedirectResponse(url=f"/chat?selected_user_id={receiver_id}", status_code=303)
 
+@app.post("/send-voice")
+async def send_voice(
+    receiver_id: int = Form(...),
+    voice: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user_id: str | None = Cookie(default=None)
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+
+    if not voice.content_type or not voice.content_type.startswith("audio/"):
+        raise HTTPException(status_code=400, detail="Файл должен быть аудио")
+
+    extension = ".webm"
+    safe_name = f"voice_{uuid.uuid4().hex}{extension}"
+    save_path = UPLOADS_DIR / safe_name
+
+    with save_path.open("wb") as buffer:
+        content = await voice.read()
+        buffer.write(content)
+
+    new_message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver_id,
+        message_type="voice",
+        content="",
+        file_name=voice.filename or "voice",
+        file_path=safe_name,
+        created_at=datetime.now(timezone.utc),
+        is_read=False,
+        is_delivered=False
+    )
+    db.add(new_message)
+    db.commit()
+    db.refresh(new_message)
+
+    unread_count_for_receiver = get_unread_count(receiver_id, current_user.id, db)
+
+    file_url = f"/uploads/{safe_name}"
+    download_url = f"/download-file/{new_message.id}"
+
+    outgoing_to_sender = {
+        "type": "message",
+        "message_type": "voice",
+        "message_id": new_message.id,
+        "sender_id": current_user.id,
+        "receiver_id": receiver_id,
+        "content": "",
+        "time": format_message_time(new_message.created_at),
+        "unread_count": 0,
+        "file_url": file_url,
+        "download_url": download_url,
+        "file_name": new_message.file_name or "voice",
+        "sender_email": current_user.email,
+        "is_read": False,
+        "is_delivered": False
+    }
+
+    outgoing_to_receiver = {
+        "type": "message",
+        "message_type": "voice",
+        "message_id": new_message.id,
+        "sender_id": current_user.id,
+        "receiver_id": receiver_id,
+        "content": "",
+        "time": format_message_time(new_message.created_at),
+        "unread_count": unread_count_for_receiver,
+        "file_url": file_url,
+        "download_url": download_url,
+        "file_name": new_message.file_name or "voice",
+        "sender_email": current_user.email,
+        "is_read": False,
+        "is_delivered": False
+    }
+
+    await manager.send_to_user(current_user.id, outgoing_to_sender)
+    await manager.send_to_user(receiver_id, outgoing_to_receiver)
+
+    new_message.is_delivered = True
+    db.commit()
+    
+    await manager.send_to_user(current_user.id, {
+        "type": "delivered",
+        "message_id": new_message.id,
+        "is_delivered": True
+    })
+
+    if receiver_id not in manager.online_users:
+        send_push_to_user(
+            db=db,
+            user_id=receiver_id,
+            title=f"Новое голосовое от {current_user.email}",
+            body="🎤 Голосовое сообщение",
+            url=f"/chat?selected_user_id={current_user.id}",
+        )
+
+    return JSONResponse({"status": "ok", "message_id": new_message.id})
 
 @app.get("/download-file/{message_id}")
 async def download_file(
