@@ -541,6 +541,7 @@ async def chat_page(
             db.refresh(selected_user)
 
         if selected_user:
+            # Помечаем ВСЕ сообщения от выбранного пользователя как прочитанные
             unread_messages = (
                 db.query(Message)
                 .filter(
@@ -556,6 +557,15 @@ async def chat_page(
 
             if unread_messages:
                 db.commit()
+                
+                # Отправляем отправителю обновление о прочтении для каждого сообщения
+                for msg in unread_messages:
+                    if msg.sender_id in manager.online_users:
+                        await manager.send_to_user(msg.sender_id, {
+                            "type": "read",
+                            "message_id": msg.id,
+                            "is_read": True
+                        })
 
             messages = (
                 db.query(Message)
@@ -995,24 +1005,26 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                 other_user_id = int(data["chat_user_id"])
 
                 try:
-                    unread_messages = (
+                    # Находим ВСЕ сообщения от этого пользователя к текущему
+                    all_messages_from_other = (
                         db.query(Message)
                         .filter(
                             Message.sender_id == other_user_id,
-                            Message.receiver_id == user_id,
-                            Message.is_read == False
+                            Message.receiver_id == user_id
                         )
                         .all()
                     )
-
+                    
                     updated_ids = []
-                    for msg in unread_messages:
-                        msg.is_read = True
-                        updated_ids.append(msg.id)
+                    for msg in all_messages_from_other:
+                        if not msg.is_read:
+                            msg.is_read = True
+                            updated_ids.append(msg.id)
 
                     if updated_ids:
                         db.commit()
                         
+                        # Отправляем обновление о прочтении для каждого сообщения
                         for msg_id in updated_ids:
                             await manager.send_to_user(other_user_id, {
                                 "type": "read",
