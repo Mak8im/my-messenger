@@ -49,7 +49,7 @@
                 <div class="auth-card-top">
                     <div class="auth-logo-circle">M</div>
                     <h2 class="auth-card-title">Вход</h2>
-                    <p class="auth-card-subtitle">Введите email и пароль</p>
+                    <p class="auth-card-subtitle">Введите email или имя пользователя</p>
                 </div>
 
                 {% if error %}
@@ -57,12 +57,12 @@
                 {% endif %}
 
                 <form method="post" action="/login" class="auth-form">
-                    <label class="auth-label">Email</label>
+                    <label class="auth-label">Email или имя пользователя</label>
                     <input
-                        type="email"
-                        name="email"
+                        type="text"
+                        name="identifier"
                         class="auth-input"
-                        placeholder="Например: user@mail.com"
+                        placeholder="Например: user@mail.com или @username"
                         required
                     >
 
