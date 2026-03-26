@@ -379,7 +379,7 @@
                         <label for="backupFileInput" style="display: block; text-align: center; background: linear-gradient(135deg, #6b7280, #4b5563); color: white; padding: 12px; border-radius: 14px; cursor: pointer; font-weight: bold;">
                             📤 Выбрать файл для восстановления
                         </label>
-                        <input type="file" id="backupFileInput" name="backup_file" accept=".db" style="display: none;">
+                        <input type="file" id="backupFileInput" name="backup_file" accept=".zip" style="display: none;">
                         <div id="restoreStatus" class="tg-settings-text" style="margin-top: 8px; font-size: 12px;"></div>
                     </form>
                 </div>
@@ -669,7 +669,10 @@
             const toggle = document.getElementById("notificationsToggle");
             if (toggle) {
                 toggle.checked = notificationPermissionGranted && notificationsEnabled;
-                toggle.addEventListener("change", async (e) => {
+                // Убираем старый listener, чтобы не дублировать
+                const newToggle = toggle.cloneNode(true);
+                toggle.parentNode.replaceChild(newToggle, toggle);
+                newToggle.addEventListener("change", async (e) => {
                     if (e.target.checked) {
                         await requestNotificationPermission();
                     } else {
@@ -697,11 +700,14 @@
                     const soundUrl = `/static/sounds/${sound}.mp3`;
                     notificationSound.src = soundUrl;
                     notificationSound.load();
+                    return true;
                 } else {
                     console.error("Ошибка сохранения звука");
+                    return false;
                 }
             } catch (error) {
                 console.error("Ошибка сохранения звука:", error);
+                return false;
             }
         }
         
@@ -1185,8 +1191,8 @@
                 backupFileInput.addEventListener("change", async function() {
                     const file = this.files[0];
                     if (!file) return;
-                    if (!file.name.endsWith('.db')) {
-                        restoreStatus.textContent = "❌ Файл должен иметь расширение .db";
+                    if (!file.name.endsWith('.zip')) {
+                        restoreStatus.textContent = "❌ Файл должен быть zip-архивом";
                         restoreStatus.style.color = "#ef4444";
                         this.value = "";
                         return;
@@ -1202,7 +1208,7 @@
                         });
                         const result = await response.json();
                         if (response.ok) {
-                            restoreStatus.textContent = "✅ База данных восстановлена! Обновите страницу.";
+                            restoreStatus.textContent = "✅ База данных и аватары восстановлены! Обновите страницу.";
                             restoreStatus.style.color = "#10b981";
                             setTimeout(() => location.reload(), 1500);
                         } else {
@@ -1254,7 +1260,10 @@
         // Кнопка "Выбор звука"
         const selectSoundRow = document.getElementById("selectSoundRow");
         if (selectSoundRow) {
-            selectSoundRow.addEventListener("click", () => {
+            // Убираем старый listener, если есть
+            const newSelectSoundRow = selectSoundRow.cloneNode(true);
+            selectSoundRow.parentNode.replaceChild(newSelectSoundRow, selectSoundRow);
+            newSelectSoundRow.addEventListener("click", () => {
                 openModal("soundPicker");
                 document.querySelectorAll(".sound-item").forEach(item => {
                     const sound = item.dataset.sound;
@@ -1274,9 +1283,13 @@
             item.addEventListener("click", async () => {
                 const sound = item.dataset.sound;
                 playSoundPreview(sound);
-                await saveNotificationSound(sound);
-                closeModal("soundPicker");
-                openModal("notifications");
+                const saved = await saveNotificationSound(sound);
+                if (saved) {
+                    closeModal("soundPicker");
+                    openModal("notifications");
+                } else {
+                    alert("Не удалось сохранить звук. Проверьте подключение к серверу.");
+                }
             });
         });
         
