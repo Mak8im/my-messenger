@@ -245,7 +245,7 @@
                         <div class="profile-avatar-wrapper">
                             <div id="profileAvatar" class="profile-avatar">
                                 {% if current_user.avatar %}
-                                    <img src="/avatars/{{ current_user.avatar }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                    <img src="/avatars/{{ current_user.avatar }}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
                                 {% else %}
                                     {{ current_user.email[0]|upper }}
                                 {% endif %}
@@ -320,6 +320,11 @@
                         </div>
                         <div class="settings-item-arrow">→</div>
                     </div>
+
+                    <button id="enableNotificationsBtnModal" class="auth-button" type="button" style="width: 100%; margin-top: 16px; background: linear-gradient(135deg, #2563eb, #3b82f6);">
+                        🔔 Включить уведомления
+                    </button>
+                    <div id="notificationStatusModal" class="tg-settings-text" style="margin-top: 10px; font-size: 13px;"></div>
                 </div>
             </div>
         </div>
@@ -697,7 +702,7 @@
                 toggle.parentNode.replaceChild(newToggle, toggle);
                 newToggle.addEventListener("change", async (e) => {
                     if (e.target.checked) {
-                        await requestNotificationPermission();
+                        await enableNotifications();
                     } else {
                         notificationsEnabled = false;
                         updateNotificationStatus("🔕 Уведомления выключены");
@@ -705,6 +710,8 @@
                     }
                 });
             }
+            
+            updateModalNotificationStatus();
         }
         
         async function saveNotificationSound(sound) {
@@ -802,13 +809,57 @@
             }
         }
         
+        async function subscribeToPush() {
+            if (!window.isSecureContext) {
+                console.log("Push требует HTTPS");
+                return false;
+            }
+            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+                console.log("Push API не поддерживается");
+                return false;
+            }
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                let subscription = await registration.pushManager.getSubscription();
+                if (!subscription) {
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                    });
+                }
+                const response = await fetch("/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(subscription)
+                });
+                if (response.ok) {
+                    console.log("✅ Push подписка сохранена");
+                    return true;
+                } else {
+                    console.error("Ошибка сохранения push подписки");
+                    return false;
+                }
+            } catch (error) {
+                console.error("Push error:", error);
+                return false;
+            }
+        }
+        
         async function enableNotifications() {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             if (isIOS && !window.navigator.standalone) {
                 updateNotificationStatus("📱 Для уведомлений добавьте сайт на главный экран");
                 updateModalNotificationStatus();
+                alert("📱 Для уведомлений на iPhone: добавьте сайт на главный экран через кнопку 'Поделиться' → 'На экран Домой'");
             }
-            await requestNotificationPermission();
+            const granted = await requestNotificationPermission();
+            if (granted) {
+                await subscribeToPush();
+                const toggle = document.getElementById("notificationsToggle");
+                if (toggle) toggle.checked = true;
+                loadNotificationsSettings();
+                alert("✅ Уведомления включены!");
+            }
         }
         
         function updateNotificationStatus(text) {
@@ -822,7 +873,7 @@
                 if (notificationPermissionGranted && notificationsEnabled) {
                     statusDiv.textContent = "✅ Уведомления включены";
                 } else if (Notification.permission === "denied") {
-                    statusDiv.textContent = "❌ Уведомления заблокированы";
+                    statusDiv.textContent = "❌ Уведомления заблокированы в настройках Safari";
                 } else {
                     statusDiv.textContent = "⚠️ Нажмите кнопку, чтобы включить";
                 }
@@ -836,6 +887,8 @@
                     notificationsEnabled = true;
                     updateNotificationStatus("✅ Уведомления включены");
                     updateModalNotificationStatus();
+                    // Автоматически подписываем на push
+                    subscribeToPush();
                 } else if (Notification.permission === "denied") {
                     updateNotificationStatus("❌ Уведомления заблокированы");
                     updateModalNotificationStatus();
@@ -1079,6 +1132,7 @@
             if (data.type === "message") {
                 const isFromOther = data.sender_id !== CURRENT_USER_ID;
                 if (isFromOther) {
+                    console.log("🔔 Получено сообщение, отправляем уведомление");
                     playNotificationSound();
                     let notifBody = data.message_type === "photo" ? "📷 Фото" : (data.content || "");
                     if (notifBody.length > 100) notifBody = notifBody.substring(0, 100) + "...";
@@ -1138,59 +1192,9 @@
             }
         }
         
-        async function subscribeToPush() {
-            const pushStatusDiv = document.getElementById("pushStatusModal");
-            if (!window.isSecureContext) {
-                if (pushStatusDiv) pushStatusDiv.textContent = "Push требует HTTPS.";
-                return;
-            }
-            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-                if (pushStatusDiv) pushStatusDiv.textContent = "Push API не поддерживается";
-                return;
-            }
-            try {
-                const registration = await navigator.serviceWorker.ready;
-                let permission = Notification.permission;
-                if (permission !== "granted") permission = await Notification.requestPermission();
-                if (permission !== "granted") {
-                    if (pushStatusDiv) pushStatusDiv.textContent = "Разрешение не выдано";
-                    return;
-                }
-                let subscription = await registration.pushManager.getSubscription();
-                if (!subscription) {
-                    subscription = await registration.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-                    });
-                }
-                const response = await fetch("/subscribe", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(subscription)
-                });
-                if (!response.ok) throw new Error("Ошибка сохранения");
-                if (pushStatusDiv) pushStatusDiv.textContent = "Push включены (бета)";
-            } catch (error) {
-                console.error("Push error:", error);
-                if (pushStatusDiv) pushStatusDiv.textContent = "Ошибка при включении push";
-            }
-        }
-        
         async function initPushStatus() {
             const pushStatusDiv = document.getElementById("pushStatusModal");
-            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-                if (pushStatusDiv) pushStatusDiv.textContent = "Push API не поддерживается";
-                return;
-            }
-            try {
-                await navigator.serviceWorker.ready;
-                const subscription = await getExistingSubscription();
-                if (subscription) {
-                    if (pushStatusDiv) pushStatusDiv.textContent = "Push уже включены (бета)";
-                } else {
-                    if (pushStatusDiv) pushStatusDiv.textContent = "Push не включены";
-                }
-            } catch(e) {}
+            if (pushStatusDiv) pushStatusDiv.style.display = "none";
         }
         
         async function getExistingSubscription() {
@@ -1315,11 +1319,13 @@
             });
         });
         
-        // Кнопка уведомлений
+        // Кнопка уведомлений (объединённая)
         const enableNotificationsBtn = document.getElementById("enableNotificationsBtnModal");
-        if (enableNotificationsBtn) enableNotificationsBtn.addEventListener("click", enableNotifications);
-        const enablePushBtn = document.getElementById("enablePushBtnModal");
-        if (enablePushBtn) enablePushBtn.addEventListener("click", subscribeToPush);
+        if (enableNotificationsBtn) {
+            enableNotificationsBtn.addEventListener("click", async () => {
+                await enableNotifications();
+            });
+        }
         
         // Обработка отправки сообщения по Enter
         if (messageInput) {
@@ -1378,45 +1384,41 @@
             });
         }
     </script>
-    <!-- Диагностика уведомлений -->
-<script>
-    setTimeout(() => {
-        console.log('=== ДИАГНОСТИКА УВЕДОМЛЕНИЙ ===');
-        console.log('1. Notification API:', 'Notification' in window ? '✅ есть' : '❌ нет');
-        console.log('2. PushManager:', 'PushManager' in window ? '✅ есть' : '❌ нет');
-        console.log('3. Service Worker:', 'serviceWorker' in navigator ? '✅ есть' : '❌ нет');
-        console.log('4. Разрешение:', Notification.permission);
-        console.log('5. HTTPS:', location.protocol === 'https:' ? '✅ да' : '❌ нет (надо HTTPS)');
-        console.log('6. Режим:', window.navigator.standalone ? '📱 PWA (с иконки)' : '🌐 Браузер');
-        
-        if (Notification.permission === 'granted') {
-            new Notification('Messenger', { 
-                body: '✅ Уведомления работают!',
-                icon: '/static/icon.svg'
-            });
-            console.log('✅ Тестовое уведомление отправлено');
-        } else if (Notification.permission === 'denied') {
-            console.log('❌ Разрешение ЗАПРЕЩЕНО. Зайди: Настройки → Safari → Уведомления → разреши');
-            alert('❌ Уведомления запрещены в настройках iPhone. Зайди: Настройки → Safari → Уведомления → разреши для этого сайта');
-        } else {
-            console.log('⚠️ Разрешение не запрошено. Нажми кнопку включения');
-        }
-        
-        // Проверка Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then(reg => {
-                console.log('7. Service Worker статус:', reg.active ? '✅ активен' : '❌ не активен');
-                reg.pushManager.getSubscription().then(sub => {
-                    console.log('8. Push подписка:', sub ? '✅ есть' : '❌ нет');
-                    if (sub) {
-                        console.log('   - endpoint:', sub.endpoint.substring(0, 50) + '...');
-                    }
-                });
-            }).catch(e => console.log('SW ошибка:', e));
-        }
-        
-        console.log('=============================');
-    }, 1000);
-</script>
+
+    <!-- Диагностика уведомлений (можно удалить после проверки) -->
+    <script>
+        setTimeout(() => {
+            console.log('=== ДИАГНОСТИКА УВЕДОМЛЕНИЙ ===');
+            console.log('1. Notification API:', 'Notification' in window ? '✅ есть' : '❌ нет');
+            console.log('2. PushManager:', 'PushManager' in window ? '✅ есть' : '❌ нет');
+            console.log('3. Service Worker:', 'serviceWorker' in navigator ? '✅ есть' : '❌ нет');
+            console.log('4. Разрешение:', Notification.permission);
+            console.log('5. HTTPS:', location.protocol === 'https:' ? '✅ да' : '❌ нет (надо HTTPS)');
+            console.log('6. Режим:', window.navigator.standalone ? '📱 PWA (с иконки)' : '🌐 Браузер');
+            console.log('7. notificationsEnabled:', notificationsEnabled);
+            console.log('8. notificationPermissionGranted:', notificationPermissionGranted);
+            
+            if (Notification.permission === 'granted') {
+                console.log('✅ Разрешение есть, проверяем подписку...');
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.pushManager.getSubscription().then(sub => {
+                            console.log('9. Push подписка:', sub ? '✅ есть' : '❌ нет');
+                            if (sub) {
+                                console.log('   - endpoint:', sub.endpoint.substring(0, 60) + '...');
+                            } else {
+                                console.log('⚠️ Подписки нет, нужно нажать кнопку включения');
+                            }
+                        });
+                    });
+                }
+            } else if (Notification.permission === 'denied') {
+                console.log('❌ Разрешение ЗАПРЕЩЕНО. Зайди: Настройки → Safari → Уведомления → разреши');
+            } else {
+                console.log('⚠️ Разрешение не запрошено. Нажми кнопку включения');
+            }
+            console.log('=============================');
+        }, 2000);
+    </script>
 </body>
 </html>
