@@ -186,6 +186,7 @@
         </main>
     </div>
 
+    <!-- ГЛАВНОЕ МОДАЛЬНОЕ ОКНО НАСТРОЕК (список пунктов) -->
     <div id="settingsModal" class="modal-overlay" style="display: none;">
         <div class="modal-container">
             <div class="modal-header">
@@ -193,116 +194,251 @@
                 <button class="modal-close" id="closeModalBtn">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="tg-settings-panel">
-                    <!-- ПРОФИЛЬ -->
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">Мой аккаунт</div>
-                        
-                        <!-- Аватар -->
-                        <div class="profile-avatar-section">
-                            <div class="profile-avatar-wrapper">
-                                <div id="profileAvatar" class="profile-avatar">
-                                    {{ current_user.email[0]|upper }}
-                                </div>
-                                <button class="profile-avatar-edit" id="changeAvatarBtn">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                                        <circle cx="12" cy="13" r="4"/>
-                                    </svg>
-                                </button>
-                            </div>
-                            <input type="file" id="avatarInput" accept="image/*" style="display: none;">
-                            <div id="avatarPreview" style="display: none;"></div>
-                            <button id="deleteAvatarBtn" class="profile-delete-avatar" style="display: none;">🗑️ Удалить фото</button>
+                <div class="tg-settings-list">
+                    <div class="settings-category">
+                        <div class="settings-category-title">Общие</div>
+                        <div class="settings-item" data-settings-page="account">
+                            <div class="settings-item-icon">👤</div>
+                            <div class="settings-item-label">Мой аккаунт</div>
+                            <div class="settings-item-arrow">→</div>
                         </div>
-
-                        <!-- Имя -->
-                        <div class="profile-field">
-                            <label class="profile-label">Имя</label>
-                            <input type="text" id="profileFullName" class="profile-input" placeholder="Ваше имя" value="{{ current_user.full_name or '' }}">
+                        <div class="settings-item" data-settings-page="notifications">
+                            <div class="settings-item-icon">🔔</div>
+                            <div class="settings-item-label">Уведомления и звуки</div>
+                            <div class="settings-item-arrow">→</div>
                         </div>
-
-                        <!-- Имя пользователя (с @) -->
-                        <div class="profile-field">
-                            <label class="profile-label">Имя пользователя</label>
-                            <div class="profile-username-wrapper">
-                                <span class="profile-username-at">@</span>
-                                <input type="text" id="profileUsername" class="profile-input" placeholder="username" value="{{ (current_user.username or '')[1:] }}">
-                            </div>
-                            <div class="profile-hint">Только буквы, цифры и подчеркивание</div>
-                        </div>
-
-                        <!-- Почта (только для чтения) -->
-                        <div class="profile-field">
-                            <label class="profile-label">Почта</label>
-                            <input type="email" id="profileEmail" class="profile-input" value="{{ current_user.email }}" readonly disabled style="background: #f3f4f6;">
-                        </div>
-
-                        <!-- Описание профиля -->
-                        <div class="profile-field">
-                            <label class="profile-label">Описание профиля</label>
-                            <textarea id="profileBio" class="profile-textarea" rows="3" placeholder="О себе...">{{ current_user.bio or '' }}</textarea>
-                        </div>
-
-                        <div id="profileSaveStatus" class="profile-save-status"></div>
-                        <button id="saveProfileBtn" class="profile-save-btn">Сохранить изменения</button>
                     </div>
-
-                    <!-- Уведомления -->
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">Уведомления</div>
-                        <div class="tg-settings-text" style="margin-bottom: 10px;">
-                            🔔 Включай уведомления, чтобы не пропускать сообщения.<br>
-                            <small style="color: #6b7280;">📱 На iPhone: добавь сайт на главный экран, затем нажми кнопку ниже и разреши уведомления.</small>
+                    <div class="settings-category">
+                        <div class="settings-category-title">Приложение</div>
+                        <div class="settings-item" data-settings-page="language">
+                            <div class="settings-item-icon">🌐</div>
+                            <div class="settings-item-label">Язык</div>
+                            <div class="settings-item-arrow">→</div>
                         </div>
-                        <button id="enableNotificationsBtnModal" class="auth-button" type="button" style="width: 100%; background: linear-gradient(135deg, #2563eb, #3b82f6);">
-                            🔔 Включить уведомления
-                        </button>
-                        <div id="notificationStatusModal" class="tg-settings-text" style="margin-top: 10px; font-size: 13px;"></div>
                     </div>
-
                     {% if can_backup %}
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">💾 Резервное копирование</div>
-                        <div class="tg-settings-text" style="margin-bottom: 12px;">
-                            Скачивай базу данных раз в месяц, чтобы не потерять сообщения.
-                            При смене аккаунта — восстанови из backup.
+                    <div class="settings-category">
+                        <div class="settings-category-title">Данные</div>
+                        <div class="settings-item" data-settings-page="backup">
+                            <div class="settings-item-icon">💾</div>
+                            <div class="settings-item-label">Резервное копирование</div>
+                            <div class="settings-item-arrow">→</div>
                         </div>
-                        
-                        <button id="downloadBackupBtn" class="auth-button" type="button" style="width: 100%; margin-bottom: 10px; background: linear-gradient(135deg, #10b981, #059669);">
-                            📥 Скачать backup
-                        </button>
-                        
-                        <form id="restoreBackupForm" enctype="multipart/form-data" style="margin-top: 10px;">
-                            <label for="backupFileInput" style="display: block; text-align: center; background: linear-gradient(135deg, #6b7280, #4b5563); color: white; padding: 12px; border-radius: 14px; cursor: pointer; font-weight: bold;">
-                                📤 Выбрать файл для восстановления
-                            </label>
-                            <input type="file" id="backupFileInput" name="backup_file" accept=".db" style="display: none;">
-                            <div id="restoreStatus" class="tg-settings-text" style="margin-top: 8px; font-size: 12px;"></div>
-                        </form>
                     </div>
                     {% endif %}
-
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">Push-уведомления (эксперимент)</div>
-                        <div class="tg-settings-text" style="margin-bottom: 10px;">
-                            Для полных push-уведомлений (даже когда сайт закрыт) нужна сложная настройка сервера.<br>
-                            Пока работают обычные браузерные уведомления, когда вкладка открыта или свёрнута.
-                        </div>
-                        <button id="enablePushBtnModal" class="auth-button" type="button" style="width: 100%; background: linear-gradient(135deg, #6b7280, #9ca3af);">
-                            📱 Push (бета)
-                        </button>
-                        <div id="pushStatusModal" class="tg-settings-text" style="margin-top: 10px;"></div>
-                    </div>
-
-                    <div class="tg-settings-card">
-                        <div class="tg-settings-title">Приложение</div>
-                        <div class="tg-settings-text">
-                            Можно добавить сайт на главный экран iPhone и открывать как приложение.
+                    <div class="settings-category">
+                        <div class="settings-category-title">Поддержка</div>
+                        <div class="settings-item" data-settings-page="about">
+                            <div class="settings-item-icon">ℹ️</div>
+                            <div class="settings-item-label">О приложении</div>
+                            <div class="settings-item-arrow">→</div>
                         </div>
                     </div>
+                    <div class="settings-logout">
+                        <a href="/logout" class="settings-logout-btn">Выйти из аккаунта</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    <a class="tg-settings-logout" href="/logout">Выйти из аккаунта</a>
+    <!-- МОДАЛЬНОЕ ОКНО "Мой аккаунт" -->
+    <div id="accountModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-medium">
+            <div class="modal-header">
+                <button class="modal-back" id="accountBackBtn">←</button>
+                <h3 class="modal-title">Мой аккаунт</h3>
+                <button class="modal-close" id="closeAccountModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tg-settings-panel">
+                    <div class="profile-avatar-section">
+                        <div class="profile-avatar-wrapper">
+                            <div id="profileAvatar" class="profile-avatar">
+                                {{ current_user.email[0]|upper }}
+                            </div>
+                            <button class="profile-avatar-edit" id="changeAvatarBtn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                    <circle cx="12" cy="13" r="4"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                        <button id="deleteAvatarBtn" class="profile-delete-avatar" style="display: none;">🗑️ Удалить фото</button>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="profile-label">Имя</label>
+                        <input type="text" id="profileFullName" class="profile-input" placeholder="Ваше имя" value="{{ current_user.full_name or '' }}">
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="profile-label">Имя пользователя</label>
+                        <div class="profile-username-wrapper">
+                            <span class="profile-username-at">@</span>
+                            <input type="text" id="profileUsername" class="profile-input" placeholder="username" value="{{ (current_user.username or '')[1:] }}">
+                        </div>
+                        <div class="profile-hint">Только буквы, цифры и подчеркивание</div>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="profile-label">Почта</label>
+                        <input type="email" id="profileEmail" class="profile-input" value="{{ current_user.email }}" readonly disabled style="background: #f3f4f6;">
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="profile-label">Описание профиля</label>
+                        <textarea id="profileBio" class="profile-textarea" rows="3" placeholder="О себе...">{{ current_user.bio or '' }}</textarea>
+                    </div>
+
+                    <div id="profileSaveStatus" class="profile-save-status"></div>
+                    <button id="saveProfileBtn" class="profile-save-btn">Сохранить изменения</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО "Уведомления и звуки" -->
+    <div id="notificationsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-medium">
+            <div class="modal-header">
+                <button class="modal-back" id="notificationsBackBtn">←</button>
+                <h3 class="modal-title">Уведомления и звуки</h3>
+                <button class="modal-close" id="closeNotificationsModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tg-settings-panel">
+                    <div class="settings-item-row">
+                        <div class="settings-item-info">
+                            <div class="settings-item-label">Уведомления</div>
+                            <div class="settings-item-description">Включить звук и всплывающие уведомления</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="notificationsToggle">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="settings-item-row clickable" id="selectSoundRow">
+                        <div class="settings-item-info">
+                            <div class="settings-item-label">Выбор звука</div>
+                            <div class="settings-item-description" id="selectedSoundName">Базовый</div>
+                        </div>
+                        <div class="settings-item-arrow">→</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО ВЫБОРА ЗВУКА (маленькое) -->
+    <div id="soundPickerModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-small">
+            <div class="modal-header">
+                <button class="modal-back" id="soundPickerBackBtn">←</button>
+                <h3 class="modal-title">Выбор звука</h3>
+                <button class="modal-close" id="closeSoundPickerBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="sound-list">
+                    <div class="sound-item" data-sound="default">
+                        <span>🔔 Базовый</span>
+                        <span class="sound-check"></span>
+                    </div>
+                    <div class="sound-item" data-sound="nicesound">
+                        <span>✨ Красивый звук</span>
+                        <span class="sound-check"></span>
+                    </div>
+                    <div class="sound-item" data-sound="tg">
+                        <span>📱 Звук из Telegram</span>
+                        <span class="sound-check"></span>
+                    </div>
+                    <div class="sound-item" data-sound="vk">
+                        <span>🎵 Звук из ВК</span>
+                        <span class="sound-check"></span>
+                    </div>
+                    <div class="sound-item" data-sound="icq">
+                        <span>💬 Аська (ICQ)</span>
+                        <span class="sound-check"></span>
+                    </div>
+                    <div class="sound-item" data-sound="facebook">
+                        <span>👍 Звук из Facebook</span>
+                        <span class="sound-check"></span>
+                    </div>
+                    <div class="sound-item" data-sound="samsung">
+                        <span>📱 Свист Samsung</span>
+                        <span class="sound-check"></span>
+                    </div>
+                    <div class="sound-item" data-sound="apple">
+                        <span>🍎 Айфон</span>
+                        <span class="sound-check"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО "Резервное копирование" (если доступно) -->
+    {% if can_backup %}
+    <div id="backupModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-medium">
+            <div class="modal-header">
+                <button class="modal-back" id="backupBackBtn">←</button>
+                <h3 class="modal-title">Резервное копирование</h3>
+                <button class="modal-close" id="closeBackupModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tg-settings-panel">
+                    <div class="tg-settings-text" style="margin-bottom: 16px;">
+                        Скачивай базу данных раз в месяц, чтобы не потерять сообщения.
+                        При смене аккаунта — восстанови из backup.
+                    </div>
+                    <button id="downloadBackupBtn" class="auth-button" type="button" style="width: 100%; margin-bottom: 12px; background: linear-gradient(135deg, #10b981, #059669);">
+                        📥 Скачать backup
+                    </button>
+                    <form id="restoreBackupForm" enctype="multipart/form-data">
+                        <label for="backupFileInput" style="display: block; text-align: center; background: linear-gradient(135deg, #6b7280, #4b5563); color: white; padding: 12px; border-radius: 14px; cursor: pointer; font-weight: bold;">
+                            📤 Выбрать файл для восстановления
+                        </label>
+                        <input type="file" id="backupFileInput" name="backup_file" accept=".db" style="display: none;">
+                        <div id="restoreStatus" class="tg-settings-text" style="margin-top: 8px; font-size: 12px;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- МОДАЛЬНОЕ ОКНО "Язык" (заглушка) -->
+    <div id="languageModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-medium">
+            <div class="modal-header">
+                <button class="modal-back" id="languageBackBtn">←</button>
+                <h3 class="modal-title">Язык</h3>
+                <button class="modal-close" id="closeLanguageModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tg-settings-panel">
+                    <div class="language-item active">Русский</div>
+                    <div class="language-item">English</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО "О приложении" -->
+    <div id="aboutModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-medium">
+            <div class="modal-header">
+                <button class="modal-back" id="aboutBackBtn">←</button>
+                <h3 class="modal-title">О приложении</h3>
+                <button class="modal-close" id="closeAboutModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tg-settings-panel">
+                    <div class="about-version">Messenger v1.0</div>
+                    <div class="about-text">Личный мессенджер с реальным временем и PWA.</div>
                 </div>
             </div>
         </div>
@@ -327,8 +463,20 @@
         let notificationPermissionGranted = false;
         let typingTimeout = null;
         let isCurrentlyTyping = false;
-        
         let userStatuses = {};
+        let currentNotificationSound = "default";
+        
+        // Словарь для названий звуков
+        const soundNames = {
+            "default": "Базовый",
+            "nicesound": "Красивый звук",
+            "tg": "Звук из Telegram",
+            "vk": "Звук из ВК",
+            "icq": "Аська (ICQ)",
+            "facebook": "Звук из Facebook",
+            "samsung": "Свист Samsung",
+            "apple": "Айфон"
+        };
         
         // ========== WEBSOCKET ==========
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -343,35 +491,84 @@
         const selectedUserStatus = document.getElementById("selectedUserStatus");
         const selectedUserOnlineDot = document.getElementById("selectedUserOnlineDot");
         
-        // ========== МОДАЛЬНОЕ ОКНО ==========
-        const modal = document.getElementById("settingsModal");
-        const settingsTrigger = document.getElementById("settingsTrigger");
-        const closeModalBtn = document.getElementById("closeModalBtn");
+        // ========== УПРАВЛЕНИЕ МОДАЛЬНЫМИ ОКНАМИ ==========
+        const modals = {
+            main: document.getElementById("settingsModal"),
+            account: document.getElementById("accountModal"),
+            notifications: document.getElementById("notificationsModal"),
+            soundPicker: document.getElementById("soundPickerModal"),
+            language: document.getElementById("languageModal"),
+            about: document.getElementById("aboutModal"),
+            backup: document.getElementById("backupModal")
+        };
         
-        function openModal() {
-            if (modal) {
-                modal.style.display = "flex";
+        function openModal(modalId) {
+            if (modals[modalId]) {
+                modals[modalId].style.display = "flex";
                 document.body.style.overflow = "hidden";
-                updateModalNotificationStatus();
-                loadProfileData();
+                if (modalId === "main") loadProfileData();
+                if (modalId === "notifications") loadNotificationsSettings();
             }
         }
         
-        function closeModal() {
-            if (modal) {
-                modal.style.display = "none";
+        function closeModal(modalId) {
+            if (modals[modalId]) {
+                modals[modalId].style.display = "none";
                 document.body.style.overflow = "";
             }
         }
         
-        if (modal) {
-            modal.addEventListener("click", function(e) {
-                if (e.target === modal) closeModal();
+        function closeAllModals() {
+            for (let key in modals) {
+                if (modals[key]) modals[key].style.display = "none";
+            }
+            document.body.style.overflow = "";
+        }
+        
+        // Обработчики для главного меню
+        document.querySelectorAll("[data-settings-page]").forEach(item => {
+            item.addEventListener("click", () => {
+                const page = item.dataset.settingsPage;
+                closeModal("main");
+                if (page === "account") openModal("account");
+                else if (page === "notifications") openModal("notifications");
+                else if (page === "language") openModal("language");
+                else if (page === "backup" && CAN_BACKUP) openModal("backup");
+                else if (page === "about") openModal("about");
+            });
+        });
+        
+        // Кнопка настроек в сайдбаре
+        const settingsTrigger = document.getElementById("settingsTrigger");
+        if (settingsTrigger) settingsTrigger.addEventListener("click", () => openModal("main"));
+        
+        // Закрытие по крестику и фону
+        for (let key in modals) {
+            const modal = modals[key];
+            if (!modal) continue;
+            const closeBtn = modal.querySelector(".modal-close");
+            if (closeBtn) closeBtn.addEventListener("click", () => closeModal(key));
+            modal.addEventListener("click", (e) => {
+                if (e.target === modal) closeModal(key);
             });
         }
         
-        if (settingsTrigger) settingsTrigger.addEventListener("click", openModal);
-        if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
+        // Кнопки назад
+        const backBtns = {
+            account: document.getElementById("accountBackBtn"),
+            notifications: document.getElementById("notificationsBackBtn"),
+            soundPicker: document.getElementById("soundPickerBackBtn"),
+            language: document.getElementById("languageBackBtn"),
+            about: document.getElementById("aboutBackBtn"),
+            backup: document.getElementById("backupBackBtn")
+        };
+        for (let key in backBtns) {
+            const btn = backBtns[key];
+            if (btn) btn.addEventListener("click", () => {
+                closeModal(key);
+                openModal("main");
+            });
+        }
         
         // ========== ПРОФИЛЬ ==========
         let currentAvatarUrl = null;
@@ -399,7 +596,6 @@
                         document.getElementById("deleteAvatarBtn").style.display = "none";
                     }
                     
-                    // Обновляем сайдбар
                     updateSidebarProfile(data);
                 }
             } catch (error) {
@@ -412,7 +608,6 @@
             if (sidebarUserName) {
                 sidebarUserName.textContent = profile.full_name || profile.email;
             }
-            
             const sidebarAvatar = document.getElementById("sidebarAvatar");
             if (sidebarAvatar) {
                 if (profile.avatar) {
@@ -448,11 +643,7 @@
                     statusDiv.textContent = "✅ Профиль сохранён!";
                     statusDiv.style.color = "#10b981";
                     setTimeout(() => { statusDiv.textContent = ""; }, 3000);
-                    
-                    // Обновляем сайдбар
                     updateSidebarProfile(data);
-                    
-                    // Обновляем имя в шапке чата если есть
                     if (SELECTED_USER_ID === CURRENT_USER_ID) {
                         document.querySelector(".chat-user-name").textContent = data.full_name || data.email;
                     }
@@ -470,17 +661,14 @@
         async function uploadAvatar(file) {
             const formData = new FormData();
             formData.append("avatar", file);
-            
             const statusDiv = document.getElementById("profileSaveStatus");
             statusDiv.textContent = "⏳ Загрузка фото...";
             statusDiv.style.color = "#6b7280";
-            
             try {
                 const response = await fetch("/api/avatar", {
                     method: "POST",
                     body: formData
                 });
-                
                 if (response.ok) {
                     const data = await response.json();
                     const avatarDiv = document.getElementById("profileAvatar");
@@ -489,8 +677,6 @@
                     currentAvatarUrl = data.avatar_url;
                     statusDiv.textContent = "✅ Фото загружено! Сохраните профиль.";
                     statusDiv.style.color = "#10b981";
-                    
-                    // Обновляем сайдбар
                     updateSidebarProfile({ avatar: data.avatar_url, email: "{{ current_user.email }}", full_name: document.getElementById("profileFullName").value });
                 } else {
                     const error = await response.json();
@@ -507,12 +693,8 @@
             const statusDiv = document.getElementById("profileSaveStatus");
             statusDiv.textContent = "⏳ Удаление фото...";
             statusDiv.style.color = "#6b7280";
-            
             try {
-                const response = await fetch("/api/avatar", {
-                    method: "DELETE"
-                });
-                
+                const response = await fetch("/api/avatar", { method: "DELETE" });
                 if (response.ok) {
                     const avatarDiv = document.getElementById("profileAvatar");
                     avatarDiv.innerHTML = "{{ current_user.email[0]|upper }}";
@@ -520,8 +702,6 @@
                     currentAvatarUrl = null;
                     statusDiv.textContent = "✅ Фото удалено! Сохраните профиль.";
                     statusDiv.style.color = "#10b981";
-                    
-                    // Обновляем сайдбар
                     updateSidebarProfile({ avatar: null, email: "{{ current_user.email }}", full_name: document.getElementById("profileFullName").value });
                 } else {
                     statusDiv.textContent = "❌ Ошибка удаления";
@@ -533,91 +713,88 @@
             }
         }
         
-        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
-        function scrollToBottom() {
-            if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
-        }
-        
-        function formatLastSeen(lastActivity) {
-            if (!lastActivity) return "Не в сети";
-            
-            const now = new Date();
-            const last = new Date(lastActivity);
-            
-            const diffMs = now.getTime() - last.getTime();
-            const diffSec = Math.floor(diffMs / 1000);
-            
-            if (diffSec < 60) return "был(а) только что";
-            if (diffSec < 3600) {
-                const minutes = Math.floor(diffSec / 60);
-                return `был(а) ${minutes} мин назад`;
-            }
-            if (diffSec < 86400) {
-                const hours = Math.floor(diffSec / 3600);
-                return `был(а) ${hours} ч назад`;
-            }
-            if (diffSec < 172800) return "был(а) вчера";
-            const days = Math.floor(diffSec / 86400);
-            return `был(а) ${days} дн назад`;
-        }
-        
-        // ========== ОБНОВЛЕНИЕ СТАТУСОВ ==========
-        function updateUserStatuses(statusData) {
-            userStatuses = statusData;
-            
-            document.querySelectorAll(".user-card[data-user-id]").forEach(card => {
-                const userId = Number(card.dataset.userId);
-                const status = userStatuses[userId];
-                
-                if (status) {
-                    const isOnline = status.is_online;
-                    const lastActivity = status.last_activity;
-                    
-                    const wrap = card.querySelector(".user-avatar-wrap");
-                    let dot = wrap?.querySelector(".online-dot");
-                    if (isOnline) {
-                        if (!dot && wrap) {
-                            dot = document.createElement("span");
-                            dot.className = "online-dot";
-                            wrap.appendChild(dot);
-                        }
-                    } else {
-                        if (dot) dot.remove();
-                    }
-                    
-                    const statusDiv = card.querySelector(".tg-dialog-status");
-                    if (statusDiv) {
-                        statusDiv.textContent = isOnline ? "В сети" : formatLastSeen(lastActivity);
+        // ========== УВЕДОМЛЕНИЯ И ЗВУКИ ==========
+        async function loadNotificationsSettings() {
+            // Получить текущий звук
+            try {
+                const response = await fetch("/api/notification-sound");
+                if (response.ok) {
+                    const data = await response.json();
+                    currentNotificationSound = data.sound || "default";
+                    const selectedSoundNameSpan = document.getElementById("selectedSoundName");
+                    if (selectedSoundNameSpan) {
+                        selectedSoundNameSpan.textContent = soundNames[currentNotificationSound] || "Базовый";
                     }
                 }
-            });
+            } catch (error) {
+                console.error("Ошибка загрузки звука:", error);
+            }
             
-            if (SELECTED_USER_ID !== null) {
-                const status = userStatuses[SELECTED_USER_ID];
-                if (selectedUserStatus) {
-                    if (status) {
-                        if (status.is_online) {
-                            selectedUserStatus.textContent = "В сети";
-                            if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "inline-block";
-                        } else {
-                            selectedUserStatus.textContent = formatLastSeen(status.last_activity);
-                            if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
-                        }
+            // Статус уведомлений
+            const toggle = document.getElementById("notificationsToggle");
+            if (toggle) {
+                toggle.checked = notificationPermissionGranted && notificationsEnabled;
+                toggle.addEventListener("change", async (e) => {
+                    if (e.target.checked) {
+                        await requestNotificationPermission();
                     } else {
-                        selectedUserStatus.textContent = "Не в сети";
-                        if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
+                        notificationsEnabled = false;
+                        updateNotificationStatus("🔕 Уведомления выключены");
+                        updateModalNotificationStatus();
                     }
-                }
+                });
             }
         }
         
-        // ========== УВЕДОМЛЕНИЯ ==========
-        const notificationSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+        async function saveNotificationSound(sound) {
+            try {
+                const response = await fetch("/api/notification-sound", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sound: sound })
+                });
+                if (response.ok) {
+                    currentNotificationSound = sound;
+                    const selectedSoundNameSpan = document.getElementById("selectedSoundName");
+                    if (selectedSoundNameSpan) {
+                        selectedSoundNameSpan.textContent = soundNames[sound] || "Базовый";
+                    }
+                    // Обновляем звук в плеере уведомлений
+                    const soundUrl = `/static/sounds/${sound}.mp3`;
+                    notificationSound.src = soundUrl;
+                    notificationSound.load();
+                } else {
+                    console.error("Ошибка сохранения звука");
+                }
+            } catch (error) {
+                console.error("Ошибка сохранения звука:", error);
+            }
+        }
+        
+        // Звуковой плеер для превью
+        let previewAudio = null;
+        function playSoundPreview(soundName) {
+            if (previewAudio) {
+                previewAudio.pause();
+                previewAudio.currentTime = 0;
+            }
+            const soundUrl = `/static/sounds/${soundName}.mp3`;
+            previewAudio = new Audio(soundUrl);
+            previewAudio.play().catch(e => console.log("Preview error:", e));
+        }
+        
+        // ========== УВЕДОМЛЕНИЯ (основные) ==========
+        let notificationSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
         notificationSound.load();
         
         function playNotificationSound() {
-            if (notificationsEnabled) {
+            if (notificationsEnabled && currentNotificationSound !== "none") {
                 try {
+                    const soundUrl = `/static/sounds/${currentNotificationSound}.mp3`;
+                    if (notificationSound.src !== soundUrl) {
+                        notificationSound.src = soundUrl;
+                        notificationSound.load();
+                    }
                     notificationSound.currentTime = 0;
                     notificationSound.play().catch(e => console.log("Sound error:", e));
                 } catch(e) {}
@@ -703,6 +880,76 @@
                 } else {
                     updateNotificationStatus("⚠️ Нажмите кнопку, чтобы включить");
                     updateModalNotificationStatus();
+                }
+            }
+        }
+        
+        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+        function scrollToBottom() {
+            if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
+        }
+        
+        function formatLastSeen(lastActivity) {
+            if (!lastActivity) return "Не в сети";
+            const now = new Date();
+            const last = new Date(lastActivity);
+            const diffMs = now.getTime() - last.getTime();
+            const diffSec = Math.floor(diffMs / 1000);
+            if (diffSec < 60) return "был(а) только что";
+            if (diffSec < 3600) {
+                const minutes = Math.floor(diffSec / 60);
+                return `был(а) ${minutes} мин назад`;
+            }
+            if (diffSec < 86400) {
+                const hours = Math.floor(diffSec / 3600);
+                return `был(а) ${hours} ч назад`;
+            }
+            if (diffSec < 172800) return "был(а) вчера";
+            const days = Math.floor(diffSec / 86400);
+            return `был(а) ${days} дн назад`;
+        }
+        
+        // ========== ОБНОВЛЕНИЕ СТАТУСОВ ==========
+        function updateUserStatuses(statusData) {
+            userStatuses = statusData;
+            document.querySelectorAll(".user-card[data-user-id]").forEach(card => {
+                const userId = Number(card.dataset.userId);
+                const status = userStatuses[userId];
+                if (status) {
+                    const isOnline = status.is_online;
+                    const lastActivity = status.last_activity;
+                    const wrap = card.querySelector(".user-avatar-wrap");
+                    let dot = wrap?.querySelector(".online-dot");
+                    if (isOnline) {
+                        if (!dot && wrap) {
+                            dot = document.createElement("span");
+                            dot.className = "online-dot";
+                            wrap.appendChild(dot);
+                        }
+                    } else {
+                        if (dot) dot.remove();
+                    }
+                    const statusDiv = card.querySelector(".tg-dialog-status");
+                    if (statusDiv) {
+                        statusDiv.textContent = isOnline ? "В сети" : formatLastSeen(lastActivity);
+                    }
+                }
+            });
+            if (SELECTED_USER_ID !== null) {
+                const status = userStatuses[SELECTED_USER_ID];
+                if (selectedUserStatus) {
+                    if (status) {
+                        if (status.is_online) {
+                            selectedUserStatus.textContent = "В сети";
+                            if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "inline-block";
+                        } else {
+                            selectedUserStatus.textContent = formatLastSeen(status.last_activity);
+                            if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
+                        }
+                    } else {
+                        selectedUserStatus.textContent = "Не в сети";
+                        if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
+                    }
                 }
             }
         }
@@ -855,22 +1102,18 @@
         
         socket.onmessage = function(event) {
             const data = JSON.parse(event.data);
-            
             if (data.type === "presence") {
                 updateUserStatuses(data.user_status || {});
                 return;
             }
-            
             if (data.type === "read_update") {
                 if (data.chat_user_id) updateUnreadBadge(data.chat_user_id, 0);
                 return;
             }
-            
             if (data.type === "typing") {
                 showTypingIndicator(data.sender_id, data.is_typing);
                 return;
             }
-            
             if (data.type === "message") {
                 const isFromOther = data.sender_id !== CURRENT_USER_ID;
                 if (isFromOther) {
@@ -1063,34 +1306,55 @@
             if (SELECTED_USER_ID !== null) updateUnreadBadge(SELECTED_USER_ID, 0);
         });
         
-        const notifBtnModal = document.getElementById("enableNotificationsBtnModal");
-        const pushBtnModal = document.getElementById("enablePushBtnModal");
-        if (notifBtnModal) notifBtnModal.addEventListener("click", enableNotifications);
-        if (pushBtnModal) pushBtnModal.addEventListener("click", subscribeToPush);
-        
-        // Профиль кнопки
+        // Кнопки профиля
         const saveProfileBtn = document.getElementById("saveProfileBtn");
         const changeAvatarBtn = document.getElementById("changeAvatarBtn");
         const avatarInput = document.getElementById("avatarInput");
         const deleteAvatarBtn = document.getElementById("deleteAvatarBtn");
-        
         if (saveProfileBtn) saveProfileBtn.addEventListener("click", saveProfile);
-        if (changeAvatarBtn) {
-            changeAvatarBtn.addEventListener("click", () => {
-                avatarInput.click();
+        if (changeAvatarBtn) changeAvatarBtn.addEventListener("click", () => avatarInput.click());
+        if (avatarInput) avatarInput.addEventListener("change", (e) => {
+            if (e.target.files && e.target.files[0]) uploadAvatar(e.target.files[0]);
+        });
+        if (deleteAvatarBtn) deleteAvatarBtn.addEventListener("click", deleteAvatar);
+        
+        // Кнопка "Выбор звука"
+        const selectSoundRow = document.getElementById("selectSoundRow");
+        if (selectSoundRow) {
+            selectSoundRow.addEventListener("click", () => {
+                openModal("soundPicker");
+                // Заполнить список выбранным звуком
+                document.querySelectorAll(".sound-item").forEach(item => {
+                    const sound = item.dataset.sound;
+                    if (sound === currentNotificationSound) {
+                        item.classList.add("selected");
+                        item.querySelector(".sound-check").textContent = "✓";
+                    } else {
+                        item.classList.remove("selected");
+                        item.querySelector(".sound-check").textContent = "";
+                    }
+                });
             });
-        }
-        if (avatarInput) {
-            avatarInput.addEventListener("change", (e) => {
-                if (e.target.files && e.target.files[0]) {
-                    uploadAvatar(e.target.files[0]);
-                }
-            });
-        }
-        if (deleteAvatarBtn) {
-            deleteAvatarBtn.addEventListener("click", deleteAvatar);
         }
         
+        // Обработчики выбора звука
+        document.querySelectorAll(".sound-item").forEach(item => {
+            item.addEventListener("click", async () => {
+                const sound = item.dataset.sound;
+                playSoundPreview(sound);
+                await saveNotificationSound(sound);
+                closeModal("soundPicker");
+                openModal("notifications");
+            });
+        });
+        
+        // Кнопка уведомлений в главном окне (если есть)
+        const enableNotificationsBtn = document.getElementById("enableNotificationsBtnModal");
+        if (enableNotificationsBtn) enableNotificationsBtn.addEventListener("click", enableNotifications);
+        const enablePushBtn = document.getElementById("enablePushBtnModal");
+        if (enablePushBtn) enablePushBtn.addEventListener("click", subscribeToPush);
+        
+        // Обработка отправки сообщения по Enter
         if (messageInput) {
             messageInput.addEventListener("keydown", (e) => {
                 if (e.key === "Enter") {
@@ -1106,6 +1370,7 @@
             });
         }
         
+        // Поиск диалогов
         const dialogSearch = document.getElementById("dialogSearch");
         if (dialogSearch) {
             dialogSearch.addEventListener("input", function() {
@@ -1118,7 +1383,7 @@
             });
         }
         
-        // === МОБИЛЬНАЯ НАВИГАЦИЯ ===
+        // Мобильная навигация
         const tabChatsBtn = document.getElementById("tabChatsBtn");
         const tabSettingsBtn = document.getElementById("tabSettingsBtn");
         const panelChats = document.getElementById("panelChats");
@@ -1126,9 +1391,7 @@
         const searchWrap = document.getElementById("searchWrap");
         
         if (tabSettingsBtn) {
-            tabSettingsBtn.addEventListener("click", function() {
-                openModal();
-            });
+            tabSettingsBtn.addEventListener("click", () => openModal("main"));
         }
         
         if (tabChatsBtn && tabSettingsBtn && panelChats && panelSettings) {
