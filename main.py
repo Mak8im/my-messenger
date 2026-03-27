@@ -8,6 +8,7 @@ import shutil
 import re
 import zipfile
 import tempfile
+import os
 from typing import Optional
 from fastapi import (
     FastAPI,
@@ -162,6 +163,8 @@ def build_message_preview(message: Message, current_user_id: int) -> str:
 
     if message.message_type == "photo":
         base = "📷 Фото"
+    elif message.message_type == "voice":
+        base = "🎤 Голосовое"
     else:
         base = (message.content or "")[:40]
 
@@ -541,7 +544,6 @@ async def chat_page(
             db.refresh(selected_user)
 
         if selected_user:
-            # Помечаем ВСЕ сообщения от выбранного пользователя как прочитанные
             unread_messages = (
                 db.query(Message)
                 .filter(
@@ -558,7 +560,6 @@ async def chat_page(
             if unread_messages:
                 db.commit()
                 
-                # Отправляем отправителю обновление о прочтении для каждого сообщения
                 for msg in unread_messages:
                     if msg.sender_id in manager.online_users:
                         await manager.send_to_user(msg.sender_id, {
@@ -949,6 +950,7 @@ async def send_photo(
 
     return RedirectResponse(url=f"/chat?selected_user_id={receiver_id}", status_code=303)
 
+
 @app.post("/send-voice")
 async def send_voice(
     receiver_id: int = Form(...),
@@ -1048,6 +1050,7 @@ async def send_voice(
 
     return JSONResponse({"status": "ok", "message_id": new_message.id})
 
+
 @app.get("/download-file/{message_id}")
 async def download_file(
     message_id: int,
@@ -1132,7 +1135,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                 other_user_id = int(data["chat_user_id"])
 
                 try:
-                    # Находим ВСЕ сообщения от этого пользователя к текущему
                     all_messages_from_other = (
                         db.query(Message)
                         .filter(
@@ -1151,7 +1153,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     if updated_ids:
                         db.commit()
                         
-                        # Отправляем обновление о прочтении для каждого сообщения
                         for msg_id in updated_ids:
                             await manager.send_to_user(other_user_id, {
                                 "type": "read",
