@@ -7,6 +7,14 @@ html, body {
     padding: 0;
     height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    user-select: none; /* Запрещаем выделение текста везде */
+    -webkit-tap-highlight-color: transparent; /* Убираем синий фон при тапе на iOS */
+}
+
+/* Разрешаем выделение только в полях ввода */
+input, textarea, [contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 /* AUTH */
@@ -157,6 +165,7 @@ html, body {
     font-size: 15px;
     outline: none;
     transition: 0.18s ease;
+    user-select: text;
 }
 
 .auth-input:focus {
@@ -333,11 +342,39 @@ body:not(.auth-page) {
     white-space: pre-wrap;
 }
 
+.message-time-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 4px;
+}
+
 .message-time {
     font-size: 11px;
     color: #7a7f85;
-    text-align: right;
-    margin-top: 4px;
+}
+
+.message-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.checkmark {
+    font-size: 11px;
+    font-weight: normal;
+    line-height: 1;
+    font-family: monospace;
+}
+
+.checkmark-single {
+    color: #8e9eae;
+}
+
+.checkmark-double {
+    color: #34b7f1;
+    letter-spacing: -2px;
 }
 
 /* MESSAGE FORM */
@@ -359,6 +396,7 @@ body:not(.auth-page) {
     font-size: 15px;
     outline: none;
     box-shadow: inset 0 0 0 1px #e3e6ea;
+    user-select: text;
 }
 
 .send-btn {
@@ -509,6 +547,7 @@ body:not(.auth-page) {
     padding: 12px 14px;
     font-size: 14px;
     outline: none;
+    user-select: text;
 }
 
 .tg-main-panel {
@@ -996,6 +1035,7 @@ body:not(.auth-page) {
     font-size: 14px;
     transition: all 0.2s ease;
     background: #ffffff;
+    user-select: text;
 }
 
 .profile-input:focus {
@@ -1039,6 +1079,7 @@ body:not(.auth-page) {
     font-family: inherit;
     resize: vertical;
     transition: all 0.2s ease;
+    user-select: text;
 }
 
 .profile-textarea:focus {
@@ -1181,339 +1222,6 @@ input:checked + .slider:before {
     font-size: 16px;
 }
 
-/* MOBILE RESPONSIVE */
-@media (max-width: 768px) {
-    .tg-settings-trigger {
-        display: none;
-    }
-    
-    .sidebar {
-        width: 100%;
-        min-width: 100%;
-        height: 100vh;
-        border-right: none;
-        padding-bottom: 76px;
-    }
-    
-    .chat-area {
-        width: 100%;
-        min-width: 100%;
-        height: 100vh;
-    }
-    
-    .mobile-hidden {
-        display: none !important;
-    }
-    
-    .mobile-hidden-chat {
-        display: none !important;
-    }
-    
-    .tg-back-btn {
-        display: inline-block;
-    }
-    
-    .tg-sidebar-header {
-        padding-top: max(12px, env(safe-area-inset-top));
-    }
-    
-    .tg-chat-header {
-        padding-top: max(10px, env(safe-area-inset-top));
-    }
-    
-    .tg-dialog-item {
-        padding: 12px;
-    }
-    
-    .tg-dialog-avatar {
-        width: 54px;
-        height: 54px;
-    }
-    
-    .messages-box {
-        padding: 10px;
-    }
-    
-    .message-bubble {
-        max-width: 82%;
-    }
-    
-    .message-text {
-        font-size: 14px;
-    }
-    
-    .message-input {
-        font-size: 14px;
-    }
-    
-    .chat-photo {
-        max-width: 180px;
-    }
-    
-    .tg-mobile-bottom-nav {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        background: rgba(255,255,255,0.96);
-        border-top: 1px solid #e5e7eb;
-        backdrop-filter: blur(10px);
-        padding-bottom: env(safe-area-inset-bottom);
-        z-index: 20;
-    }
-    
-    .tg-mobile-tab {
-        border: none;
-        background: transparent;
-        padding: 14px 10px;
-        font-size: 14px;
-        font-weight: 600;
-        color: #6b7280;
-        cursor: pointer;
-    }
-    
-    .tg-mobile-tab.active {
-        color: #3390ec;
-    }
-}
-
-@media (min-width: 769px) {
-    .tg-back-btn {
-        display: none !important;
-    }
-    
-    .sidebar {
-        display: flex !important;
-    }
-    
-    .chat-area {
-        display: flex !important;
-    }
-    
-    .tg-main-panel {
-        display: flex !important;
-        flex-direction: column;
-    }
-    
-    #panelSettings {
-        display: none !important;
-    }
-    
-    #panelSettings.active {
-        display: flex !important;
-    }
-}
-
-@media (max-width: 420px) {
-    .tg-brand {
-        font-size: 18px;
-    }
-    
-    .tg-current-user-email,
-    .tg-dialog-name,
-    .chat-user-name {
-        font-size: 13px;
-    }
-    
-    .tg-dialog-preview,
-    .chat-user-status {
-        font-size: 12px;
-    }
-    
-    .tg-dialog-avatar,
-    .chat-user-avatar {
-        width: 48px;
-        height: 48px;
-    }
-    
-    .message-bubble {
-        max-width: 88%;
-    }
-    
-    .send-btn,
-    .attach-btn {
-        width: 44px;
-        height: 44px;
-    }
-}
-
-/* AUTH RESPONSIVE */
-@media (max-width: 900px) {
-    .auth-wrapper {
-        grid-template-columns: 1fr;
-    }
-    
-    .auth-left {
-        padding: 30px 20px 10px;
-    }
-    
-    .auth-title-big {
-        font-size: 36px;
-        max-width: 100%;
-    }
-    
-    .auth-description {
-        font-size: 16px;
-        max-width: 100%;
-    }
-    
-    .auth-right {
-        padding: 18px 14px 24px;
-        align-items: flex-start;
-    }
-    
-    .auth-card {
-        max-width: 100%;
-        border-radius: 22px;
-        padding: 28px 18px 22px;
-    }
-}
-
-@media (max-width: 420px) {
-    .auth-left {
-        padding: 24px 14px 6px;
-    }
-    
-    .auth-title-big {
-        font-size: 30px;
-    }
-    
-    .auth-description {
-        font-size: 14px;
-    }
-    
-    .auth-feature-card {
-        padding: 14px;
-        border-radius: 14px;
-    }
-    
-    .auth-card {
-        padding: 24px 14px 18px;
-        border-radius: 18px;
-    }
-    
-    .auth-card-title {
-        font-size: 24px;
-    }
-    
-    .auth-input {
-        padding: 12px 13px;
-        font-size: 14px;
-    }
-    
-    .auth-button {
-        padding: 13px 14px;
-        font-size: 14px;
-    }
-}
-
-/* Notification button styles */
-#enableNotificationsBtnModal {
-    transition: all 0.2s ease;
-}
-
-#enableNotificationsBtnModal:hover {
-    transform: scale(1.02);
-    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
-}
-
-#notificationStatusModal {
-    padding: 8px;
-    background: #f8fafc;
-    border-radius: 12px;
-    text-align: center;
-}
-
-/* TG CURRENT USER AVATAR */
-.tg-current-user .avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #3390ec, #2563eb);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    flex-shrink: 0;
-    overflow: hidden;
-}
-
-.tg-current-user .avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-/* Message status checkmarks */
-.message-time-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 4px;
-    margin-top: 4px;
-}
-
-.message-status {
-    font-size: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.checkmark {
-    font-size: 12px;
-    font-weight: normal;
-    line-height: 1;
-}
-
-.checkmark-single {
-    color: #7a7f85;
-}
-
-.checkmark-double {
-    color: #3390ec;
-}
-
-.message-bubble.own .message-status {
-    margin-left: 4px;
-}
-
-/* Telegram-style checkmarks */
-.message-time-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 4px;
-    margin-top: 4px;
-}
-
-.message-status {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.checkmark {
-    font-size: 11px;
-    font-weight: normal;
-    line-height: 1;
-    font-family: monospace;
-}
-
-.checkmark-single {
-    color: #8e9eae;
-}
-
-.checkmark-double {
-    color: #34b7f1;
-    letter-spacing: -2px;
-}
-
-.message-status {
-    transition: all 0.2s ease;
-}
 /* Stars Clicker */
 .stars-clicker {
     display: flex;
@@ -1778,7 +1486,103 @@ input:checked + .slider:before {
     transform: scale(0.95);
 }
 
+/* MOBILE RESPONSIVE */
 @media (max-width: 768px) {
+    .tg-settings-trigger {
+        display: none;
+    }
+    
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        height: 100vh;
+        border-right: none;
+        padding-bottom: 76px;
+    }
+    
+    .chat-area {
+        width: 100%;
+        min-width: 100%;
+        height: 100vh;
+    }
+    
+    .mobile-hidden {
+        display: none !important;
+    }
+    
+    .mobile-hidden-chat {
+        display: none !important;
+    }
+    
+    .tg-back-btn {
+        display: inline-block;
+    }
+    
+    .tg-sidebar-header {
+        padding-top: max(12px, env(safe-area-inset-top));
+    }
+    
+    .tg-chat-header {
+        padding-top: max(10px, env(safe-area-inset-top));
+    }
+    
+    .tg-dialog-item {
+        padding: 12px;
+    }
+    
+    .tg-dialog-avatar {
+        width: 54px;
+        height: 54px;
+    }
+    
+    .messages-box {
+        padding: 10px;
+    }
+    
+    .message-bubble {
+        max-width: 82%;
+    }
+    
+    .message-text {
+        font-size: 14px;
+    }
+    
+    .message-input {
+        font-size: 14px;
+    }
+    
+    .chat-photo {
+        max-width: 180px;
+    }
+    
+    .tg-mobile-bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        background: rgba(255,255,255,0.96);
+        border-top: 1px solid #e5e7eb;
+        backdrop-filter: blur(10px);
+        padding-bottom: env(safe-area-inset-bottom);
+        z-index: 20;
+    }
+    
+    .tg-mobile-tab {
+        border: none;
+        background: transparent;
+        padding: 14px 10px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+    }
+    
+    .tg-mobile-tab.active {
+        color: #3390ec;
+    }
+
     .voice-recording-indicator {
         bottom: 100px;
         padding: 12px 20px;
@@ -1812,4 +1616,171 @@ input:checked + .slider:before {
         width: 16px;
         height: 16px;
     }
+}
+
+@media (min-width: 769px) {
+    .tg-back-btn {
+        display: none !important;
+    }
+    
+    .sidebar {
+        display: flex !important;
+    }
+    
+    .chat-area {
+        display: flex !important;
+    }
+    
+    .tg-main-panel {
+        display: flex !important;
+        flex-direction: column;
+    }
+    
+    #panelSettings {
+        display: none !important;
+    }
+    
+    #panelSettings.active {
+        display: flex !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .tg-brand {
+        font-size: 18px;
+    }
+    
+    .tg-current-user-email,
+    .tg-dialog-name,
+    .chat-user-name {
+        font-size: 13px;
+    }
+    
+    .tg-dialog-preview,
+    .chat-user-status {
+        font-size: 12px;
+    }
+    
+    .tg-dialog-avatar,
+    .chat-user-avatar {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .message-bubble {
+        max-width: 88%;
+    }
+    
+    .send-btn,
+    .attach-btn,
+    .voice-record-btn {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* AUTH RESPONSIVE */
+@media (max-width: 900px) {
+    .auth-wrapper {
+        grid-template-columns: 1fr;
+    }
+    
+    .auth-left {
+        padding: 30px 20px 10px;
+    }
+    
+    .auth-title-big {
+        font-size: 36px;
+        max-width: 100%;
+    }
+    
+    .auth-description {
+        font-size: 16px;
+        max-width: 100%;
+    }
+    
+    .auth-right {
+        padding: 18px 14px 24px;
+        align-items: flex-start;
+    }
+    
+    .auth-card {
+        max-width: 100%;
+        border-radius: 22px;
+        padding: 28px 18px 22px;
+    }
+}
+
+@media (max-width: 420px) {
+    .auth-left {
+        padding: 24px 14px 6px;
+    }
+    
+    .auth-title-big {
+        font-size: 30px;
+    }
+    
+    .auth-description {
+        font-size: 14px;
+    }
+    
+    .auth-feature-card {
+        padding: 14px;
+        border-radius: 14px;
+    }
+    
+    .auth-card {
+        padding: 24px 14px 18px;
+        border-radius: 18px;
+    }
+    
+    .auth-card-title {
+        font-size: 24px;
+    }
+    
+    .auth-input {
+        padding: 12px 13px;
+        font-size: 14px;
+    }
+    
+    .auth-button {
+        padding: 13px 14px;
+        font-size: 14px;
+    }
+}
+
+#enableNotificationsBtnModal {
+    transition: all 0.2s ease;
+}
+
+#enableNotificationsBtnModal:hover {
+    transform: scale(1.02);
+    box-shadow: 0 15px 30px rgba(37, 99, 235, 0.3);
+}
+
+#notificationStatusModal {
+    padding: 8px;
+    background: #f8fafc;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.tg-current-user .avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3390ec, #2563eb);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.tg-current-user .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
