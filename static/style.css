@@ -406,6 +406,12 @@ body:not(.auth-page) {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    line-height: 1;
+}
+
+.send-btn:active {
+    transform: scale(0.95);
 }
 
 .attach-btn {
@@ -422,6 +428,8 @@ body:not(.auth-page) {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    line-height: 1;
 }
 
 .photo-form {
@@ -1480,6 +1488,8 @@ input:checked + .slider:before {
     color: white;
     flex-shrink: 0;
     -webkit-tap-highlight-color: transparent;
+    padding: 0;
+    line-height: 1;
 }
 
 .voice-record-btn:hover {
