@@ -1879,3 +1879,19 @@ input:checked + .slider:before {
     height: 100%;
     object-fit: cover;
 }
+/* ДОБАВЬ В САМЫЙ НИЗ */
+
+.stars-clicker {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.star-coin {
+    cursor: pointer;
+}
+
+.send-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
