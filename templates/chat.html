@@ -649,7 +649,7 @@
             }
         }
         
-        // ========== ФУНКЦИЯ ДЛЯ НАСТРОЙКИ ВСЕХ VOICE-ПЛЕЕРОВ (ИСПРАВЛЕНИЕ) ==========
+        // ========== ФУНКЦИЯ ДЛЯ НАСТРОЙКИ ВСЕХ VOICE-ПЛЕЕРОВ ==========
         function setupVoicePlayers() {
             document.querySelectorAll('.voice-play-btn').forEach(btn => {
                 // Убираем старые обработчики, если есть
@@ -732,14 +732,10 @@
         // ========== КРОП АВАТАРКИ ==========
         let cropModal = null;
         let cropImageElement = null;
-        let cropImageFile = null;
         let cropImageOriginalSrc = null;
         let cropScale = 1;
         let cropTranslateX = 0;
         let cropTranslateY = 0;
-        let cropStartX = 0, cropStartY = 0;
-        let cropStartScale = 1;
-        let cropStartTranslateX = 0, cropStartTranslateY = 0;
         
         function showCropModal(file) {
             // Создаем модалку для кропа
@@ -764,10 +760,8 @@
             document.body.appendChild(cropModal);
             
             const img = cropModal.querySelector('.crop-image');
-            const wrapper = cropModal.querySelector('.crop-image-wrapper');
             const cancelBtn = cropModal.querySelector('#cropCancelBtn');
             const applyBtn = cropModal.querySelector('#cropApplyBtn');
-            
             cropImageElement = img;
             
             // Загружаем изображение
@@ -785,11 +779,13 @@
             };
             reader.readAsDataURL(file);
             
-            // Переменные для зума и перемещения
             let initialDistance = 0;
             let initialScale = 1;
             let lastTouchX = 0, lastTouchY = 0;
             let isPanning = false;
+            let isDragging = false;
+            let dragStartX = 0, dragStartY = 0;
+            let dragStartTranslateX = 0, dragStartTranslateY = 0;
             
             function updateCropTransform() {
                 if (cropImageElement) {
@@ -806,10 +802,6 @@
             });
             
             // Перемещение мышью
-            let isDragging = false;
-            let dragStartX = 0, dragStartY = 0;
-            let dragStartTranslateX = 0, dragStartTranslateY = 0;
-            
             img.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 isDragging = true;
@@ -838,14 +830,12 @@
             img.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 if (e.touches.length === 1) {
-                    // Перемещение
                     isPanning = true;
                     lastTouchX = e.touches[0].clientX;
                     lastTouchY = e.touches[0].clientY;
-                    cropStartTranslateX = cropTranslateX;
-                    cropStartTranslateY = cropTranslateY;
+                    dragStartTranslateX = cropTranslateX;
+                    dragStartTranslateY = cropTranslateY;
                 } else if (e.touches.length === 2) {
-                    // Зум
                     const dx = e.touches[0].clientX - e.touches[1].clientX;
                     const dy = e.touches[0].clientY - e.touches[1].clientY;
                     initialDistance = Math.hypot(dx, dy);
@@ -859,8 +849,8 @@
                 if (e.touches.length === 1 && isPanning) {
                     const dx = e.touches[0].clientX - lastTouchX;
                     const dy = e.touches[0].clientY - lastTouchY;
-                    cropTranslateX = cropStartTranslateX + dx;
-                    cropTranslateY = cropStartTranslateY + dy;
+                    cropTranslateX = dragStartTranslateX + dx;
+                    cropTranslateY = dragStartTranslateY + dy;
                     updateCropTransform();
                     lastTouchX = e.touches[0].clientX;
                     lastTouchY = e.touches[0].clientY;
@@ -932,7 +922,7 @@
             });
         }
         
-        // ========== ОБРАБОТЧИКИ ДЛЯ МИКРОФОНА (с исправлением touch) ==========
+        // ========== ОБРАБОТЧИКИ ДЛЯ МИКРОФОНА ==========
         if (voiceRecordBtn) {
             // Mouse events
             voiceRecordBtn.addEventListener("mousedown", (e) => {
@@ -1900,26 +1890,27 @@
             if (pushStatusDiv) pushStatusDiv.style.display = "none";
         }
         
-        // ========== ЗВЁЗДЫ (КЛИКЕР) ==========
+        // ========== ЗВЁЗДЫ С OPTIMISTIC UPDATE ==========
+        let currentStarsValue = 0;
+        
         async function loadStarsData() {
             try {
                 const response = await fetch("/api/stars");
                 if (response.ok) {
                     const data = await response.json();
-                    const stars = data.stars || 0;
-                    const starsCounter = document.getElementById("starsCounter");
-                    const starsTotalText = document.getElementById("starsTotalText");
-                    
-                    if (starsCounter) {
-                        starsCounter.textContent = stars.toFixed(3);
-                    }
-                    if (starsTotalText) {
-                        starsTotalText.textContent = `Всего звёзд: ${stars.toFixed(3)}`;
-                    }
+                    currentStarsValue = data.stars || 0;
+                    updateStarsDisplay(currentStarsValue);
                 }
             } catch (error) {
                 console.error("Ошибка загрузки звёзд:", error);
             }
+        }
+        
+        function updateStarsDisplay(value) {
+            const starsCounter = document.getElementById("starsCounter");
+            const starsTotalText = document.getElementById("starsTotalText");
+            if (starsCounter) starsCounter.textContent = value.toFixed(3);
+            if (starsTotalText) starsTotalText.textContent = `Всего звёзд: ${value.toFixed(3)}`;
         }
         
         async function clickStar() {
@@ -1931,29 +1922,29 @@
                 }, 150);
             }
             
+            // OPTIMISTIC UPDATE: сразу прибавляем на фронте
+            const oldValue = currentStarsValue;
+            currentStarsValue = currentStarsValue + 0.001;
+            updateStarsDisplay(currentStarsValue);
+            
+            if (navigator.vibrate) navigator.vibrate(50);
+            
             try {
-                const response = await fetch("/api/stars/click", {
-                    method: "POST"
-                });
-                
+                const response = await fetch("/api/stars/click", { method: "POST" });
                 if (response.ok) {
                     const data = await response.json();
-                    const stars = data.stars || 0;
-                    const starsCounter = document.getElementById("starsCounter");
-                    const starsTotalText = document.getElementById("starsTotalText");
-                    
-                    if (starsCounter) {
-                        starsCounter.textContent = stars.toFixed(3);
-                    }
-                    if (starsTotalText) {
-                        starsTotalText.textContent = `Всего звёзд: ${stars.toFixed(3)}`;
-                    }
-                    
-                    if (navigator.vibrate) {
-                        navigator.vibrate(50);
-                    }
+                    currentStarsValue = data.stars || 0;
+                    updateStarsDisplay(currentStarsValue);
+                } else {
+                    // Если ошибка — откатываем
+                    currentStarsValue = oldValue;
+                    updateStarsDisplay(currentStarsValue);
+                    console.error("Ошибка сохранения звёзд");
                 }
             } catch (error) {
+                // Если ошибка — откатываем
+                currentStarsValue = oldValue;
+                updateStarsDisplay(currentStarsValue);
                 console.error("Ошибка клика:", error);
             }
         }
@@ -2055,18 +2046,14 @@
         const avatarInputElem = document.getElementById("avatarInput");
         const deleteAvatarBtnElem = document.getElementById("deleteAvatarBtn");
         if (saveProfileBtn) saveProfileBtn.addEventListener("click", saveProfile);
-        if (changeAvatarBtn) {
-            changeAvatarBtn.addEventListener("click", () => avatarInputElem.click());
-        }
-        if (avatarInputElem) {
-            avatarInputElem.addEventListener("change", (e) => {
-                if (e.target.files && e.target.files[0]) {
-                    // Показываем модалку для кропа
-                    showCropModal(e.target.files[0]);
-                    avatarInputElem.value = "";
-                }
-            });
-        }
+        if (changeAvatarBtn) changeAvatarBtn.addEventListener("click", () => avatarInputElem.click());
+        if (avatarInputElem) avatarInputElem.addEventListener("change", (e) => {
+            if (e.target.files && e.target.files[0]) {
+                // Показываем модалку для кропа
+                showCropModal(e.target.files[0]);
+                avatarInputElem.value = "";
+            }
+        });
         if (deleteAvatarBtnElem) deleteAvatarBtnElem.addEventListener("click", deleteAvatar);
         
         const selectSoundRow = document.getElementById("selectSoundRow");
