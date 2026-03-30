@@ -649,75 +649,15 @@
             }
         }
         
-        // Обработчики для голосовой записи
-        if (voiceRecordBtn) {
-            // Нажатие на микрофон
-            voiceRecordBtn.addEventListener("mousedown", (e) => {
-                e.preventDefault();
-                startY = e.clientY;
-                isHolding = true;
-                swipeUpDetected = false;
-                startRecording();
-            });
-            
-            voiceRecordBtn.addEventListener("mouseup", (e) => {
-                if (!isHolding) return;
-                isHolding = false;
-                
-                if (!swipeUpDetected && isRecording) {
-                    stopRecording();
-                }
-            });
-            
-            voiceRecordBtn.addEventListener("mousemove", (e) => {
-                if (!isHolding) return;
-                const deltaY = startY - e.clientY;
-                if (deltaY > 50 && !swipeUpDetected) {
-                    swipeUpDetected = true;
-                    recordingHint.textContent = "Запись идёт... Нажми остановить";
-                }
-            });
-            
-            // Для touch-устройств
-            voiceRecordBtn.addEventListener("touchstart", (e) => {
-                e.preventDefault();
-                startY = e.touches[0].clientY;
-                isHolding = true;
-                swipeUpDetected = false;
-                startRecording();
-            });
-            
-            voiceRecordBtn.addEventListener("touchend", (e) => {
-                if (!isHolding) return;
-                isHolding = false;
-                
-                if (!swipeUpDetected && isRecording) {
-                    stopRecording();
-                }
-            });
-            
-            voiceRecordBtn.addEventListener("touchmove", (e) => {
-                if (!isHolding) return;
-                const deltaY = startY - e.touches[0].clientY;
-                if (deltaY > 50 && !swipeUpDetected) {
-                    swipeUpDetected = true;
-                    recordingHint.textContent = "Запись идёт... Нажми остановить";
-                }
-            });
-        }
-        
-        if (stopRecordingBtn) {
-            stopRecordingBtn.addEventListener("click", () => {
-                if (isRecording) {
-                    stopRecording();
-                }
-            });
-        }
-        
-        // Плеер для голосовых сообщений
+        // ========== ФУНКЦИЯ ДЛЯ НАСТРОЙКИ ВСЕХ VOICE-ПЛЕЕРОВ (ИСПРАВЛЕНИЕ) ==========
         function setupVoicePlayers() {
             document.querySelectorAll('.voice-play-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
+                // Убираем старые обработчики, если есть
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                
+                newBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
                     const audioUrl = this.dataset.audioUrl;
                     const messageId = this.dataset.messageId;
                     const waveform = document.getElementById(`waveform-${messageId}`);
@@ -752,7 +692,7 @@
                         if (waveform) waveform.classList.add('playing');
                         this.querySelector('svg').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
                         
-                        audio.play();
+                        audio.play().catch(e => console.log("Audio play error:", e));
                         audio.onended = () => {
                             this.classList.remove('playing');
                             if (waveform) waveform.classList.remove('playing');
@@ -761,6 +701,303 @@
                         };
                     }
                 });
+                
+                // Добавляем обработчик touch для телефонов
+                newBtn.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    this.click();
+                });
+            });
+        }
+        
+        // Функция для загрузки длительности голосовых сообщений
+        function loadVoiceDurations() {
+            document.querySelectorAll('.voice-message').forEach(voiceMsg => {
+                const playBtn = voiceMsg.querySelector('.voice-play-btn');
+                const durationSpan = voiceMsg.querySelector('.voice-duration');
+                if (playBtn && durationSpan && durationSpan.textContent === '--:--') {
+                    const audioUrl = playBtn.dataset.audioUrl;
+                    if (audioUrl) {
+                        const audio = new Audio(audioUrl);
+                        audio.addEventListener('loadedmetadata', () => {
+                            const minutes = Math.floor(audio.duration / 60);
+                            const seconds = Math.floor(audio.duration % 60);
+                            durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                        });
+                    }
+                }
+            });
+        }
+        
+        // ========== КРОП АВАТАРКИ ==========
+        let cropModal = null;
+        let cropImageElement = null;
+        let cropImageFile = null;
+        let cropImageOriginalSrc = null;
+        let cropScale = 1;
+        let cropTranslateX = 0;
+        let cropTranslateY = 0;
+        let cropStartX = 0, cropStartY = 0;
+        let cropStartScale = 1;
+        let cropStartTranslateX = 0, cropStartTranslateY = 0;
+        
+        function showCropModal(file) {
+            // Создаем модалку для кропа
+            if (cropModal) {
+                document.body.removeChild(cropModal);
+            }
+            
+            cropModal = document.createElement('div');
+            cropModal.className = 'crop-modal-overlay';
+            cropModal.innerHTML = `
+                <div class="crop-container">
+                    <div class="crop-header">Редактировать фото</div>
+                    <div class="crop-image-wrapper">
+                        <img class="crop-image" src="" alt="crop">
+                    </div>
+                    <div class="crop-controls">
+                        <button class="crop-btn crop-btn-secondary" id="cropCancelBtn">Отмена</button>
+                        <button class="crop-btn crop-btn-primary" id="cropApplyBtn">Применить</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(cropModal);
+            
+            const img = cropModal.querySelector('.crop-image');
+            const wrapper = cropModal.querySelector('.crop-image-wrapper');
+            const cancelBtn = cropModal.querySelector('#cropCancelBtn');
+            const applyBtn = cropModal.querySelector('#cropApplyBtn');
+            
+            cropImageElement = img;
+            
+            // Загружаем изображение
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                cropImageOriginalSrc = e.target.result;
+                img.src = e.target.result;
+                img.onload = () => {
+                    // Сброс трансформаций
+                    cropScale = 1;
+                    cropTranslateX = 0;
+                    cropTranslateY = 0;
+                    updateCropTransform();
+                };
+            };
+            reader.readAsDataURL(file);
+            
+            // Переменные для зума и перемещения
+            let initialDistance = 0;
+            let initialScale = 1;
+            let lastTouchX = 0, lastTouchY = 0;
+            let isPanning = false;
+            
+            function updateCropTransform() {
+                if (cropImageElement) {
+                    cropImageElement.style.transform = `translate(${cropTranslateX}px, ${cropTranslateY}px) scale(${cropScale})`;
+                }
+            }
+            
+            // Обработчики для мыши (зум колесиком)
+            img.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.05 : 0.05;
+                cropScale = Math.min(3, Math.max(0.5, cropScale + delta));
+                updateCropTransform();
+            });
+            
+            // Перемещение мышью
+            let isDragging = false;
+            let dragStartX = 0, dragStartY = 0;
+            let dragStartTranslateX = 0, dragStartTranslateY = 0;
+            
+            img.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                isDragging = true;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                dragStartTranslateX = cropTranslateX;
+                dragStartTranslateY = cropTranslateY;
+                img.style.cursor = 'grabbing';
+            });
+            
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - dragStartX;
+                const dy = e.clientY - dragStartY;
+                cropTranslateX = dragStartTranslateX + dx;
+                cropTranslateY = dragStartTranslateY + dy;
+                updateCropTransform();
+            });
+            
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+                if (img) img.style.cursor = 'grab';
+            });
+            
+            // Touch-события для телефонов
+            img.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1) {
+                    // Перемещение
+                    isPanning = true;
+                    lastTouchX = e.touches[0].clientX;
+                    lastTouchY = e.touches[0].clientY;
+                    cropStartTranslateX = cropTranslateX;
+                    cropStartTranslateY = cropTranslateY;
+                } else if (e.touches.length === 2) {
+                    // Зум
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    initialDistance = Math.hypot(dx, dy);
+                    initialScale = cropScale;
+                    isPanning = false;
+                }
+            });
+            
+            img.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1 && isPanning) {
+                    const dx = e.touches[0].clientX - lastTouchX;
+                    const dy = e.touches[0].clientY - lastTouchY;
+                    cropTranslateX = cropStartTranslateX + dx;
+                    cropTranslateY = cropStartTranslateY + dy;
+                    updateCropTransform();
+                    lastTouchX = e.touches[0].clientX;
+                    lastTouchY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const distance = Math.hypot(dx, dy);
+                    if (initialDistance > 0) {
+                        const scaleFactor = distance / initialDistance;
+                        cropScale = Math.min(3, Math.max(0.5, initialScale * scaleFactor));
+                        updateCropTransform();
+                    }
+                }
+            });
+            
+            img.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                isPanning = false;
+                initialDistance = 0;
+            });
+            
+            img.style.cursor = 'grab';
+            
+            cancelBtn.addEventListener('click', () => {
+                document.body.removeChild(cropModal);
+                cropModal = null;
+            });
+            
+            applyBtn.addEventListener('click', async () => {
+                // Создаем canvas и обрезаем изображение по центру (квадрат)
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Загружаем оригинал для кропа
+                const tempImg = new Image();
+                tempImg.src = cropImageOriginalSrc;
+                
+                await new Promise((resolve) => {
+                    tempImg.onload = resolve;
+                });
+                
+                // Размер квадрата - минимальная сторона
+                const size = Math.min(tempImg.width, tempImg.height);
+                const cropX = (tempImg.width - size) / 2;
+                const cropY = (tempImg.height - size) / 2;
+                
+                canvas.width = size;
+                canvas.height = size;
+                
+                // Рисуем с учетом масштаба и позиции
+                ctx.drawImage(
+                    tempImg,
+                    cropX, cropY, size, size,
+                    0, 0, size, size
+                );
+                
+                // Конвертируем в blob
+                const croppedBlob = await new Promise((resolve) => {
+                    canvas.toBlob(resolve, 'image/jpeg', 0.9);
+                });
+                
+                const croppedFile = new File([croppedBlob], file.name, { type: 'image/jpeg' });
+                
+                document.body.removeChild(cropModal);
+                cropModal = null;
+                
+                // Загружаем обрезанное фото
+                await uploadAvatar(croppedFile);
+            });
+        }
+        
+        // ========== ОБРАБОТЧИКИ ДЛЯ МИКРОФОНА (с исправлением touch) ==========
+        if (voiceRecordBtn) {
+            // Mouse events
+            voiceRecordBtn.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+                startY = e.clientY;
+                isHolding = true;
+                swipeUpDetected = false;
+                startRecording();
+            });
+            
+            voiceRecordBtn.addEventListener("mouseup", (e) => {
+                if (!isHolding) return;
+                isHolding = false;
+                
+                if (!swipeUpDetected && isRecording) {
+                    stopRecording();
+                }
+            });
+            
+            voiceRecordBtn.addEventListener("mousemove", (e) => {
+                if (!isHolding) return;
+                const deltaY = startY - e.clientY;
+                if (deltaY > 50 && !swipeUpDetected) {
+                    swipeUpDetected = true;
+                    recordingHint.textContent = "Запись идёт... Нажми остановить";
+                }
+            });
+            
+            // Touch events для телефонов
+            voiceRecordBtn.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                startY = touch.clientY;
+                isHolding = true;
+                swipeUpDetected = false;
+                startRecording();
+            });
+            
+            voiceRecordBtn.addEventListener("touchend", (e) => {
+                e.preventDefault();
+                if (!isHolding) return;
+                isHolding = false;
+                
+                if (!swipeUpDetected && isRecording) {
+                    stopRecording();
+                }
+            });
+            
+            voiceRecordBtn.addEventListener("touchmove", (e) => {
+                e.preventDefault();
+                if (!isHolding) return;
+                const touch = e.touches[0];
+                const deltaY = startY - touch.clientY;
+                if (deltaY > 50 && !swipeUpDetected) {
+                    swipeUpDetected = true;
+                    recordingHint.textContent = "Запись идёт... Нажми остановить";
+                }
+            });
+        }
+        
+        if (stopRecordingBtn) {
+            stopRecordingBtn.addEventListener("click", () => {
+                if (isRecording) {
+                    stopRecording();
+                }
             });
         }
         
@@ -1444,6 +1681,54 @@
                     const seconds = Math.floor(audio.duration % 60);
                     durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 });
+                
+                // Сразу навешиваем обработчик на новую кнопку
+                playBtn.addEventListener("click", function(e) {
+                    e.stopPropagation();
+                    const aUrl = this.dataset.audioUrl;
+                    const msgId = this.dataset.messageId;
+                    const wave = document.getElementById(`waveform-${msgId}`);
+                    
+                    if (this.classList.contains('playing')) {
+                        if (window.currentAudio) {
+                            window.currentAudio.pause();
+                            window.currentAudio = null;
+                        }
+                        this.classList.remove('playing');
+                        if (wave) wave.classList.remove('playing');
+                        this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+                    } else {
+                        if (window.currentAudio) {
+                            window.currentAudio.pause();
+                            const prevBtn = document.querySelector('.voice-play-btn.playing');
+                            if (prevBtn) {
+                                prevBtn.classList.remove('playing');
+                                const prevId = prevBtn.dataset.messageId;
+                                const prevWave = document.getElementById(`waveform-${prevId}`);
+                                if (prevWave) prevWave.classList.remove('playing');
+                                prevBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+                            }
+                        }
+                        const audioPlay = new Audio(aUrl);
+                        window.currentAudio = audioPlay;
+                        this.classList.add('playing');
+                        if (wave) wave.classList.add('playing');
+                        this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                        audioPlay.play().catch(e => console.log(e));
+                        audioPlay.onended = () => {
+                            this.classList.remove('playing');
+                            if (wave) wave.classList.remove('playing');
+                            this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+                            window.currentAudio = null;
+                        };
+                    }
+                });
+                
+                playBtn.addEventListener("touchstart", function(e) {
+                    e.preventDefault();
+                    this.click();
+                });
+                
             } else {
                 const text = document.createElement("div");
                 text.className = "message-text";
@@ -1477,52 +1762,6 @@
             
             if (isOwn) {
                 messageStatuses[messageId] = { isRead, isDelivered };
-            }
-            
-            // Навешиваем обработчик на кнопку воспроизведения
-            if (messageType === "voice") {
-                const playBtn = row.querySelector('.voice-play-btn');
-                if (playBtn) {
-                    playBtn.addEventListener('click', function() {
-                        const audioUrl = this.dataset.audioUrl;
-                        const msgId = this.dataset.messageId;
-                        const waveformDiv = document.getElementById(`waveform-${msgId}`);
-                        
-                        if (this.classList.contains('playing')) {
-                            if (window.currentAudio) {
-                                window.currentAudio.pause();
-                                window.currentAudio = null;
-                            }
-                            this.classList.remove('playing');
-                            if (waveformDiv) waveformDiv.classList.remove('playing');
-                            this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
-                        } else {
-                            if (window.currentAudio) {
-                                window.currentAudio.pause();
-                                const prevBtn = document.querySelector('.voice-play-btn.playing');
-                                if (prevBtn) {
-                                    prevBtn.classList.remove('playing');
-                                    const prevId = prevBtn.dataset.messageId;
-                                    const prevWaveform = document.getElementById(`waveform-${prevId}`);
-                                    if (prevWaveform) prevWaveform.classList.remove('playing');
-                                    prevBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
-                                }
-                            }
-                            const audio = new Audio(audioUrl);
-                            window.currentAudio = audio;
-                            this.classList.add('playing');
-                            if (waveformDiv) waveformDiv.classList.add('playing');
-                            this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-                            audio.play();
-                            audio.onended = () => {
-                                this.classList.remove('playing');
-                                if (waveformDiv) waveformDiv.classList.remove('playing');
-                                this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
-                                window.currentAudio = null;
-                            };
-                        }
-                    });
-                }
             }
             
             scrollToBottom();
@@ -1726,10 +1965,10 @@
             }
         });
         
-        const starsModal = document.getElementById("starsModal");
-        if (starsModal) {
-            starsModal.addEventListener("click", (e) => {
-                if (e.target === starsModal) {
+        const starsModalElem = document.getElementById("starsModal");
+        if (starsModalElem) {
+            starsModalElem.addEventListener("click", (e) => {
+                if (e.target === starsModalElem) {
                     closeModal("stars");
                 }
             });
@@ -1791,6 +2030,12 @@
             setupTypingDetection();
             updateActionButtons();
             
+            // Инициализация voice-плееров после загрузки
+            setTimeout(() => {
+                setupVoicePlayers();
+                loadVoiceDurations();
+            }, 100);
+            
             const enableAudio = () => {
                 const silent = new Audio();
                 silent.volume = 0;
@@ -1807,14 +2052,22 @@
         
         const saveProfileBtn = document.getElementById("saveProfileBtn");
         const changeAvatarBtn = document.getElementById("changeAvatarBtn");
-        const avatarInput = document.getElementById("avatarInput");
-        const deleteAvatarBtn = document.getElementById("deleteAvatarBtn");
+        const avatarInputElem = document.getElementById("avatarInput");
+        const deleteAvatarBtnElem = document.getElementById("deleteAvatarBtn");
         if (saveProfileBtn) saveProfileBtn.addEventListener("click", saveProfile);
-        if (changeAvatarBtn) changeAvatarBtn.addEventListener("click", () => avatarInput.click());
-        if (avatarInput) avatarInput.addEventListener("change", (e) => {
-            if (e.target.files && e.target.files[0]) uploadAvatar(e.target.files[0]);
-        });
-        if (deleteAvatarBtn) deleteAvatarBtn.addEventListener("click", deleteAvatar);
+        if (changeAvatarBtn) {
+            changeAvatarBtn.addEventListener("click", () => avatarInputElem.click());
+        }
+        if (avatarInputElem) {
+            avatarInputElem.addEventListener("change", (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    // Показываем модалку для кропа
+                    showCropModal(e.target.files[0]);
+                    avatarInputElem.value = "";
+                }
+            });
+        }
+        if (deleteAvatarBtnElem) deleteAvatarBtnElem.addEventListener("click", deleteAvatar);
         
         const selectSoundRow = document.getElementById("selectSoundRow");
         if (selectSoundRow) {
