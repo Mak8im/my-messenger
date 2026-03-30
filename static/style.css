@@ -7,17 +7,15 @@ html, body {
     padding: 0;
     height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    user-select: none; /* Запрещаем выделение текста везде */
-    -webkit-tap-highlight-color: transparent; /* Убираем синий фон при тапе на iOS */
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* Разрешаем выделение только в полях ввода */
 input, textarea, [contenteditable="true"] {
     user-select: text;
     -webkit-user-select: text;
 }
 
-/* AUTH */
 .auth-page {
     min-height: 100vh;
     background:
@@ -223,7 +221,6 @@ input, textarea, [contenteditable="true"] {
     text-decoration: underline;
 }
 
-/* CHAT */
 body:not(.auth-page) {
     background: #f3f5f8;
     color: #111827;
@@ -253,7 +250,6 @@ body:not(.auth-page) {
     min-width: 0;
 }
 
-/* AVATARS */
 .avatar,
 .user-avatar,
 .chat-user-avatar {
@@ -295,7 +291,6 @@ body:not(.auth-page) {
     border-radius: 50%;
 }
 
-/* MESSAGES */
 .messages-box {
     flex: 1;
     overflow-y: auto;
@@ -377,7 +372,6 @@ body:not(.auth-page) {
     letter-spacing: -2px;
 }
 
-/* MESSAGE FORM */
 .message-form {
     display: flex;
     gap: 8px;
@@ -409,6 +403,9 @@ body:not(.auth-page) {
     font-size: 18px;
     cursor: pointer;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .attach-btn {
@@ -422,6 +419,9 @@ body:not(.auth-page) {
     cursor: pointer;
     flex-shrink: 0;
     box-shadow: inset 0 0 0 1px #e3e6ea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .photo-form {
@@ -479,7 +479,6 @@ body:not(.auth-page) {
     line-height: 1.5;
 }
 
-/* TELEGRAM STYLE SIDEBAR */
 .telegram-app {
     background: #ffffff;
 }
@@ -663,7 +662,6 @@ body:not(.auth-page) {
     margin-top: 2px;
 }
 
-/* CHAT HEADER */
 .tg-chat-header {
     background: #ffffff;
     border-bottom: 1px solid #ececec;
@@ -728,7 +726,6 @@ body:not(.auth-page) {
     50% { opacity: 1; }
 }
 
-/* SETTINGS BUTTON */
 .tg-settings-trigger {
     position: absolute;
     bottom: 20px;
@@ -760,7 +757,6 @@ body:not(.auth-page) {
     transform: scale(0.98);
 }
 
-/* MODAL WINDOWS */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -875,7 +871,6 @@ body:not(.auth-page) {
     }
 }
 
-/* SETTINGS LIST (ГЛАВНОЕ ОКНО) */
 .tg-settings-list {
     padding: 0;
     margin: 0;
@@ -929,7 +924,6 @@ body:not(.auth-page) {
     background: #fef2f2;
 }
 
-/* SETTINGS PANEL (внутренние окна) */
 .tg-settings-panel {
     display: flex;
     flex-direction: column;
@@ -942,7 +936,6 @@ body:not(.auth-page) {
     color: #6b7280;
 }
 
-/* PROFILE */
 .profile-avatar-section {
     display: flex;
     flex-direction: column;
@@ -1117,7 +1110,6 @@ body:not(.auth-page) {
     transform: scale(0.98);
 }
 
-/* NOTIFICATIONS SETTINGS */
 .settings-item-row {
     display: flex;
     align-items: center;
@@ -1192,7 +1184,6 @@ input:checked + .slider:before {
     transform: translateX(26px);
 }
 
-/* SOUND PICKER */
 .sound-list {
     display: flex;
     flex-direction: column;
@@ -1222,7 +1213,6 @@ input:checked + .slider:before {
     font-size: 16px;
 }
 
-/* Stars Clicker */
 .stars-clicker {
     display: flex;
     flex-direction: column;
@@ -1311,7 +1301,6 @@ input:checked + .slider:before {
     -webkit-user-select: none;
 }
 
-/* Voice Messages */
 .voice-message {
     display: flex;
     align-items: center;
@@ -1399,7 +1388,6 @@ input:checked + .slider:before {
     color: #e0e0e0;
 }
 
-/* Voice Recording Indicator */
 .voice-recording-indicator {
     position: fixed;
     bottom: 80px;
@@ -1471,7 +1459,6 @@ input:checked + .slider:before {
     margin-left: 10px;
 }
 
-/* Action Buttons Container */
 .action-buttons {
     display: flex;
     align-items: center;
@@ -1504,7 +1491,6 @@ input:checked + .slider:before {
     transform: scale(0.95);
 }
 
-/* Crop Modal */
 .crop-modal-overlay {
     position: fixed;
     top: 0;
@@ -1544,6 +1530,7 @@ input:checked + .slider:before {
     align-items: center;
     background: #000;
     min-height: 300px;
+    max-height: 60vh;
 }
 
 .crop-image {
@@ -1551,6 +1538,7 @@ input:checked + .slider:before {
     max-height: 60vh;
     cursor: move;
     touch-action: none;
+    transition: transform 0.05s ease-out;
 }
 
 .crop-controls {
@@ -1585,7 +1573,6 @@ input:checked + .slider:before {
     transform: scale(0.96);
 }
 
-/* MOBILE RESPONSIVE */
 @media (max-width: 768px) {
     .tg-settings-trigger {
         display: none;
@@ -1778,7 +1765,6 @@ input:checked + .slider:before {
     }
 }
 
-/* AUTH RESPONSIVE */
 @media (max-width: 900px) {
     .auth-wrapper {
         grid-template-columns: 1fr;
