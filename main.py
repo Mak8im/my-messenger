@@ -965,7 +965,29 @@ async def send_voice(
     if not voice.content_type or not voice.content_type.startswith("audio/"):
         raise HTTPException(status_code=400, detail="Файл должен быть аудио")
 
-    extension = ".webm"
+    ct = (voice.content_type or "").lower()
+    fn = (voice.filename or "").lower()
+
+    if (
+        "mp4" in ct
+        or "m4a" in ct
+        or "aac" in ct
+        or fn.endswith(".m4a")
+        or fn.endswith(".mp4")
+        or fn.endswith(".aac")
+    ):
+        extension = ".m4a"
+    elif "webm" in ct or fn.endswith(".webm"):
+        extension = ".webm"
+    elif "mpeg" in ct or fn.endswith(".mp3"):
+        extension = ".mp3"
+    elif "ogg" in ct or fn.endswith(".ogg") or "opus" in ct:
+        extension = ".ogg"
+    elif "wav" in ct or fn.endswith(".wav"):
+        extension = ".wav"
+    else:
+        extension = ".webm"
+
     safe_name = f"voice_{uuid.uuid4().hex}{extension}"
     save_path = UPLOADS_DIR / safe_name
 
