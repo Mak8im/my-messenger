@@ -312,7 +312,7 @@
                 <div class="tg-settings-panel">
                     <div class="profile-avatar-section">
                         <div class="profile-avatar-wrapper">
-                            <div id="profileAvatar" class="profile-avatar">
+                            <div id="profileAvatar" class="profile-avatar profile-avatar-tappable" role="button" tabindex="0" title="Открыть крупно" aria-label="Просмотр аватара">
                                 {% if current_user.avatar %}
                                     <img src="/avatars/{{ current_user.avatar }}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
                                 {% else %}
@@ -358,6 +358,15 @@
                     <button id="saveProfileBtn" class="profile-save-btn">Сохранить изменения</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Просмотр аватара крупно (из «Мой аккаунт») -->
+    <div id="avatarPreviewModal" class="modal-overlay avatar-preview-modal" style="display: none;">
+        <button type="button" class="avatar-preview-close" id="avatarPreviewCloseBtn" aria-label="Закрыть">&times;</button>
+        <div class="avatar-preview-inner">
+            <img id="avatarPreviewImg" alt="Аватар" class="avatar-preview-img">
+            <div id="avatarPreviewLetter" class="avatar-preview-letter" style="display: none;" aria-hidden="true"></div>
         </div>
     </div>
 
@@ -481,7 +490,7 @@
             <div class="modal-body">
                 <div class="stars-clicker">
                     <div class="stars-counter" id="starsCounter">0.000</div>
-                    <div class="star-coin" id="starCoin">
+                    <div class="star-coin" id="starCoin" tabindex="0" role="button" aria-label="Получить звезду">
                         <div class="star-coin-inner">
                             <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -1724,28 +1733,24 @@
         }
         
         // ========== ЗВЁЗДЫ (КЛИКЕР) ==========
+        let starsUIEpoch = 0;
+
         async function loadStarsData() {
+            const myEpoch = ++starsUIEpoch;
             try {
                 const response = await fetch("/api/stars");
-                if (response.ok) {
-                    const data = await response.json();
-                    const stars = data.stars || 0;
-                    const starsCounter = document.getElementById("starsCounter");
-                    const starsTotalText = document.getElementById("starsTotalText");
-                    
-                    if (starsCounter) {
-                        starsCounter.textContent = stars.toFixed(3);
-                    }
-                    if (starsTotalText) {
-                        starsTotalText.textContent = `Всего звёзд: ${stars.toFixed(3)}`;
-                    }
-                }
-            } catch (error) {
+                if (!response.ok) return;
+                const data = await response.json();
+                if (myEpoch !== starsUIEpoch) return;
+                const stars = data.stars || 0;
+                setStarsUI(stars);
+             } catch (error) {
                 console.error("Ошибка загрузки звёзд:", error);
             }
         }
         
         const STAR_CLICK_DELTA = 0.001;
+        let starClickBusyUntil = 0;
 
         function parseStarsCounter() {
             const el = document.getElementById("starsCounter");
@@ -1764,16 +1769,21 @@
         }
 
         async function clickStar() {
+            const now = Date.now();
+            if (now < starClickBusyUntil) return;
+            starClickBusyUntil = now + 120;
+            starsUIEpoch++;
             const starCoin = document.getElementById("starCoin");
             if (starCoin) {
                 starCoin.style.transform = "scale(0.95)";
                 setTimeout(() => {
                     starCoin.style.transform = "";
-                }, 150);
+                }, 120);
             }
 
             const prev = parseStarsCounter();
-            setStarsUI(prev + STAR_CLICK_DELTA);
+            const nextLocal = prev + STAR_CLICK_DELTA;
+            setStarsUI(nextLocal);
 
             try {
                 const response = await fetch("/api/stars/click", {
@@ -1797,13 +1807,48 @@
                 setStarsUI(prev);
             }
         }
-        
-        document.addEventListener("click", (e) => {
+
+        (function setupStarCoinTap() {
             const starCoin = document.getElementById("starCoin");
-            if (starCoin && (starCoin.contains(e.target) || starCoin === e.target)) {
+            if (!starCoin) return;
+
+            const tap = (e) => {
+                if (e.pointerType === "mouse" && e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
                 clickStar();
+            };
+
+            if (window.PointerEvent) {
+                starCoin.addEventListener("pointerdown", tap, { passive: false });
+            } else {
+                starCoin.addEventListener(
+                    "touchstart",
+                    (e) => {
+                        e.preventDefault();
+                        tap(e);
+                    },
+                    { passive: false }
+                );
+                starCoin.addEventListener("mousedown", (e) => {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+                    tap(e);
+                });
             }
-        });
+
+            starCoin.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            starCoin.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    clickStar();
+                }
+            });
+        })();
         
         const starsModal = document.getElementById("starsModal");
         if (starsModal) {
@@ -2077,8 +2122,68 @@
             });
         }
 
+        const avatarPreviewModal = document.getElementById("avatarPreviewModal");
+        const avatarPreviewImg = document.getElementById("avatarPreviewImg");
+        const avatarPreviewLetter = document.getElementById("avatarPreviewLetter");
+        const avatarPreviewCloseBtn = document.getElementById("avatarPreviewCloseBtn");
+
+        function closeAvatarPreviewModal() {
+            if (avatarPreviewModal) avatarPreviewModal.style.display = "none";
+        }
+
+        function openAvatarPreviewModal() {
+            const av = document.getElementById("profileAvatar");
+            if (!av || !avatarPreviewModal || !avatarPreviewImg || !avatarPreviewLetter) return;
+            const innerImg = av.querySelector("img");
+            if (innerImg && innerImg.getAttribute("src")) {
+                avatarPreviewImg.src = innerImg.src;
+                avatarPreviewImg.style.display = "block";
+                avatarPreviewLetter.style.display = "none";
+            } else {
+                avatarPreviewImg.removeAttribute("src");
+                avatarPreviewImg.style.display = "none";
+                avatarPreviewLetter.style.display = "flex";
+                const t = (av.textContent || "").trim().replace(/\s+/g, "");
+                avatarPreviewLetter.textContent = t ? t.charAt(0).toUpperCase() : "?";
+            }
+            avatarPreviewModal.style.display = "flex";
+        }
+
+        const profileAvatarTap = document.getElementById("profileAvatar");
+        if (profileAvatarTap) {
+            profileAvatarTap.addEventListener("click", (e) => {
+                e.stopPropagation();
+                openAvatarPreviewModal();
+            });
+            profileAvatarTap.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openAvatarPreviewModal();
+                }
+            });
+        }
+
+        if (avatarPreviewCloseBtn) {
+            avatarPreviewCloseBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                closeAvatarPreviewModal();
+            });
+        }
+
+        if (avatarPreviewModal) {
+            avatarPreviewModal.addEventListener("click", (e) => {
+                if (e.target.closest(".avatar-preview-inner")) return;
+                closeAvatarPreviewModal();
+            });
+        }
+
         if (saveProfileBtn) saveProfileBtn.addEventListener("click", saveProfile);
-        if (changeAvatarBtn) changeAvatarBtn.addEventListener("click", () => avatarInput.click());
+        if (changeAvatarBtn) {
+            changeAvatarBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                avatarInput.click();
+            });
+        }
         if (avatarInput) avatarInput.addEventListener("change", (e) => {
             const f = e.target.files && e.target.files[0];
             if (f) startAvatarCropFromFile(f);
