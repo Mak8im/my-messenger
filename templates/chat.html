@@ -229,7 +229,11 @@
                                 <line x1="12" y1="19" x2="12" y2="22"/>
                             </svg>
                         </button>
-                        <button id="sendBtn" class="send-btn tg-send-btn" style="display: none;" onclick="sendMessage()">➤</button>
+                        <button id="sendBtn" type="button" class="send-btn tg-send-btn" style="display: none;" onclick="sendMessage()" aria-label="Отправить">
+                            <svg class="send-btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
@@ -442,6 +446,30 @@
         </div>
     </div>
 
+    <!-- Обрезка аватарки -->
+    <div id="avatarCropModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-medium">
+            <div class="modal-header">
+                <h3 class="modal-title">Фото профиля</h3>
+                <button type="button" class="modal-close" id="avatarCropCloseBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="tg-settings-text" style="margin-top: 0; margin-bottom: 12px;">Перетаскивай фото, масштаб — ползунок. Область в круге попадёт в аватар.</p>
+                <div class="avatar-crop-stage-wrap">
+                    <canvas id="avatarCropCanvas" width="300" height="300"></canvas>
+                </div>
+                <div class="avatar-crop-zoom-row">
+                    <label for="avatarCropZoom">Масштаб</label>
+                    <input type="range" id="avatarCropZoom" min="1" max="3" step="0.02" value="1">
+                </div>
+                <div class="avatar-crop-actions">
+                    <button type="button" class="avatar-crop-cancel" id="avatarCropCancelBtn">Отмена</button>
+                    <button type="button" class="avatar-crop-apply" id="avatarCropApplyBtn">Готово</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- МОДАЛЬНОЕ ОКНО "Мои звёзды" (кликер) -->
     <div id="starsModal" class="modal-overlay" style="display: none;">
         <div class="modal-container modal-small">
@@ -532,6 +560,28 @@
         let startY = 0;
         let isHolding = false;
         
+        function pickVoiceRecordMimeType() {
+            const candidates = [
+                "audio/mp4",
+                "audio/mp4; codecs=mp4a.40.2",
+                "audio/webm; codecs=opus",
+                "audio/webm"
+            ];
+            for (let i = 0; i < candidates.length; i++) {
+                if (window.MediaRecorder && MediaRecorder.isTypeSupported(candidates[i])) {
+                    return candidates[i];
+                }
+            }
+            return "";
+        }
+
+        function voiceBlobNameForMime(mime) {
+            const m = (mime || "").toLowerCase();
+            if (m.includes("mp4") || m.includes("aac")) return "voice.m4a";
+            if (m.includes("webm")) return "voice.webm";
+            return "voice.webm";
+        }
+
         const voiceRecordBtn = document.getElementById("voiceRecordBtn");
         const sendBtn = document.getElementById("sendBtn");
         const messageInput = document.getElementById("messageInput");
@@ -572,7 +622,9 @@
             
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
+                const mimeType = pickVoiceRecordMimeType();
+                const recOpts = mimeType ? { mimeType } : undefined;
+                mediaRecorder = recOpts ? new MediaRecorder(stream, recOpts) : new MediaRecorder(stream);
                 audioChunks = [];
                 
                 mediaRecorder.ondataavailable = (event) => {
@@ -582,8 +634,9 @@
                 };
                 
                 mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    await sendVoiceMessage(audioBlob);
+                    const outType = mediaRecorder.mimeType || mimeType || "audio/webm";
+                    const audioBlob = new Blob(audioChunks, { type: outType || "audio/webm" });
+                    await sendVoiceMessage(audioBlob, outType);
                     
                     // Останавливаем все треки
                     stream.getTracks().forEach(track => track.stop());
@@ -626,12 +679,13 @@
             }
         }
         
-        async function sendVoiceMessage(audioBlob) {
+        async function sendVoiceMessage(audioBlob, mimeType) {
             if (!SELECTED_USER_ID) return;
             
             const formData = new FormData();
             formData.append("receiver_id", SELECTED_USER_ID);
-            formData.append("voice", audioBlob, "voice.webm");
+            const filename = voiceBlobNameForMime(mimeType || audioBlob.type);
+            formData.append("voice", audioBlob, filename);
             
             try {
                 const response = await fetch("/send-voice", {
@@ -649,282 +703,9 @@
             }
         }
         
-        // ========== ФУНКЦИЯ ДЛЯ НАСТРОЙКИ ВСЕХ VOICE-ПЛЕЕРОВ ==========
-        function setupVoicePlayers() {
-            document.querySelectorAll('.voice-play-btn').forEach(btn => {
-                // Убираем старые обработчики, если есть
-                const newBtn = btn.cloneNode(true);
-                btn.parentNode.replaceChild(newBtn, btn);
-                
-                newBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const audioUrl = this.dataset.audioUrl;
-                    const messageId = this.dataset.messageId;
-                    const waveform = document.getElementById(`waveform-${messageId}`);
-                    
-                    if (this.classList.contains('playing')) {
-                        // Остановить
-                        if (window.currentAudio) {
-                            window.currentAudio.pause();
-                            window.currentAudio = null;
-                        }
-                        this.classList.remove('playing');
-                        if (waveform) waveform.classList.remove('playing');
-                        this.querySelector('svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-                    } else {
-                        // Остановить предыдущий
-                        if (window.currentAudio) {
-                            window.currentAudio.pause();
-                            const prevBtn = document.querySelector('.voice-play-btn.playing');
-                            if (prevBtn) {
-                                prevBtn.classList.remove('playing');
-                                const prevId = prevBtn.dataset.messageId;
-                                const prevWaveform = document.getElementById(`waveform-${prevId}`);
-                                if (prevWaveform) prevWaveform.classList.remove('playing');
-                                prevBtn.querySelector('svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-                            }
-                        }
-                        
-                        // Воспроизвести новый
-                        const audio = new Audio(audioUrl);
-                        window.currentAudio = audio;
-                        this.classList.add('playing');
-                        if (waveform) waveform.classList.add('playing');
-                        this.querySelector('svg').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-                        
-                        audio.play().catch(e => console.log("Audio play error:", e));
-                        audio.onended = () => {
-                            this.classList.remove('playing');
-                            if (waveform) waveform.classList.remove('playing');
-                            this.querySelector('svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-                            window.currentAudio = null;
-                        };
-                    }
-                });
-                
-                // Добавляем обработчик touch для телефонов
-                newBtn.addEventListener('touchstart', function(e) {
-                    e.preventDefault();
-                    this.click();
-                });
-            });
-        }
-        
-        // Функция для загрузки длительности голосовых сообщений
-        function loadVoiceDurations() {
-            document.querySelectorAll('.voice-message').forEach(voiceMsg => {
-                const playBtn = voiceMsg.querySelector('.voice-play-btn');
-                const durationSpan = voiceMsg.querySelector('.voice-duration');
-                if (playBtn && durationSpan && durationSpan.textContent === '--:--') {
-                    const audioUrl = playBtn.dataset.audioUrl;
-                    if (audioUrl) {
-                        const audio = new Audio(audioUrl);
-                        audio.addEventListener('loadedmetadata', () => {
-                            const minutes = Math.floor(audio.duration / 60);
-                            const seconds = Math.floor(audio.duration % 60);
-                            durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                        });
-                    }
-                }
-            });
-        }
-        
-        // ========== КРОП АВАТАРКИ ==========
-        let cropModal = null;
-        let cropImageElement = null;
-        let cropImageOriginalSrc = null;
-        let cropScale = 1;
-        let cropTranslateX = 0;
-        let cropTranslateY = 0;
-        
-        function showCropModal(file) {
-            // Создаем модалку для кропа
-            if (cropModal) {
-                document.body.removeChild(cropModal);
-            }
-            
-            cropModal = document.createElement('div');
-            cropModal.className = 'crop-modal-overlay';
-            cropModal.innerHTML = `
-                <div class="crop-container">
-                    <div class="crop-header">Редактировать фото</div>
-                    <div class="crop-image-wrapper">
-                        <img class="crop-image" src="" alt="crop">
-                    </div>
-                    <div class="crop-controls">
-                        <button class="crop-btn crop-btn-secondary" id="cropCancelBtn">Отмена</button>
-                        <button class="crop-btn crop-btn-primary" id="cropApplyBtn">Применить</button>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(cropModal);
-            
-            const img = cropModal.querySelector('.crop-image');
-            const cancelBtn = cropModal.querySelector('#cropCancelBtn');
-            const applyBtn = cropModal.querySelector('#cropApplyBtn');
-            cropImageElement = img;
-            
-            // Загружаем изображение
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                cropImageOriginalSrc = e.target.result;
-                img.src = e.target.result;
-                img.onload = () => {
-                    // Сброс трансформаций
-                    cropScale = 1;
-                    cropTranslateX = 0;
-                    cropTranslateY = 0;
-                    updateCropTransform();
-                };
-            };
-            reader.readAsDataURL(file);
-            
-            let initialDistance = 0;
-            let initialScale = 1;
-            let lastTouchX = 0, lastTouchY = 0;
-            let isPanning = false;
-            let isDragging = false;
-            let dragStartX = 0, dragStartY = 0;
-            let dragStartTranslateX = 0, dragStartTranslateY = 0;
-            
-            function updateCropTransform() {
-                if (cropImageElement) {
-                    cropImageElement.style.transform = `translate(${cropTranslateX}px, ${cropTranslateY}px) scale(${cropScale})`;
-                }
-            }
-            
-            // Обработчики для мыши (зум колесиком)
-            img.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                const delta = e.deltaY > 0 ? -0.05 : 0.05;
-                cropScale = Math.min(3, Math.max(0.5, cropScale + delta));
-                updateCropTransform();
-            });
-            
-            // Перемещение мышью
-            img.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                isDragging = true;
-                dragStartX = e.clientX;
-                dragStartY = e.clientY;
-                dragStartTranslateX = cropTranslateX;
-                dragStartTranslateY = cropTranslateY;
-                img.style.cursor = 'grabbing';
-            });
-            
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const dx = e.clientX - dragStartX;
-                const dy = e.clientY - dragStartY;
-                cropTranslateX = dragStartTranslateX + dx;
-                cropTranslateY = dragStartTranslateY + dy;
-                updateCropTransform();
-            });
-            
-            window.addEventListener('mouseup', () => {
-                isDragging = false;
-                if (img) img.style.cursor = 'grab';
-            });
-            
-            // Touch-события для телефонов
-            img.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (e.touches.length === 1) {
-                    isPanning = true;
-                    lastTouchX = e.touches[0].clientX;
-                    lastTouchY = e.touches[0].clientY;
-                    dragStartTranslateX = cropTranslateX;
-                    dragStartTranslateY = cropTranslateY;
-                } else if (e.touches.length === 2) {
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    initialDistance = Math.hypot(dx, dy);
-                    initialScale = cropScale;
-                    isPanning = false;
-                }
-            });
-            
-            img.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                if (e.touches.length === 1 && isPanning) {
-                    const dx = e.touches[0].clientX - lastTouchX;
-                    const dy = e.touches[0].clientY - lastTouchY;
-                    cropTranslateX = dragStartTranslateX + dx;
-                    cropTranslateY = dragStartTranslateY + dy;
-                    updateCropTransform();
-                    lastTouchX = e.touches[0].clientX;
-                    lastTouchY = e.touches[0].clientY;
-                } else if (e.touches.length === 2) {
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    const distance = Math.hypot(dx, dy);
-                    if (initialDistance > 0) {
-                        const scaleFactor = distance / initialDistance;
-                        cropScale = Math.min(3, Math.max(0.5, initialScale * scaleFactor));
-                        updateCropTransform();
-                    }
-                }
-            });
-            
-            img.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                isPanning = false;
-                initialDistance = 0;
-            });
-            
-            img.style.cursor = 'grab';
-            
-            cancelBtn.addEventListener('click', () => {
-                document.body.removeChild(cropModal);
-                cropModal = null;
-            });
-            
-            applyBtn.addEventListener('click', async () => {
-                // Создаем canvas и обрезаем изображение по центру (квадрат)
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                // Загружаем оригинал для кропа
-                const tempImg = new Image();
-                tempImg.src = cropImageOriginalSrc;
-                
-                await new Promise((resolve) => {
-                    tempImg.onload = resolve;
-                });
-                
-                // Размер квадрата - минимальная сторона
-                const size = Math.min(tempImg.width, tempImg.height);
-                const cropX = (tempImg.width - size) / 2;
-                const cropY = (tempImg.height - size) / 2;
-                
-                canvas.width = size;
-                canvas.height = size;
-                
-                // Рисуем с учетом масштаба и позиции
-                ctx.drawImage(
-                    tempImg,
-                    cropX, cropY, size, size,
-                    0, 0, size, size
-                );
-                
-                // Конвертируем в blob
-                const croppedBlob = await new Promise((resolve) => {
-                    canvas.toBlob(resolve, 'image/jpeg', 0.9);
-                });
-                
-                const croppedFile = new File([croppedBlob], file.name, { type: 'image/jpeg' });
-                
-                document.body.removeChild(cropModal);
-                cropModal = null;
-                
-                // Загружаем обрезанное фото
-                await uploadAvatar(croppedFile);
-            });
-        }
-        
-        // ========== ОБРАБОТЧИКИ ДЛЯ МИКРОФОНА ==========
+        // Обработчики для голосовой записи
         if (voiceRecordBtn) {
-            // Mouse events
+            // Нажатие на микрофон
             voiceRecordBtn.addEventListener("mousedown", (e) => {
                 e.preventDefault();
                 startY = e.clientY;
@@ -951,18 +732,16 @@
                 }
             });
             
-            // Touch events для телефонов
+            // Для touch-устройств
             voiceRecordBtn.addEventListener("touchstart", (e) => {
                 e.preventDefault();
-                const touch = e.touches[0];
-                startY = touch.clientY;
+                startY = e.touches[0].clientY;
                 isHolding = true;
                 swipeUpDetected = false;
                 startRecording();
             });
             
             voiceRecordBtn.addEventListener("touchend", (e) => {
-                e.preventDefault();
                 if (!isHolding) return;
                 isHolding = false;
                 
@@ -972,10 +751,8 @@
             });
             
             voiceRecordBtn.addEventListener("touchmove", (e) => {
-                e.preventDefault();
                 if (!isHolding) return;
-                const touch = e.touches[0];
-                const deltaY = startY - touch.clientY;
+                const deltaY = startY - e.touches[0].clientY;
                 if (deltaY > 50 && !swipeUpDetected) {
                     swipeUpDetected = true;
                     recordingHint.textContent = "Запись идёт... Нажми остановить";
@@ -988,6 +765,110 @@
                 if (isRecording) {
                     stopRecording();
                 }
+            });
+        }
+        
+        function resolveVoiceAudioUrl(url) {
+            if (!url) return "";
+            try {
+                return new URL(url, window.location.href).href;
+            } catch (e) {
+                return url;
+            }
+        }
+
+        function toggleVoicePlayback(btn) {
+            const audioUrl = resolveVoiceAudioUrl(btn.dataset.audioUrl);
+            const messageId = btn.dataset.messageId;
+            const waveform = document.getElementById("waveform-" + messageId);
+            const svg = btn.querySelector("svg");
+
+            if (btn.classList.contains("playing")) {
+                if (window.currentAudio) {
+                    window.currentAudio.pause();
+                    window.currentAudio = null;
+                }
+                btn.classList.remove("playing");
+                if (waveform) waveform.classList.remove("playing");
+                if (svg) svg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                return;
+            }
+
+            if (window.currentAudio) {
+                window.currentAudio.pause();
+                const prevBtn = document.querySelector(".voice-play-btn.playing");
+                if (prevBtn) {
+                    prevBtn.classList.remove("playing");
+                    const prevId = prevBtn.dataset.messageId;
+                    const prevWaveform = document.getElementById("waveform-" + prevId);
+                    if (prevWaveform) prevWaveform.classList.remove("playing");
+                    const prevSvg = prevBtn.querySelector("svg");
+                    if (prevSvg) prevSvg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                }
+                window.currentAudio = null;
+            }
+
+            const audio = new Audio();
+            audio.preload = "auto";
+            if ("playsInline" in audio) audio.playsInline = true;
+            audio.setAttribute("playsinline", "");
+            audio.src = audioUrl;
+            window.currentAudio = audio;
+            btn.classList.add("playing");
+            if (waveform) waveform.classList.add("playing");
+            if (svg) svg.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+
+            audio.onended = () => {
+                btn.classList.remove("playing");
+                if (waveform) waveform.classList.remove("playing");
+                if (svg) svg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                window.currentAudio = null;
+            };
+            audio.onerror = () => {
+                btn.classList.remove("playing");
+                if (waveform) waveform.classList.remove("playing");
+                if (svg) svg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                window.currentAudio = null;
+            };
+
+            audio.play().catch((err) => {
+                console.error("Voice play failed:", err);
+                btn.classList.remove("playing");
+                if (waveform) waveform.classList.remove("playing");
+                if (svg) svg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                window.currentAudio = null;
+            });
+        }
+
+        function initVoiceMessageUI() {
+            const box = document.getElementById("messagesBox");
+            if (!box || box.dataset.voiceDelegate === "1") return;
+            box.dataset.voiceDelegate = "1";
+            box.addEventListener("click", (e) => {
+                const btn = e.target.closest(".voice-play-btn");
+                if (!btn || !box.contains(btn)) return;
+                e.preventDefault();
+                toggleVoicePlayback(btn);
+            });
+        }
+
+        function hydrateVoiceDurations() {
+            document.querySelectorAll(".voice-duration").forEach((el) => {
+                const id = el.id && el.id.startsWith("duration-") ? el.id.slice("duration-".length) : null;
+                if (!id) return;
+                const row = el.closest(".message-row");
+                const playBtn = row && row.querySelector('.voice-play-btn[data-message-id="' + id + '"]');
+                if (!playBtn || !playBtn.dataset.audioUrl) return;
+                if (el.textContent && el.textContent !== "--:--") return;
+                const a = new Audio();
+                a.preload = "metadata";
+                a.src = resolveVoiceAudioUrl(playBtn.dataset.audioUrl);
+                a.addEventListener("loadedmetadata", () => {
+                    if (!a.duration || !isFinite(a.duration)) return;
+                    const minutes = Math.floor(a.duration / 60);
+                    const seconds = Math.floor(a.duration % 60);
+                    el.textContent = minutes + ":" + seconds.toString().padStart(2, "0");
+                });
             });
         }
         
@@ -1671,54 +1552,6 @@
                     const seconds = Math.floor(audio.duration % 60);
                     durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 });
-                
-                // Сразу навешиваем обработчик на новую кнопку
-                playBtn.addEventListener("click", function(e) {
-                    e.stopPropagation();
-                    const aUrl = this.dataset.audioUrl;
-                    const msgId = this.dataset.messageId;
-                    const wave = document.getElementById(`waveform-${msgId}`);
-                    
-                    if (this.classList.contains('playing')) {
-                        if (window.currentAudio) {
-                            window.currentAudio.pause();
-                            window.currentAudio = null;
-                        }
-                        this.classList.remove('playing');
-                        if (wave) wave.classList.remove('playing');
-                        this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
-                    } else {
-                        if (window.currentAudio) {
-                            window.currentAudio.pause();
-                            const prevBtn = document.querySelector('.voice-play-btn.playing');
-                            if (prevBtn) {
-                                prevBtn.classList.remove('playing');
-                                const prevId = prevBtn.dataset.messageId;
-                                const prevWave = document.getElementById(`waveform-${prevId}`);
-                                if (prevWave) prevWave.classList.remove('playing');
-                                prevBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
-                            }
-                        }
-                        const audioPlay = new Audio(aUrl);
-                        window.currentAudio = audioPlay;
-                        this.classList.add('playing');
-                        if (wave) wave.classList.add('playing');
-                        this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-                        audioPlay.play().catch(e => console.log(e));
-                        audioPlay.onended = () => {
-                            this.classList.remove('playing');
-                            if (wave) wave.classList.remove('playing');
-                            this.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
-                            window.currentAudio = null;
-                        };
-                    }
-                });
-                
-                playBtn.addEventListener("touchstart", function(e) {
-                    e.preventDefault();
-                    this.click();
-                });
-                
             } else {
                 const text = document.createElement("div");
                 text.className = "message-text";
@@ -1890,29 +1723,46 @@
             if (pushStatusDiv) pushStatusDiv.style.display = "none";
         }
         
-        // ========== ЗВЁЗДЫ С OPTIMISTIC UPDATE ==========
-        let currentStarsValue = 0;
-        
+        // ========== ЗВЁЗДЫ (КЛИКЕР) ==========
         async function loadStarsData() {
             try {
                 const response = await fetch("/api/stars");
                 if (response.ok) {
                     const data = await response.json();
-                    currentStarsValue = data.stars || 0;
-                    updateStarsDisplay(currentStarsValue);
+                    const stars = data.stars || 0;
+                    const starsCounter = document.getElementById("starsCounter");
+                    const starsTotalText = document.getElementById("starsTotalText");
+                    
+                    if (starsCounter) {
+                        starsCounter.textContent = stars.toFixed(3);
+                    }
+                    if (starsTotalText) {
+                        starsTotalText.textContent = `Всего звёзд: ${stars.toFixed(3)}`;
+                    }
                 }
             } catch (error) {
                 console.error("Ошибка загрузки звёзд:", error);
             }
         }
         
-        function updateStarsDisplay(value) {
+        const STAR_CLICK_DELTA = 0.001;
+
+        function parseStarsCounter() {
+            const el = document.getElementById("starsCounter");
+            if (!el) return 0;
+            const n = parseFloat(String(el.textContent).replace(",", "."));
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function setStarsUI(stars) {
+            const s = Number.isFinite(stars) ? stars : 0;
             const starsCounter = document.getElementById("starsCounter");
             const starsTotalText = document.getElementById("starsTotalText");
-            if (starsCounter) starsCounter.textContent = value.toFixed(3);
-            if (starsTotalText) starsTotalText.textContent = `Всего звёзд: ${value.toFixed(3)}`;
+            const t = s.toFixed(3);
+            if (starsCounter) starsCounter.textContent = t;
+            if (starsTotalText) starsTotalText.textContent = "Всего звёзд: " + t;
         }
-        
+
         async function clickStar() {
             const starCoin = document.getElementById("starCoin");
             if (starCoin) {
@@ -1921,31 +1771,30 @@
                     starCoin.style.transform = "";
                 }, 150);
             }
-            
-            // OPTIMISTIC UPDATE: сразу прибавляем на фронте
-            const oldValue = currentStarsValue;
-            currentStarsValue = currentStarsValue + 0.001;
-            updateStarsDisplay(currentStarsValue);
-            
-            if (navigator.vibrate) navigator.vibrate(50);
-            
+
+            const prev = parseStarsCounter();
+            setStarsUI(prev + STAR_CLICK_DELTA);
+
             try {
-                const response = await fetch("/api/stars/click", { method: "POST" });
+                const response = await fetch("/api/stars/click", {
+                    method: "POST"
+                });
+
                 if (response.ok) {
                     const data = await response.json();
-                    currentStarsValue = data.stars || 0;
-                    updateStarsDisplay(currentStarsValue);
+                    const stars = data.stars;
+                    if (typeof stars === "number" && Number.isFinite(stars)) {
+                        setStarsUI(stars);
+                    }
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
+                    }
                 } else {
-                    // Если ошибка — откатываем
-                    currentStarsValue = oldValue;
-                    updateStarsDisplay(currentStarsValue);
-                    console.error("Ошибка сохранения звёзд");
+                    setStarsUI(prev);
                 }
             } catch (error) {
-                // Если ошибка — откатываем
-                currentStarsValue = oldValue;
-                updateStarsDisplay(currentStarsValue);
                 console.error("Ошибка клика:", error);
+                setStarsUI(prev);
             }
         }
         
@@ -1956,10 +1805,10 @@
             }
         });
         
-        const starsModalElem = document.getElementById("starsModal");
-        if (starsModalElem) {
-            starsModalElem.addEventListener("click", (e) => {
-                if (e.target === starsModalElem) {
+        const starsModal = document.getElementById("starsModal");
+        if (starsModal) {
+            starsModal.addEventListener("click", (e) => {
+                if (e.target === starsModal) {
                     closeModal("stars");
                 }
             });
@@ -2020,13 +1869,9 @@
             checkNotificationStatus();
             setupTypingDetection();
             updateActionButtons();
-            
-            // Инициализация voice-плееров после загрузки
-            setTimeout(() => {
-                setupVoicePlayers();
-                loadVoiceDurations();
-            }, 100);
-            
+            initVoiceMessageUI();
+            hydrateVoiceDurations();
+
             const enableAudio = () => {
                 const silent = new Audio();
                 silent.volume = 0;
@@ -2036,25 +1881,209 @@
             };
             document.addEventListener("click", enableAudio);
             document.addEventListener("touchstart", enableAudio);
-            
+
             scrollToBottom();
             if (SELECTED_USER_ID !== null) updateUnreadBadge(SELECTED_USER_ID, 0);
         });
         
         const saveProfileBtn = document.getElementById("saveProfileBtn");
         const changeAvatarBtn = document.getElementById("changeAvatarBtn");
-        const avatarInputElem = document.getElementById("avatarInput");
-        const deleteAvatarBtnElem = document.getElementById("deleteAvatarBtn");
-        if (saveProfileBtn) saveProfileBtn.addEventListener("click", saveProfile);
-        if (changeAvatarBtn) changeAvatarBtn.addEventListener("click", () => avatarInputElem.click());
-        if (avatarInputElem) avatarInputElem.addEventListener("change", (e) => {
-            if (e.target.files && e.target.files[0]) {
-                // Показываем модалку для кропа
-                showCropModal(e.target.files[0]);
-                avatarInputElem.value = "";
+        const avatarInput = document.getElementById("avatarInput");
+        const deleteAvatarBtn = document.getElementById("deleteAvatarBtn");
+        const avatarCropModal = document.getElementById("avatarCropModal");
+        const avatarCropCanvas = document.getElementById("avatarCropCanvas");
+        const avatarCropZoom = document.getElementById("avatarCropZoom");
+        const avatarCropCancelBtn = document.getElementById("avatarCropCancelBtn");
+        const avatarCropApplyBtn = document.getElementById("avatarCropApplyBtn");
+        const avatarCropCloseBtn = document.getElementById("avatarCropCloseBtn");
+
+        const avatarCropState = {
+            img: null,
+            objectUrl: null,
+            panX: 0,
+            panY: 0,
+            dragging: false,
+            lastPointerX: 0,
+            lastPointerY: 0,
+            size: 300
+        };
+
+        function openAvatarCropModal() {
+            if (avatarCropModal) {
+                avatarCropModal.style.display = "flex";
+                document.body.style.overflow = "hidden";
             }
+        }
+
+        function closeAvatarCropModal() {
+            if (avatarCropState.objectUrl) {
+                URL.revokeObjectURL(avatarCropState.objectUrl);
+                avatarCropState.objectUrl = null;
+            }
+            avatarCropState.img = null;
+            if (avatarCropZoom) avatarCropZoom.value = "1";
+            if (avatarCropModal) avatarCropModal.style.display = "none";
+            document.body.style.overflow = "";
+            if (avatarInput) avatarInput.value = "";
+        }
+
+        function drawAvatarCropPreview() {
+            if (!avatarCropCanvas || !avatarCropState.img) return;
+            const ctx = avatarCropCanvas.getContext("2d");
+            const size = avatarCropState.size;
+            const img = avatarCropState.img;
+            const zoom = avatarCropZoom ? parseFloat(avatarCropZoom.value) || 1 : 1;
+
+            const base = Math.max(size / img.width, size / img.height);
+            const scale = base * zoom;
+            const dw = img.width * scale;
+            const dh = img.height * scale;
+            const cx = size / 2;
+            const cy = size / 2;
+
+            ctx.clearRect(0, 0, size, size);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, cx, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(
+                img,
+                cx - dw / 2 + avatarCropState.panX,
+                cy - dh / 2 + avatarCropState.panY,
+                dw,
+                dh
+            );
+            ctx.restore();
+
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,255,255,0.5)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(cx, cy, cx - 2, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function startAvatarCropFromFile(file) {
+            if (!file || !avatarCropCanvas) return;
+            if (avatarCropState.objectUrl) {
+                URL.revokeObjectURL(avatarCropState.objectUrl);
+                avatarCropState.objectUrl = null;
+            }
+            avatarCropState.img = null;
+            const url = URL.createObjectURL(file);
+            avatarCropState.objectUrl = url;
+            const img = new Image();
+            img.onload = () => {
+                avatarCropState.img = img;
+                avatarCropState.panX = 0;
+                avatarCropState.panY = 0;
+                if (avatarCropZoom) avatarCropZoom.value = "1";
+                openAvatarCropModal();
+                drawAvatarCropPreview();
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                avatarCropState.objectUrl = null;
+                alert("Не удалось открыть изображение.");
+            };
+            img.src = url;
+        }
+
+        function avatarCropPointerDown(e) {
+            if (!avatarCropState.img) return;
+            avatarCropState.dragging = true;
+            const p = e.touches ? e.touches[0] : e;
+            avatarCropState.lastPointerX = p.clientX;
+            avatarCropState.lastPointerY = p.clientY;
+        }
+
+        function avatarCropPointerMove(e) {
+            if (!avatarCropState.dragging || !avatarCropState.img) return;
+            const p = e.touches ? e.touches[0] : e;
+            const dx = p.clientX - avatarCropState.lastPointerX;
+            const dy = p.clientY - avatarCropState.lastPointerY;
+            avatarCropState.lastPointerX = p.clientX;
+            avatarCropState.lastPointerY = p.clientY;
+            avatarCropState.panX += dx;
+            avatarCropState.panY += dy;
+            drawAvatarCropPreview();
+            if (e.cancelable) e.preventDefault();
+        }
+
+        function avatarCropPointerUp() {
+            avatarCropState.dragging = false;
+        }
+
+        function applyAvatarCrop() {
+            if (!avatarCropState.img || !avatarCropCanvas) return;
+            const out = document.createElement("canvas");
+            const outSize = 512;
+            out.width = outSize;
+            out.height = outSize;
+            const octx = out.getContext("2d");
+            const img = avatarCropState.img;
+            const zoom = avatarCropZoom ? parseFloat(avatarCropZoom.value) || 1 : 1;
+            const base = Math.max(outSize / img.width, outSize / img.height);
+            const scale = base * zoom;
+            const dw = img.width * scale;
+            const dh = img.height * scale;
+            const cx = outSize / 2;
+            const cy = outSize / 2;
+            octx.save();
+            octx.beginPath();
+            octx.arc(cx, cy, cx, 0, Math.PI * 2);
+            octx.clip();
+            octx.drawImage(
+                img,
+                cx - dw / 2 + avatarCropState.panX * (outSize / avatarCropState.size),
+                cy - dh / 2 + avatarCropState.panY * (outSize / avatarCropState.size),
+                dw,
+                dh
+            );
+            octx.restore();
+
+            out.toBlob((blob) => {
+                if (!blob) {
+                    alert("Не удалось сохранить фото.");
+                    return;
+                }
+                closeAvatarCropModal();
+                const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+                uploadAvatar(file);
+            }, "image/jpeg", 0.92);
+        }
+
+        if (avatarCropCanvas) {
+            avatarCropCanvas.addEventListener("mousedown", avatarCropPointerDown);
+            window.addEventListener("mousemove", avatarCropPointerMove);
+            window.addEventListener("mouseup", avatarCropPointerUp);
+            avatarCropCanvas.addEventListener("touchstart", avatarCropPointerDown, { passive: true });
+            avatarCropCanvas.addEventListener("touchmove", avatarCropPointerMove, { passive: false });
+            avatarCropCanvas.addEventListener("touchend", avatarCropPointerUp);
+        }
+        if (avatarCropZoom) {
+            avatarCropZoom.addEventListener("input", () => {
+                if (!avatarCropState.img) return;
+                drawAvatarCropPreview();
+            });
+        }
+        if (avatarCropCancelBtn) avatarCropCancelBtn.addEventListener("click", closeAvatarCropModal);
+        if (avatarCropApplyBtn) avatarCropApplyBtn.addEventListener("click", applyAvatarCrop);
+        if (avatarCropCloseBtn) avatarCropCloseBtn.addEventListener("click", closeAvatarCropModal);
+        if (avatarCropModal) {
+            avatarCropModal.addEventListener("click", (e) => {
+                if (e.target === avatarCropModal) closeAvatarCropModal();
+            });
+        }
+
+        if (saveProfileBtn) saveProfileBtn.addEventListener("click", saveProfile);
+        if (changeAvatarBtn) changeAvatarBtn.addEventListener("click", () => avatarInput.click());
+        if (avatarInput) avatarInput.addEventListener("change", (e) => {
+            const f = e.target.files && e.target.files[0];
+            if (f) startAvatarCropFromFile(f);
         });
-        if (deleteAvatarBtnElem) deleteAvatarBtnElem.addEventListener("click", deleteAvatar);
+        if (deleteAvatarBtn) deleteAvatarBtn.addEventListener("click", deleteAvatar);
         
         const selectSoundRow = document.getElementById("selectSoundRow");
         if (selectSoundRow) {
