@@ -22,7 +22,6 @@ from fastapi import (
     File,
     HTTPException,
     Body,
-    Response
 )
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -396,23 +395,34 @@ class ConnectionManager:
         })
     
     async def force_logout_user(self, user_id: int, db: Session):
-        if user_id in self.online_users:
-            self.online_users.remove(user_id)
-        
-        user = db.query(User).filter(User.id == user_id).first()
-        if user:
-            user.last_activity = datetime.now(timezone.utc)
-            db.commit()
-        
-        await self.broadcast_presence(db)
-        
+        self.online_users.discard(user_id)
+
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                user.last_activity = datetime.now(timezone.utc)
+                db.commit()
+        except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        try:
+            await self.broadcast_presence(db)
+        except Exception:
+            pass
+
         if user_id in self.active_connections:
             for ws in list(self.active_connections[user_id]):
                 try:
                     await ws.close()
-                except:
+                except Exception:
                     pass
-            del self.active_connections[user_id]
+            try:
+                del self.active_connections[user_id]
+            except Exception:
+                pass
 
 
 manager = ConnectionManager()
@@ -1105,18 +1115,23 @@ async def download_file(
 
 
 @app.get("/logout")
-async def logout(
-    response: Response,
-    user_id: str | None = Cookie(default=None),
-    db: Session = Depends(get_db)
-):
-    if user_id:
-        uid = int(user_id)
-        await manager.force_logout_user(uid, db)
-    
-    response = RedirectResponse(url="/", status_code=303)
-    response.delete_cookie("user_id", path="/")
-    return response
+async def logout(request: Request, db: Session = Depends(get_db)):
+    raw = request.cookies.get("user_id")
+    try:
+        if raw is not None and str(raw).strip() != "":
+            uid = int(raw)
+            await manager.force_logout_user(uid, db)
+    except (ValueError, TypeError):
+        pass
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+    out = RedirectResponse(url="/", status_code=303)
+    out.delete_cookie(key="user_id", path="/")
+    return out
 
 
 @app.websocket("/ws/{user_id}")
