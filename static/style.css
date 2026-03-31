@@ -7,15 +7,17 @@ html, body {
     padding: 0;
     height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
+    user-select: none; /* Запрещаем выделение текста везде */
+    -webkit-tap-highlight-color: transparent; /* Убираем синий фон при тапе на iOS */
 }
 
+/* Разрешаем выделение только в полях ввода */
 input, textarea, [contenteditable="true"] {
     user-select: text;
     -webkit-user-select: text;
 }
 
+/* AUTH */
 .auth-page {
     min-height: 100vh;
     background:
@@ -221,6 +223,7 @@ input, textarea, [contenteditable="true"] {
     text-decoration: underline;
 }
 
+/* CHAT */
 body:not(.auth-page) {
     background: #f3f5f8;
     color: #111827;
@@ -250,6 +253,7 @@ body:not(.auth-page) {
     min-width: 0;
 }
 
+/* AVATARS */
 .avatar,
 .user-avatar,
 .chat-user-avatar {
@@ -291,6 +295,7 @@ body:not(.auth-page) {
     border-radius: 50%;
 }
 
+/* MESSAGES */
 .messages-box {
     flex: 1;
     overflow-y: auto;
@@ -372,6 +377,7 @@ body:not(.auth-page) {
     letter-spacing: -2px;
 }
 
+/* MESSAGE FORM */
 .message-form {
     display: flex;
     gap: 8px;
@@ -400,18 +406,21 @@ body:not(.auth-page) {
     border-radius: 50%;
     width: 46px;
     height: 46px;
-    font-size: 18px;
+    font-size: 0;
+    line-height: 0;
     cursor: pointer;
     flex-shrink: 0;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0;
-    line-height: 1;
 }
 
-.send-btn:active {
-    transform: scale(0.95);
+.send-btn .send-btn-icon {
+    display: block;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
 }
 
 .attach-btn {
@@ -425,11 +434,6 @@ body:not(.auth-page) {
     cursor: pointer;
     flex-shrink: 0;
     box-shadow: inset 0 0 0 1px #e3e6ea;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    line-height: 1;
 }
 
 .photo-form {
@@ -487,6 +491,7 @@ body:not(.auth-page) {
     line-height: 1.5;
 }
 
+/* TELEGRAM STYLE SIDEBAR */
 .telegram-app {
     background: #ffffff;
 }
@@ -670,6 +675,7 @@ body:not(.auth-page) {
     margin-top: 2px;
 }
 
+/* CHAT HEADER */
 .tg-chat-header {
     background: #ffffff;
     border-bottom: 1px solid #ececec;
@@ -734,6 +740,7 @@ body:not(.auth-page) {
     50% { opacity: 1; }
 }
 
+/* SETTINGS BUTTON */
 .tg-settings-trigger {
     position: absolute;
     bottom: 20px;
@@ -765,6 +772,7 @@ body:not(.auth-page) {
     transform: scale(0.98);
 }
 
+/* MODAL WINDOWS */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -879,6 +887,7 @@ body:not(.auth-page) {
     }
 }
 
+/* SETTINGS LIST (ГЛАВНОЕ ОКНО) */
 .tg-settings-list {
     padding: 0;
     margin: 0;
@@ -932,6 +941,7 @@ body:not(.auth-page) {
     background: #fef2f2;
 }
 
+/* SETTINGS PANEL (внутренние окна) */
 .tg-settings-panel {
     display: flex;
     flex-direction: column;
@@ -944,6 +954,7 @@ body:not(.auth-page) {
     color: #6b7280;
 }
 
+/* PROFILE */
 .profile-avatar-section {
     display: flex;
     flex-direction: column;
@@ -1118,6 +1129,7 @@ body:not(.auth-page) {
     transform: scale(0.98);
 }
 
+/* NOTIFICATIONS SETTINGS */
 .settings-item-row {
     display: flex;
     align-items: center;
@@ -1192,6 +1204,7 @@ input:checked + .slider:before {
     transform: translateX(26px);
 }
 
+/* SOUND PICKER */
 .sound-list {
     display: flex;
     flex-direction: column;
@@ -1221,14 +1234,21 @@ input:checked + .slider:before {
     font-size: 16px;
 }
 
+/* Stars Clicker */
+#starsModal .modal-header,
+#starsModal .modal-body,
+.stars-clicker {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
 .stars-clicker {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    user-select: none;
-    -webkit-user-select: none;
 }
 
 .stars-counter {
@@ -1240,16 +1260,15 @@ input:checked + .slider:before {
     font-family: monospace;
     letter-spacing: 2px;
     text-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
-    user-select: none;
     -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .star-coin {
     cursor: pointer;
     transition: transform 0.2s ease;
     margin-bottom: 30px;
-    user-select: none;
-    -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -1271,8 +1290,6 @@ input:checked + .slider:before {
     justify-content: center;
     box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4);
     transition: all 0.2s ease;
-    user-select: none;
-    -webkit-user-select: none;
 }
 
 .star-coin-inner svg {
@@ -1281,9 +1298,6 @@ input:checked + .slider:before {
     color: #ffffff;
     stroke: #ffffff;
     fill: rgba(255, 255, 255, 0.3);
-    user-select: none;
-    -webkit-user-select: none;
-    pointer-events: none;
 }
 
 .star-coin:active .star-coin-inner {
@@ -1296,8 +1310,8 @@ input:checked + .slider:before {
     color: #6b7280;
     text-align: center;
     margin-bottom: 16px;
-    user-select: none;
     -webkit-user-select: none;
+    user-select: none;
 }
 
 .stars-total {
@@ -1305,10 +1319,79 @@ input:checked + .slider:before {
     color: #f59e0b;
     text-align: center;
     font-weight: bold;
-    user-select: none;
     -webkit-user-select: none;
+    user-select: none;
 }
 
+/* Avatar crop (как в Telegram) */
+.avatar-crop-stage-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto 16px;
+    touch-action: none;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #1f2937;
+}
+
+#avatarCropCanvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    vertical-align: middle;
+    cursor: grab;
+}
+
+#avatarCropCanvas:active {
+    cursor: grabbing;
+}
+
+.avatar-crop-zoom-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.avatar-crop-zoom-row label {
+    font-size: 14px;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.avatar-crop-zoom-row input[type="range"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.avatar-crop-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.avatar-crop-actions button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+}
+
+.avatar-crop-cancel {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.avatar-crop-apply {
+    background: linear-gradient(135deg, #3390ec, #2563eb);
+    color: white;
+}
+
+/* Voice Messages */
 .voice-message {
     display: flex;
     align-items: center;
@@ -1336,7 +1419,6 @@ input:checked + .slider:before {
     transition: all 0.2s ease;
     color: white;
     flex-shrink: 0;
-    -webkit-tap-highlight-color: transparent;
 }
 
 .voice-play-btn:hover {
@@ -1396,6 +1478,7 @@ input:checked + .slider:before {
     color: #e0e0e0;
 }
 
+/* Voice Recording Indicator */
 .voice-recording-indicator {
     position: fixed;
     bottom: 80px;
@@ -1467,6 +1550,7 @@ input:checked + .slider:before {
     margin-left: 10px;
 }
 
+/* Action Buttons Container */
 .action-buttons {
     display: flex;
     align-items: center;
@@ -1487,9 +1571,6 @@ input:checked + .slider:before {
     transition: all 0.2s ease;
     color: white;
     flex-shrink: 0;
-    -webkit-tap-highlight-color: transparent;
-    padding: 0;
-    line-height: 1;
 }
 
 .voice-record-btn:hover {
@@ -1501,88 +1582,7 @@ input:checked + .slider:before {
     transform: scale(0.95);
 }
 
-.crop-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-}
-
-.crop-container {
-    background: #1f2937;
-    border-radius: 20px;
-    max-width: 90vw;
-    max-height: 90vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.crop-header {
-    padding: 16px;
-    text-align: center;
-    color: white;
-    font-weight: bold;
-    border-bottom: 1px solid #374151;
-}
-
-.crop-image-wrapper {
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: #000;
-    min-height: 300px;
-    max-height: 60vh;
-}
-
-.crop-image {
-    max-width: 100%;
-    max-height: 60vh;
-    cursor: move;
-    touch-action: none;
-    transition: transform 0.05s ease-out;
-}
-
-.crop-controls {
-    padding: 16px;
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    border-top: 1px solid #374151;
-}
-
-.crop-btn {
-    padding: 12px 24px;
-    border-radius: 30px;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.crop-btn-primary {
-    background: #3390ec;
-    color: white;
-}
-
-.crop-btn-secondary {
-    background: #4b5563;
-    color: white;
-}
-
-.crop-btn-primary:active,
-.crop-btn-secondary:active {
-    transform: scale(0.96);
-}
-
+/* MOBILE RESPONSIVE */
 @media (max-width: 768px) {
     .tg-settings-trigger {
         display: none;
@@ -1775,6 +1775,7 @@ input:checked + .slider:before {
     }
 }
 
+/* AUTH RESPONSIVE */
 @media (max-width: 900px) {
     .auth-wrapper {
         grid-template-columns: 1fr;
@@ -1878,20 +1879,4 @@ input:checked + .slider:before {
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-/* ДОБАВЬ В САМЫЙ НИЗ */
-
-.stars-clicker {
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-.star-coin {
-    cursor: pointer;
-}
-
-.send-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
