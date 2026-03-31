@@ -988,6 +988,80 @@ body:not(.auth-page) {
     object-fit: cover;
 }
 
+.profile-avatar-tappable {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.profile-avatar-tappable:focus {
+    outline: 2px solid #3390ec;
+    outline-offset: 2px;
+}
+
+/* Просмотр аватара крупно */
+.avatar-preview-modal {
+    z-index: 1200;
+    background: rgba(0, 0, 0, 0.92);
+    padding: 20px;
+    cursor: zoom-out;
+}
+
+.avatar-preview-modal .avatar-preview-inner {
+    cursor: default;
+    max-width: min(92vw, 520px);
+    max-height: min(85vh, 520px);
+    margin: auto;
+}
+
+.avatar-preview-img {
+    width: 100%;
+    height: auto;
+    max-height: min(85vh, 520px);
+    object-fit: contain;
+    border-radius: 50%;
+    display: block;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+}
+
+.avatar-preview-letter {
+    width: min(72vw, 320px);
+    height: min(72vw, 320px);
+    max-height: min(85vh, 320px);
+    border-radius: 50%;
+    margin: 0 auto;
+    background: linear-gradient(135deg, #3390ec, #2563eb);
+    color: white;
+    font-size: min(28vw, 120px);
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+}
+
+.avatar-preview-close {
+    position: absolute;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.avatar-preview-close:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
 .profile-avatar-edit {
     position: absolute;
     bottom: 0;
@@ -1270,6 +1344,7 @@ input:checked + .slider:before {
     transition: transform 0.2s ease;
     margin-bottom: 30px;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .star-coin:hover {
