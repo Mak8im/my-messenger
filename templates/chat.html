@@ -27,7 +27,7 @@
                 </div>
 
                 <div class="tg-current-user">
-                    <div class="avatar avatar-tappable-preview" id="sidebarAvatar" role="button" tabindex="0" title="Показать аватар" aria-label="Показать аватар крупно">
+а                    <div class="avatar avatar-tappable-preview" id="sidebarAvatar" role="button" tabindex="0" title="Показать аватар" aria-label="Показать аватар крупно">
                         {% if current_user.avatar %}
                             <img src="/avatars/{{ current_user.avatar }}" style="width: 100%; height: 100%; object-fit: cover;">
                         {% else %}
@@ -118,7 +118,7 @@
                                 {% if selected_user.username %}
                                     <div class="chat-user-username" style="font-size: 12px; color: #7a7f85;">{{ selected_user.username }}</div>
                                 {% endif %}
-                                <div class="chat-user-status" id="selectedUserStatus">
+                                <div class="chat-user-status" id="selectedUserStatus" data-initial-status="{{ selected_user_status|e }}">
                                     {{ selected_user_status }}
                                 </div>
                                 <div id="typingIndicator" class="chat-user-typing" style="display: none;">печатает...</div>
@@ -537,18 +537,13 @@
     </div>
     {% endif %}
 
-    {% if not selected_user %}
-    <div class="tg-mobile-bottom-nav">
-        <button class="tg-mobile-tab active" id="tabChatsBtn" type="button">Чаты</button>
-        <button class="tg-mobile-tab" id="tabSettingsBtn" type="button">Настройки</button>
-    </div>
-    {% endif %}
-
     <script>
         // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
         const CURRENT_USER_ID = {{ current_user.id }};
         const SELECTED_USER_ID = {% if selected_user %}{{ selected_user.id }}{% else %}null{% endif %};
         const SELECTED_USER_EMAIL = {% if selected_user %}"{{ selected_user.email }}"{% else %}""{% endif %};
+        const CHAT_PAGE_LOADED_AT = Date.now();
+        const STATUS_DOWNGRADE_GRACE_MS = 1200;
         const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
         const CAN_BACKUP = {{ "true" if can_backup else "false" }};
         
@@ -1378,7 +1373,7 @@
             userStatuses = statusData;
             document.querySelectorAll(".user-card[data-user-id]").forEach(card => {
                 const userId = Number(card.dataset.userId);
-                const status = userStatuses[userId];
+                const status = userStatuses[userId] || userStatuses[String(userId)];
                 if (status) {
                     const isOnline = status.is_online;
                     const lastActivity = status.last_activity;
@@ -1400,15 +1395,41 @@
                 }
             });
             if (SELECTED_USER_ID !== null) {
-                const status = userStatuses[SELECTED_USER_ID];
+                const status =
+                    userStatuses[SELECTED_USER_ID] ||
+                    userStatuses[String(SELECTED_USER_ID)];
                 if (selectedUserStatus) {
                     if (status) {
                         if (status.is_online) {
                             selectedUserStatus.textContent = "В сети";
                             if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "inline-block";
                         } else {
-                            selectedUserStatus.textContent = formatLastSeen(status.last_activity);
-                            if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
+                            const initial = (selectedUserStatus.dataset.initialStatus || "").trim();
+                            const elapsed = Date.now() - CHAT_PAGE_LOADED_AT;
+                            const applyOffline = () => {
+                                selectedUserStatus.textContent = formatLastSeen(status.last_activity);
+                                if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
+                            };
+                            if (
+                                elapsed < STATUS_DOWNGRADE_GRACE_MS &&
+                                initial === "В сети"
+                            ) {
+                                if (!selectedUserStatus.dataset.offlineFixTimer) {
+                                    selectedUserStatus.dataset.offlineFixTimer = "1";
+                                    setTimeout(() => {
+                                        delete selectedUserStatus.dataset.offlineFixTimer;
+                                        const st =
+                                            userStatuses[SELECTED_USER_ID] ||
+                                            userStatuses[String(SELECTED_USER_ID)];
+                                        if (st && !st.is_online && selectedUserStatus) {
+                                            selectedUserStatus.textContent = formatLastSeen(st.last_activity);
+                                            if (selectedUserOnlineDot) selectedUserOnlineDot.style.display = "none";
+                                        }
+                                    }, STATUS_DOWNGRADE_GRACE_MS - elapsed + 80);
+                                }
+                            } else {
+                                applyOffline();
+                            }
                         }
                     } else {
                         selectedUserStatus.textContent = "Не в сети";
@@ -2366,33 +2387,6 @@
                     const username = (item.dataset.userUsername || "").toLowerCase();
                     item.style.display = (name.includes(val) || username.includes(val)) ? "" : "none";
                 });
-            });
-        }
-        
-        const tabChatsBtn = document.getElementById("tabChatsBtn");
-        const tabSettingsBtn = document.getElementById("tabSettingsBtn");
-        const panelChats = document.getElementById("panelChats");
-        const panelSettings = document.getElementById("panelSettings");
-        const searchWrap = document.getElementById("searchWrap");
-        
-        if (tabSettingsBtn) {
-            tabSettingsBtn.addEventListener("click", () => openModal("main"));
-        }
-        
-        if (tabChatsBtn && tabSettingsBtn && panelChats && panelSettings) {
-            tabChatsBtn.addEventListener("click", () => {
-                panelChats.classList.add("active");
-                panelSettings.classList.remove("active");
-                tabChatsBtn.classList.add("active");
-                tabSettingsBtn.classList.remove("active");
-                if (searchWrap) searchWrap.style.display = "";
-            });
-            tabSettingsBtn.addEventListener("click", () => {
-                panelSettings.classList.add("active");
-                panelChats.classList.remove("active");
-                tabSettingsBtn.classList.add("active");
-                tabChatsBtn.classList.remove("active");
-                if (searchWrap) searchWrap.style.display = "none";
             });
         }
     </script>
