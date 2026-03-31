@@ -27,7 +27,7 @@
                 </div>
 
                 <div class="tg-current-user">
-                    <div class="avatar" id="sidebarAvatar">
+                    <div class="avatar avatar-tappable-preview" id="sidebarAvatar" role="button" tabindex="0" title="Показать аватар" aria-label="Показать аватар крупно">
                         {% if current_user.avatar %}
                             <img src="/avatars/{{ current_user.avatar }}" style="width: 100%; height: 100%; object-fit: cover;">
                         {% else %}
@@ -158,12 +158,14 @@
                                         <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
                                         <div class="message-status">
                                             {% if msg.is_read %}
-                                                <span class="checkmark checkmark-double">✓✓</span>
+                                            <span class="tg-msg-status tg-msg-status--read" title="Прочитано">
                                             {% elif msg.is_delivered %}
-                                                <span class="checkmark checkmark-single">✓</span>
+                                            <span class="tg-msg-status tg-msg-status--delivered" title="Доставлено">
                                             {% else %}
-                                                <span class="checkmark checkmark-single" style="opacity: 0.5;">✓</span>
+                                            <span class="tg-msg-status tg-msg-status--pending" title="Отправка">
                                             {% endif %}
+                                                <svg class="tg-msg-status-svg" viewBox="0 0 18 10" width="18" height="10" aria-hidden="true"><path class="tg-tick tg-tick-1" d="M0.65 5.2l2.9 2.9L8.75 1.25" stroke="currentColor" stroke-width="1.45" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path class="tg-tick tg-tick-2" d="M6.65 5.2l2.9 2.9L14.75 1.25" stroke="currentColor" stroke-width="1.45" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -463,8 +465,8 @@
                 <button type="button" class="modal-close" id="avatarCropCloseBtn">&times;</button>
             </div>
             <div class="modal-body">
-                <p class="tg-settings-text" style="margin-top: 0; margin-bottom: 12px;">Перетаскивай фото, масштаб — ползунок. Область в круге попадёт в аватар.</p>
-                <div class="avatar-crop-stage-wrap">
+                <p class="tg-settings-text" style="margin-top: 0; margin-bottom: 12px;">Перетаскивай фото. Масштаб: ползунок, колёсико мыши или два пальца (щипок) на телефоне. Область в круге попадёт в аватар.</p>
+                <div class="avatar-crop-stage-wrap" id="avatarCropStageWrap">
                     <canvas id="avatarCropCanvas" width="300" height="300"></canvas>
                 </div>
                 <div class="avatar-crop-zoom-row">
@@ -558,6 +560,21 @@
         let currentNotificationSound = "default";
         
         let messageStatuses = {};
+
+        const TG_MSG_STATUS_SVG = '<svg class="tg-msg-status-svg" viewBox="0 0 18 10" width="18" height="10" aria-hidden="true"><path class="tg-tick tg-tick-1" d="M0.65 5.2l2.9 2.9L8.75 1.25" stroke="currentColor" stroke-width="1.45" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path class="tg-tick tg-tick-2" d="M6.65 5.2l2.9 2.9L14.75 1.25" stroke="currentColor" stroke-width="1.45" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+        function messageStatusHtml(isRead, isDelivered) {
+            let cls = "tg-msg-status--pending";
+            let title = "Отправка";
+            if (isRead) {
+                cls = "tg-msg-status--read";
+                title = "Прочитано";
+            } else if (isDelivered) {
+                cls = "tg-msg-status--delivered";
+                title = "Доставлено";
+            }
+            return '<span class="tg-msg-status ' + cls + '" title="' + title + '">' + TG_MSG_STATUS_SVG + "</span>";
+        }
         
         // ========== ГОЛОСОВЫЕ СООБЩЕНИЯ ==========
         let mediaRecorder = null;
@@ -1405,15 +1422,9 @@
             const messageRow = document.querySelector(`.message-row[data-message-id="${messageId}"]`);
             if (!messageRow) return;
             
-            const statusSpan = messageRow.querySelector('.message-status');
+            const statusSpan = messageRow.querySelector(".message-status");
             if (statusSpan) {
-                if (isRead) {
-                    statusSpan.innerHTML = '<span class="checkmark checkmark-double">✓✓</span>';
-                } else if (isDelivered) {
-                    statusSpan.innerHTML = '<span class="checkmark checkmark-single">✓</span>';
-                } else {
-                    statusSpan.innerHTML = '<span class="checkmark checkmark-single" style="opacity: 0.5;">✓</span>';
-                }
+                statusSpan.innerHTML = messageStatusHtml(isRead, isDelivered);
             }
             
             messageStatuses[messageId] = { isRead, isDelivered };
@@ -1578,13 +1589,7 @@
             if (isOwn) {
                 const statusSpan = document.createElement("div");
                 statusSpan.className = "message-status";
-                if (isRead) {
-                    statusSpan.innerHTML = '<span class="checkmark checkmark-double">✓✓</span>';
-                } else if (isDelivered) {
-                    statusSpan.innerHTML = '<span class="checkmark checkmark-single">✓</span>';
-                } else {
-                    statusSpan.innerHTML = '<span class="checkmark checkmark-single" style="opacity: 0.5;">✓</span>';
-                }
+                statusSpan.innerHTML = messageStatusHtml(isRead, isDelivered);
                 timeWrapper.appendChild(statusSpan);
             }
             
@@ -1950,7 +1955,10 @@
             dragging: false,
             lastPointerX: 0,
             lastPointerY: 0,
-            size: 300
+            size: 300,
+            pinchMode: false,
+            pinchStartDistance: 0,
+            pinchStartZoom: 1
         };
 
         function openAvatarCropModal() {
@@ -1966,6 +1974,8 @@
                 avatarCropState.objectUrl = null;
             }
             avatarCropState.img = null;
+            avatarCropState.dragging = false;
+            avatarCropState.pinchMode = false;
             if (avatarCropZoom) avatarCropZoom.value = "1";
             if (avatarCropModal) avatarCropModal.style.display = "none";
             document.body.style.overflow = "";
@@ -2035,29 +2045,95 @@
             img.src = url;
         }
 
+        function avatarCropTouchDistance(touches) {
+            if (touches.length < 2) return 0;
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+
         function avatarCropPointerDown(e) {
-            if (!avatarCropState.img) return;
+            if (!avatarCropState.img || e.button !== 0) return;
             avatarCropState.dragging = true;
-            const p = e.touches ? e.touches[0] : e;
-            avatarCropState.lastPointerX = p.clientX;
-            avatarCropState.lastPointerY = p.clientY;
+            avatarCropState.lastPointerX = e.clientX;
+            avatarCropState.lastPointerY = e.clientY;
         }
 
         function avatarCropPointerMove(e) {
             if (!avatarCropState.dragging || !avatarCropState.img) return;
-            const p = e.touches ? e.touches[0] : e;
-            const dx = p.clientX - avatarCropState.lastPointerX;
-            const dy = p.clientY - avatarCropState.lastPointerY;
-            avatarCropState.lastPointerX = p.clientX;
-            avatarCropState.lastPointerY = p.clientY;
+            if (e.buttons !== undefined && e.buttons !== 1) return;
+            const dx = e.clientX - avatarCropState.lastPointerX;
+            const dy = e.clientY - avatarCropState.lastPointerY;
+            avatarCropState.lastPointerX = e.clientX;
+            avatarCropState.lastPointerY = e.clientY;
             avatarCropState.panX += dx;
             avatarCropState.panY += dy;
             drawAvatarCropPreview();
-            if (e.cancelable) e.preventDefault();
         }
 
         function avatarCropPointerUp() {
             avatarCropState.dragging = false;
+        }
+
+        function avatarCropOnTouchStart(e) {
+            if (!avatarCropState.img) return;
+            if (e.touches.length === 1) {
+                avatarCropState.dragging = true;
+                const p = e.touches[0];
+                avatarCropState.lastPointerX = p.clientX;
+                avatarCropState.lastPointerY = p.clientY;
+            }
+        }
+
+        function avatarCropOnTouchMove(e) {
+            if (!avatarCropState.img) return;
+            if (e.touches.length >= 2) {
+                e.preventDefault();
+                const d = avatarCropTouchDistance(e.touches);
+                if (d < 2) return;
+                if (!avatarCropState.pinchMode) {
+                    avatarCropState.pinchMode = true;
+                    avatarCropState.dragging = false;
+                    avatarCropState.pinchStartDistance = d;
+                    avatarCropState.pinchStartZoom = parseFloat(avatarCropZoom.value) || 1;
+                } else {
+                    const ratio = d / avatarCropState.pinchStartDistance;
+                    let z = avatarCropState.pinchStartZoom * ratio;
+                    z = Math.max(1, Math.min(3, z));
+                    avatarCropZoom.value = String(z);
+                    avatarCropState.pinchStartDistance = d;
+                    avatarCropState.pinchStartZoom = z;
+                    drawAvatarCropPreview();
+                }
+                return;
+            }
+            if (avatarCropState.pinchMode) {
+                avatarCropState.pinchMode = false;
+            }
+            if (avatarCropState.dragging && e.touches.length === 1) {
+                e.preventDefault();
+                const p = e.touches[0];
+                const dx = p.clientX - avatarCropState.lastPointerX;
+                const dy = p.clientY - avatarCropState.lastPointerY;
+                avatarCropState.lastPointerX = p.clientX;
+                avatarCropState.lastPointerY = p.clientY;
+                avatarCropState.panX += dx;
+                avatarCropState.panY += dy;
+                drawAvatarCropPreview();
+            }
+        }
+
+        function avatarCropOnTouchEnd(e) {
+            if (!e.touches.length) {
+                avatarCropState.dragging = false;
+                avatarCropState.pinchMode = false;
+            } else if (e.touches.length === 1) {
+                avatarCropState.pinchMode = false;
+                const p = e.touches[0];
+                avatarCropState.lastPointerX = p.clientX;
+                avatarCropState.lastPointerY = p.clientY;
+                avatarCropState.dragging = true;
+            }
         }
 
         function applyAvatarCrop() {
@@ -2099,13 +2175,35 @@
             }, "image/jpeg", 0.92);
         }
 
+        const avatarCropStageWrap = document.getElementById("avatarCropStageWrap");
+
         if (avatarCropCanvas) {
             avatarCropCanvas.addEventListener("mousedown", avatarCropPointerDown);
             window.addEventListener("mousemove", avatarCropPointerMove);
             window.addEventListener("mouseup", avatarCropPointerUp);
-            avatarCropCanvas.addEventListener("touchstart", avatarCropPointerDown, { passive: true });
-            avatarCropCanvas.addEventListener("touchmove", avatarCropPointerMove, { passive: false });
-            avatarCropCanvas.addEventListener("touchend", avatarCropPointerUp);
+            avatarCropCanvas.addEventListener("touchstart", avatarCropOnTouchStart, { passive: true });
+            avatarCropCanvas.addEventListener("touchmove", avatarCropOnTouchMove, { passive: false });
+            avatarCropCanvas.addEventListener("touchend", avatarCropOnTouchEnd);
+            avatarCropCanvas.addEventListener("touchcancel", avatarCropOnTouchEnd);
+        }
+
+        if (avatarCropStageWrap) {
+            avatarCropStageWrap.addEventListener(
+                "wheel",
+                (e) => {
+                    if (!avatarCropState.img) return;
+                    e.preventDefault();
+                    let z = parseFloat(avatarCropZoom.value) || 1;
+                    let step = 0.07;
+                    if (e.deltaMode === 1) step = 0.2;
+                    else if (e.deltaMode === 2) step = 0.35;
+                    z += e.deltaY > 0 ? -step : step;
+                    z = Math.max(1, Math.min(3, z));
+                    avatarCropZoom.value = String(z);
+                    drawAvatarCropPreview();
+                },
+                { passive: false }
+            );
         }
         if (avatarCropZoom) {
             avatarCropZoom.addEventListener("input", () => {
@@ -2131,8 +2229,8 @@
             if (avatarPreviewModal) avatarPreviewModal.style.display = "none";
         }
 
-        function openAvatarPreviewModal() {
-            const av = document.getElementById("profileAvatar");
+        function openAvatarPreviewModal(sourceEl) {
+            const av = sourceEl || document.getElementById("profileAvatar");
             if (!av || !avatarPreviewModal || !avatarPreviewImg || !avatarPreviewLetter) return;
             const innerImg = av.querySelector("img");
             if (innerImg && innerImg.getAttribute("src")) {
@@ -2153,12 +2251,26 @@
         if (profileAvatarTap) {
             profileAvatarTap.addEventListener("click", (e) => {
                 e.stopPropagation();
-                openAvatarPreviewModal();
+                openAvatarPreviewModal(profileAvatarTap);
             });
             profileAvatarTap.addEventListener("keydown", (e) => {
                 if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    openAvatarPreviewModal();
+                    openAvatarPreviewModal(profileAvatarTap);
+                }
+            });
+        }
+
+        const sidebarAvatarEl = document.getElementById("sidebarAvatar");
+        if (sidebarAvatarEl) {
+            sidebarAvatarEl.addEventListener("click", (e) => {
+                e.stopPropagation();
+                openAvatarPreviewModal(sidebarAvatarEl);
+            });
+            sidebarAvatarEl.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openAvatarPreviewModal(sidebarAvatarEl);
                 }
             });
         }
