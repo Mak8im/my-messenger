@@ -2540,3 +2540,108 @@ input:checked + .slider:before {
     min-height: 100px;
 }
 
+/* Страница Internal Server Error */
+.error-server-page.auth-page {
+    background:
+        radial-gradient(circle at 20% 20%, rgba(239, 68, 68, 0.12), transparent 35%),
+        radial-gradient(circle at 80% 80%, rgba(185, 28, 28, 0.08), transparent 30%),
+        linear-gradient(135deg, #fef2f2 0%, #fff5f5 50%, #f3f4f6 100%);
+}
+
+.brand-badge--error {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.error-server-card {
+    border: 1px solid rgba(185, 28, 28, 0.2);
+    box-shadow: 0 24px 60px rgba(185, 28, 28, 0.12);
+}
+
+.error-server-code {
+    font-size: 48px;
+    font-weight: 800;
+    color: #dc2626;
+    line-height: 1;
+    margin-bottom: 8px;
+    letter-spacing: -0.04em;
+}
+
+.error-server-reason-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 16px 0 6px;
+}
+
+.error-server-reason {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #111827;
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 12px 14px;
+    border: 1px solid #e5e7eb;
+    word-break: break-word;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+.error-server-details {
+    margin-top: 16px;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+.error-server-details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #b91c1c;
+}
+
+.error-server-trace {
+    margin: 10px 0 0;
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.4;
+    background: #1f2937;
+    color: #e5e7eb;
+    border-radius: 10px;
+    overflow: auto;
+    max-height: 240px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.error-server-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.error-server-btn {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0;
+}
+
+.error-server-secondary {
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #374151;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px 18px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.error-server-secondary:hover {
+    background: #f9fafb;
+}
+
