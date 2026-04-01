@@ -1518,57 +1518,55 @@ input:checked + .slider:before {
     color: white;
 }
 
-/* Редактор фото в чате */
-.photo-edit-container {
-    max-width: 420px;
+/* Редактор фото в чате (стиль ближе к Telegram Desktop) */
+.photo-edit-overlay {
+    background: rgba(10, 14, 22, 0.68);
+    backdrop-filter: blur(14px);
+    z-index: 1600;
 }
 
-.photo-edit-body {
-    padding-top: 8px;
-}
-
-.photo-edit-modes {
+.photo-edit-shell {
+    width: min(96vw, 1240px);
+    height: min(92vh, 860px);
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 18px 18px 10px;
+    position: relative;
 }
 
-.photo-edit-mode-btn {
-    flex: 1;
-    padding: 10px 14px;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    background: #f9fafb;
-    font-size: 14px;
-    font-weight: 600;
+.photo-edit-top-close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    font-size: 28px;
+    line-height: 1;
     cursor: pointer;
-    font-family: inherit;
-    color: #374151;
-}
-
-.photo-edit-mode-btn.active {
-    background: #eaf3ff;
-    border-color: #3390ec;
-    color: #3390ec;
 }
 
 .photo-edit-stage-wrap {
-    position: relative;
     width: 100%;
-    max-width: 340px;
-    margin: 0 auto 12px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     touch-action: none;
-    border-radius: 12px;
     overflow: hidden;
-    background: #1f2937;
 }
 
 .photo-edit-canvas-stack {
     position: relative;
-    width: 100%;
-    max-width: 340px;
+    width: min(92vw, 1120px);
+    height: min(74vh, 700px);
+    max-height: 100%;
     margin: 0 auto;
-    aspect-ratio: 340 / 420;
 }
 
 .photo-edit-canvas-stack #photoEditBase,
@@ -1582,34 +1580,75 @@ input:checked + .slider:before {
     touch-action: none;
 }
 
-.photo-edit-draw-tools {
+.photo-edit-bottom-bar {
+    margin-top: 12px;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-    font-size: 14px;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(8, 12, 20, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(8px);
 }
 
-.photo-edit-draw-tools-bottom {
-    margin-top: 4px;
-    padding-top: 12px;
-    margin-bottom: 10px;
-    border-top: 1px solid #e5e7eb;
+.photo-edit-bottom-btn {
+    border: none;
+    background: transparent;
+    color: #d6ddea;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.photo-edit-bottom-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.photo-edit-mode-btn.active {
+    color: #ffffff;
+    background: rgba(51, 144, 236, 0.4);
+}
+
+.photo-edit-done-btn {
+    color: #61b4ff;
+    font-weight: 600;
+}
+
+.photo-edit-draw-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .photo-edit-draw-tools label {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    color: #374151;
+}
+
+.photo-edit-draw-tools input[type="color"] {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.photo-edit-draw-tools input[type="range"] {
+    width: 90px;
 }
 
 .photo-edit-clear-draw {
-    padding: 8px 12px;
+    padding: 7px 10px;
     border-radius: 10px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
+    border: none;
+    background: rgba(255, 255, 255, 0.14);
+    color: #eef3ff;
     font-size: 13px;
     cursor: pointer;
     font-family: inherit;
@@ -1631,8 +1670,25 @@ input:checked + .slider:before {
     cursor: default;
 }
 
-.photo-edit-actions {
-    margin-top: 4px;
+@media (max-width: 768px) {
+    .photo-edit-shell {
+        width: 100vw;
+        height: 100dvh;
+        padding: 14px 10px 8px;
+    }
+
+    .photo-edit-canvas-stack {
+        width: min(96vw, 760px);
+        height: min(68vh, 520px);
+    }
+
+    .photo-edit-bottom-bar {
+        width: 100%;
+        max-width: 96vw;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
 }
 
 /* Voice Messages */
