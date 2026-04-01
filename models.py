@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean, Float, UniqueConstraint
 from database import Base
 from datetime import datetime
 
@@ -39,6 +39,21 @@ class Message(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
     is_delivered = Column(Boolean, default=False, nullable=False)
+
+    edited_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_for_sender = Column(Boolean, default=False, nullable=False)
+    deleted_for_receiver = Column(Boolean, default=False, nullable=False)
+    reply_to_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
+
+
+class ChatPin(Base):
+    __tablename__ = "chat_pins"
+    __table_args__ = (UniqueConstraint("user_low_id", "user_high_id", name="uq_chat_pin_pair"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_low_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_high_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message_id = Column(Integer, ForeignKey("messages.id"), nullable=False)
 
 
 class PushSubscription(Base):
