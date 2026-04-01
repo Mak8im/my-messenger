@@ -497,6 +497,7 @@ body:not(.auth-page) {
 .photo-link {
     display: inline-block;
     text-decoration: none;
+    cursor: zoom-in;
 }
 
 .download-link {
@@ -506,6 +507,38 @@ body:not(.auth-page) {
     color: #2563eb;
     text-decoration: none;
     font-weight: bold;
+}
+
+.photo-preview-overlay {
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(4px);
+    z-index: 1700;
+    padding: 24px;
+}
+
+.photo-preview-img {
+    max-width: min(96vw, 1400px);
+    max-height: 92dvh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+
+.photo-preview-close {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 30px;
+    line-height: 1;
+    cursor: pointer;
 }
 
 .empty-chat {
