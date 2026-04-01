@@ -36,7 +36,7 @@ from pywebpush import webpush, WebPushException
 
 from database import Base, engine, get_db, SessionLocal
 from auth import create_user, authenticate_user
-from models import User, Message, PushSubscription, ChatPin
+from models import User, Message, PushSubscription, ChatPin, UserSession
 
 app = FastAPI()
 
@@ -270,13 +270,115 @@ def format_last_seen(last_activity):
         return f"был(а) {days} дн назад"
 
 
-def get_current_user(user_id: str | None, db: Session):
+def default_device_name_from_ua(user_agent: str | None) -> str:
+    ua = (user_agent or "").lower()
+    if "iphone" in ua:
+        return "iPhone"
+    if "ipad" in ua:
+        return "iPad"
+    if "android" in ua:
+        return "Android"
+    if "windows" in ua:
+        return "Windows"
+    if "mac os" in ua or "macintosh" in ua:
+        return "Mac"
+    if "linux" in ua:
+        return "Linux"
+    return "Браузер"
+
+
+def client_label_from_ua(user_agent: str | None) -> str:
+    ua = (user_agent or "").strip()
+    if not ua:
+        return "Веб-клиент"
+    low = ua.lower()
+    if "edg/" in low:
+        return "Microsoft Edge"
+    if "chrome/" in low and "chromium" not in low:
+        return "Google Chrome"
+    if "firefox/" in low:
+        return "Firefox"
+    if "safari/" in low and "chrome" not in low:
+        return "Safari"
+    if "telegram" in low:
+        return "Telegram"
+    return ua[:80] if len(ua) > 80 else ua
+
+
+def session_platform_kind(user_agent: str | None) -> str:
+    ua = (user_agent or "").lower()
+    if "iphone" in ua or "ipad" in ua or ("mac os" in ua and "mobile" in ua):
+        return "apple"
+    if "android" in ua:
+        return "android"
+    return "desktop"
+
+
+def format_session_meta_line(sess: UserSession) -> str:
+    parts = []
+    if sess.ip_address:
+        parts.append(sess.ip_address)
+    if sess.last_activity:
+        if sess.last_activity.tzinfo is None:
+            la = sess.last_activity.replace(tzinfo=timezone.utc)
+        else:
+            la = sess.last_activity
+        local_la = la + timedelta(hours=3)
+        parts.append(local_la.strftime("%d.%m.%Y %H:%M"))
+    return " • ".join(parts) if parts else "—"
+
+
+def attach_session_cookie(response, request: Request, token: str, max_age: int):
+    is_secure = request.url.scheme == "https"
+    response.set_cookie(
+        key="session_token",
+        value=token,
+        httponly=True,
+        max_age=max_age,
+        secure=is_secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def create_browser_session(db: Session, user: User, request: Request) -> tuple[str, UserSession]:
+    token = uuid.uuid4().hex
+    ua = (request.headers.get("user-agent") or "")[:4000]
+    ip = request.client.host if request.client else None
+    now = datetime.now(timezone.utc)
+    sess = UserSession(
+        user_id=user.id,
+        session_token=token,
+        device_name=default_device_name_from_ua(ua),
+        user_agent=ua or None,
+        ip_address=(ip[:64] if ip else None),
+        last_activity=now,
+        created_at=now,
+    )
+    db.add(sess)
+    db.commit()
+    return token, sess
+
+
+def get_current_user(user_id: str | None, session_token: str | None, db: Session):
     if not user_id:
         return None
     try:
-        return db.query(User).filter(User.id == int(user_id)).first()
-    except:
+        uid = int(user_id)
+    except (ValueError, TypeError):
         return None
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        return None
+    if session_token:
+        sess = (
+            db.query(UserSession)
+            .filter(UserSession.session_token == session_token, UserSession.user_id == uid)
+            .first()
+        )
+        if not sess:
+            return None
+    return user
 
 
 def get_unread_count(current_user_id: int, other_user_id: int, db: Session) -> int:
@@ -429,9 +531,22 @@ class ConnectionManager:
         self.active_connections = defaultdict(list)
         self.online_users = set()
 
-    async def connect(self, user_id: int, websocket: WebSocket, db: Session):
+    async def connect(self, user_id: int, websocket: WebSocket, db: Session) -> bool:
         user_id = int(user_id)
         await websocket.accept()
+        tok = websocket.cookies.get("session_token")
+        if tok:
+            row = (
+                db.query(UserSession)
+                .filter(UserSession.session_token == tok, UserSession.user_id == user_id)
+                .first()
+            )
+            if not row:
+                try:
+                    await websocket.close(code=1008)
+                except Exception:
+                    pass
+                return False
         self.active_connections[user_id].append(websocket)
         
         user = db.query(User).filter(User.id == user_id).first()
@@ -444,6 +559,7 @@ class ConnectionManager:
         
         if was_offline:
             await self.broadcast_presence(db)
+        return True
 
     async def disconnect(self, user_id: int, websocket: WebSocket, db: Session):
         if user_id in self.active_connections:
@@ -530,10 +646,11 @@ class ConnectionManager:
         self.online_users.discard(user_id)
 
         try:
+            db.query(UserSession).filter(UserSession.user_id == user_id).delete(synchronize_session=False)
             user = db.query(User).filter(User.id == user_id).first()
             if user:
                 user.last_activity = datetime.now(timezone.utc)
-                db.commit()
+            db.commit()
         except Exception:
             try:
                 db.rollback()
@@ -564,10 +681,11 @@ manager = ConnectionManager()
 async def home(
     request: Request,
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
     if user_id:
-        user = get_current_user(user_id, db)
+        user = get_current_user(user_id, session_token, db)
         if user:
             return RedirectResponse(url="/chat", status_code=303)
     
@@ -636,15 +754,13 @@ async def login_user(
     user.last_activity = datetime.now(timezone.utc)
     db.commit()
 
-    response = RedirectResponse(url="/chat", status_code=303)
-    
     if remember_me:
         max_age = 30 * 24 * 60 * 60
     else:
         max_age = 7 * 24 * 60 * 60
-    
+
     is_secure = request.url.scheme == "https"
-    
+    response = RedirectResponse(url="/chat", status_code=303)
     response.set_cookie(
         key="user_id",
         value=str(user.id),
@@ -654,7 +770,9 @@ async def login_user(
         samesite="lax",
         path="/",
     )
-    
+    token, _ = create_browser_session(db, user, request)
+    attach_session_cookie(response, request, token, max_age)
+
     return response
 
 
@@ -663,9 +781,10 @@ async def chat_page(
     request: Request,
     db: Session = Depends(get_db),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     selected_user_id: int | None = None
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         return RedirectResponse(url="/", status_code=303)
 
@@ -759,7 +878,7 @@ async def chat_page(
     
     can_backup = current_user.email in ALLOWED_BACKUP_EMAILS
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name="chat.html",
         context={
@@ -779,6 +898,11 @@ async def chat_page(
             "format_stars_amount": format_stars_amount,
         }
     )
+    if current_user and not request.cookies.get("session_token"):
+        boot_max = 30 * 24 * 60 * 60
+        token, _ = create_browser_session(db, current_user, request)
+        attach_session_cookie(response, request, token, boot_max)
+    return response
 
 
 # ========== ПРОФИЛЬ API ==========
@@ -786,9 +910,10 @@ async def chat_page(
 @app.get("/api/profile")
 async def get_profile(
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -808,9 +933,10 @@ async def update_profile(
     username: Optional[str] = Form(None),
     bio: Optional[str] = Form(None),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -852,9 +978,10 @@ async def update_profile(
 async def upload_avatar(
     avatar: UploadFile = File(...),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -883,9 +1010,10 @@ async def upload_avatar(
 @app.delete("/api/avatar")
 async def delete_avatar(
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -932,9 +1060,10 @@ async def get_user_info(
 @app.get("/api/notification-sound")
 async def get_notification_sound(
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -946,9 +1075,10 @@ async def get_notification_sound(
 async def set_notification_sound(
     sound: str = Body(..., embed=True),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -967,9 +1097,10 @@ async def set_notification_sound(
 @app.get("/api/stars")
 async def get_stars(
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -979,9 +1110,10 @@ async def get_stars(
 @app.post("/api/stars/click")
 async def click_star(
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -995,9 +1127,10 @@ async def click_star(
 async def api_send_stars(
     payload: dict = Body(...),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
 
@@ -1076,9 +1209,10 @@ async def api_send_stars(
 async def subscribe(
     subscription: dict = Body(...),
     db: Session = Depends(get_db),
-    user_id: str | None = Cookie(default=None)
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
 
@@ -1090,9 +1224,10 @@ async def subscribe(
 async def unsubscribe(
     data: dict = Body(...),
     db: Session = Depends(get_db),
-    user_id: str | None = Cookie(default=None)
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
 
@@ -1108,9 +1243,10 @@ async def send_photo(
     receiver_id: int = Form(...),
     photo: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user_id: str | None = Cookie(default=None)
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         return RedirectResponse(url="/", status_code=303)
 
@@ -1209,8 +1345,9 @@ async def send_video(
     video: UploadFile = File(...),
     db: Session = Depends(get_db),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         return RedirectResponse(url="/", status_code=303)
 
@@ -1306,9 +1443,10 @@ async def send_voice(
     receiver_id: int = Form(...),
     voice: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user_id: str | None = Cookie(default=None)
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
 
@@ -1427,9 +1565,10 @@ async def send_voice(
 async def download_file(
     message_id: int,
     db: Session = Depends(get_db),
-    user_id: str | None = Cookie(default=None)
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
 
@@ -1458,9 +1597,10 @@ async def download_file(
 async def api_delete_message(
     payload: dict = Body(...),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     message_id = int(payload.get("message_id"))
@@ -1516,9 +1656,10 @@ async def api_edit_message(
     message_id: int,
     payload: dict = Body(...),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     content = (payload.get("content") or "").strip()
@@ -1553,9 +1694,10 @@ async def api_edit_message(
 async def api_pin_message(
     payload: dict = Body(...),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     peer_id = int(payload.get("peer_id"))
@@ -1604,6 +1746,113 @@ async def api_pin_message(
     return {"ok": True}
 
 
+def _session_api_dict(sess: UserSession, current_token: str | None) -> dict:
+    return {
+        "id": sess.id,
+        "device_name": sess.device_name,
+        "client_label": client_label_from_ua(sess.user_agent),
+        "platform": session_platform_kind(sess.user_agent),
+        "meta_line": format_session_meta_line(sess),
+        "is_current": bool(current_token and sess.session_token == current_token),
+    }
+
+
+@app.get("/api/sessions")
+async def api_list_sessions(
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, session_token, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    rows = (
+        db.query(UserSession)
+        .filter(UserSession.user_id == current_user.id)
+        .order_by(UserSession.last_activity.desc())
+        .all()
+    )
+    if session_token:
+        cur = next((s for s in rows if s.session_token == session_token), None)
+        if cur:
+            cur.last_activity = datetime.now(timezone.utc)
+            db.commit()
+    return {"sessions": [_session_api_dict(s, session_token) for s in rows]}
+
+
+@app.patch("/api/sessions/{session_id}")
+async def api_rename_session(
+    session_id: int,
+    payload: dict = Body(...),
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, session_token, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    name = (payload.get("device_name") or "").strip()
+    if not name or len(name) > 120:
+        raise HTTPException(status_code=400, detail="Некорректное имя устройства")
+    sess = (
+        db.query(UserSession)
+        .filter(UserSession.id == session_id, UserSession.user_id == current_user.id)
+        .first()
+    )
+    if not sess:
+        raise HTTPException(status_code=404, detail="Сеанс не найден")
+    sess.device_name = name
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/sessions/{session_id}")
+async def api_revoke_session(
+    session_id: int,
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, session_token, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    sess = (
+        db.query(UserSession)
+        .filter(UserSession.id == session_id, UserSession.user_id == current_user.id)
+        .first()
+    )
+    if not sess:
+        raise HTTPException(status_code=404, detail="Сеанс не найден")
+    if session_token and sess.session_token == session_token:
+        raise HTTPException(status_code=400, detail="Текущий сеанс нельзя завершить здесь — выйди из аккаунта")
+    db.delete(sess)
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/api/sessions/terminate-others")
+async def api_terminate_other_sessions(
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, session_token, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    if not session_token:
+        raise HTTPException(status_code=400, detail="Для этой операции нужна привязка сеанса. Перезайди в аккаунт")
+    n = (
+        db.query(UserSession)
+        .filter(
+            UserSession.user_id == current_user.id,
+            UserSession.session_token != session_token,
+        )
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"ok": True, "terminated": n}
+
+
 @app.get("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
     raw = request.cookies.get("user_id")
@@ -1621,6 +1870,7 @@ async def logout(request: Request, db: Session = Depends(get_db)):
 
     out = RedirectResponse(url="/", status_code=303)
     out.delete_cookie(key="user_id", path="/")
+    out.delete_cookie(key="session_token", path="/")
     return out
 
 
@@ -1628,8 +1878,10 @@ async def logout(request: Request, db: Session = Depends(get_db)):
 async def websocket_endpoint(websocket: WebSocket, user_id: int):
     db = SessionLocal()
     try:
-        await manager.connect(user_id, websocket, db)
-        
+        connected = await manager.connect(user_id, websocket, db)
+        if not connected:
+            return
+
         typing_timeout = {}
         
         all_users = db.query(User).all()
@@ -1849,10 +2101,11 @@ def check_backup_permission(current_user: User):
 
 @app.get("/download-backup")
 async def download_backup(
-    user_id: str | None = Cookie(default=None), 
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
@@ -1888,9 +2141,10 @@ async def download_backup(
 async def restore_backup(
     backup_file: UploadFile = File(...),
     user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
-    current_user = get_current_user(user_id, db)
+    current_user = get_current_user(user_id, session_token, db)
     if not current_user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
