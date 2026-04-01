@@ -629,27 +629,55 @@
                 </div>
             </div>
             <div class="photo-edit-bottom-bar">
-                <button type="button" class="photo-edit-bottom-btn" id="photoEditCancelBtn">Отмена</button>
-                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn active" id="photoEditModeCrop" title="Кадр">
+                <button type="button" class="photo-edit-bottom-btn photo-edit-icon-only" id="photoEditCancelBtn" title="Отмена" aria-label="Отмена">
+                    <span class="photo-edit-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span>
+                </button>
+                <div class="photo-edit-transform-group" id="photoEditTransformGroup">
+                    <button type="button" class="photo-edit-bottom-btn photo-edit-icon-only" id="photoEditRotateBtn" title="Повернуть на 90°" aria-label="Повернуть на 90°">
+                        <span class="photo-edit-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11a7.98 7.98 0 0 0-1.62-3.89l-1.42 1.42c.54.8.88 1.74.91 2.47H19.93M13 17.9v2.02c1.95-.29 3.72-1.27 5-2.64l-1.46-1.46c-1.01.86-2.27 1.4-3.54 1.58m2.63-9.51l1.42-1.42A7.98 7.98 0 0 1 19.93 11H17.7c-.04-.73-.37-1.67-.91-2.47l-1.17 1.86z"/></svg></span>
+                    </button>
+                    <button type="button" class="photo-edit-bottom-btn photo-edit-icon-only" id="photoEditFlipHBtn" title="Отразить по горизонтали" aria-label="Отразить по горизонтали">
+                        <span class="photo-edit-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15 21h2v-2h-2v2zm4-12h2V7h-2v2zM3 5v14c0 1.1.9 2 2 2h4v-2H5V5h4V3H5c-1.1 0-2 .9-2 2zm16-2v2h2c0-1.1-.9-2-2-2zm-8 20h2V1h-2v22zm8-6h2v-2h-2v2zM15 5h2V3h-2v2zm4 8h2v-2h-2v2zm0 8h2v-2h-2v2z"/></svg></span>
+                    </button>
+                    <button type="button" class="photo-edit-bottom-btn photo-edit-icon-only" id="photoEditFlipVBtn" title="Отразить по вертикали" aria-label="Отразить по вертикали">
+                        <span class="photo-edit-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 15v2h2v-2H3zm0-4h2v-2H3v2zm6 10h2v-2H9v2zm-6-6h2v-2H3v2zm2 6v2c1.1 0 2-.9 2-2h-2zm-2-8h2V7H3v2zm10 8h2v-2h-2v2zm6-18h-2v2h2V3zm-6 18h2v-2h-2v2zm2-4h2v-2h-2v2zm2-8h2V7h-2v2zm0 8h2v-2h-2v2zm-6-14v2h2V3h-2zm6 0h2V3h-2v2z"/></svg></span>
+                    </button>
+                    <button type="button" class="photo-edit-bottom-btn photo-edit-icon-only" id="photoEditPortraitBtn" title="Сделать вертикальным (портрет)" aria-label="Портретная ориентация">
+                        <span class="photo-edit-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14z"/></svg></span>
+                    </button>
+                </div>
+                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn active" id="photoEditModeCrop" title="Обрезать по краям" aria-label="Обрезка">
                     <span class="photo-edit-btn-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24"><path d="M4 7a3 3 0 0 1 3-3h3v2H7a1 1 0 0 0-1 1v3H4V7zm10-3h3a3 3 0 0 1 3 3v3h-2V7a1 1 0 0 0-1-1h-3V4zM4 14h2v3a1 1 0 0 0 1 1h3v2H7a3 3 0 0 1-3-3v-3zm14 0h2v3a3 3 0 0 1-3 3h-3v-2h3a1 1 0 0 0 1-1v-3z"/></svg>
                     </span>
                 </button>
-                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn" id="photoEditModeDraw" title="Рисовать">
+                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn" id="photoEditModeDraw" title="Рисовать" aria-label="Рисование">
                     <span class="photo-edit-btn-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm14.71-9.04a1 1 0 0 0 0-1.42L15.2 4.27a1 1 0 0 0-1.41 0l-1.13 1.12 3.75 3.75 1.3-1.13z"/></svg>
                     </span>
                 </button>
                 <div class="photo-edit-draw-tools" id="photoEditDrawTools" style="display: none;">
-                    <button type="button" class="photo-edit-tool-btn active" id="photoEditToolBrush">Кисть</button>
-                    <button type="button" class="photo-edit-tool-btn" id="photoEditToolEraser">Ластик</button>
-                    <label><input type="color" id="photoEditColor" value="#e11d48"></label>
-                    <label><input type="range" id="photoEditBrush" min="2" max="24" value="6"></label>
-                    <button type="button" class="photo-edit-clear-draw" id="photoEditUndoBtn">Назад</button>
-                    <button type="button" class="photo-edit-clear-draw" id="photoEditRedoBtn">Вперёд</button>
-                    <button type="button" class="photo-edit-clear-draw" id="photoEditClearDraw">Стереть</button>
+                    <button type="button" class="photo-edit-tool-btn photo-edit-icon-only active" id="photoEditToolBrush" title="Кисть" aria-label="Кисть">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.71 4.63l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41zM7 14a3 3 0 0 0-.21 4.21l-1.45 1.45-1.42-1.42 1.42-1.42 1.06 1.06A3 3 0 0 0 7 14z"/></svg>
+                    </button>
+                    <button type="button" class="photo-edit-tool-btn photo-edit-icon-only" id="photoEditToolEraser" title="Ластик" aria-label="Ластик">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 0 1-5.66 0L2.81 17c-.78-.79-.78-2.05 0-2.84l9.19-9.19c.79-.78 2.05-.78 2.83-.01zM4.22 15.58l3.54 3.53c.78.78 2.05.78 2.83 0l3.53-3.53-6.36-6.36-6.36 6.36z"/></svg>
+                    </button>
+                    <label class="photo-edit-color-wrap" title="Цвет"><input type="color" id="photoEditColor" value="#e11d48"></label>
+                    <label class="photo-edit-brush-wrap" title="Толщина"><input type="range" id="photoEditBrush" min="2" max="24" value="6"></label>
+                    <button type="button" class="photo-edit-clear-draw photo-edit-icon-only" id="photoEditUndoBtn" title="Шаг назад" aria-label="Отменить шаг">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+                    </button>
+                    <button type="button" class="photo-edit-clear-draw photo-edit-icon-only" id="photoEditRedoBtn" title="Шаг вперёд" aria-label="Вернуть шаг">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
+                    </button>
+                    <button type="button" class="photo-edit-clear-draw photo-edit-icon-only" id="photoEditClearDraw" title="Очистить рисунок" aria-label="Очистить рисунок">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
                 </div>
-                <button type="button" class="photo-edit-bottom-btn photo-edit-done-btn" id="photoEditSendBtn">Готово</button>
+                <button type="button" class="photo-edit-bottom-btn photo-edit-done-btn photo-edit-icon-only" id="photoEditSendBtn" title="Готово" aria-label="Отправить фото">
+                    <span class="photo-edit-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>
+                </button>
             </div>
         </div>
     </div>
@@ -3119,9 +3147,115 @@
             const mc = document.getElementById("photoEditModeCrop");
             const md = document.getElementById("photoEditModeDraw");
             const tools = document.getElementById("photoEditDrawTools");
+            const tf = document.getElementById("photoEditTransformGroup");
             if (mc) mc.classList.toggle("active", mode === "crop");
             if (md) md.classList.toggle("active", mode === "draw");
             if (tools) tools.style.display = mode === "draw" ? "flex" : "none";
+            if (tf) tf.style.display = mode === "draw" ? "none" : "flex";
+        }
+
+        function setupChatPhotoViewFromImage(img) {
+            chatPhotoEdit.img = img;
+            const maxW = Math.max(360, window.innerWidth - 56);
+            const maxH = Math.max(240, window.innerHeight - 170);
+            const iw = img.naturalWidth || img.width;
+            const ih = img.naturalHeight || img.height;
+            const fitScale = Math.min(maxW / iw, maxH / ih, 1.8);
+            chatPhotoEdit.viewW = Math.max(360, Math.round(iw * fitScale));
+            chatPhotoEdit.viewH = Math.max(260, Math.round(ih * fitScale));
+            if (photoEditCanvasStackEl) {
+                photoEditCanvasStackEl.style.aspectRatio = chatPhotoEdit.viewW + " / " + chatPhotoEdit.viewH;
+                photoEditCanvasStackEl.style.width = chatPhotoEdit.viewW + "px";
+                photoEditCanvasStackEl.style.height = chatPhotoEdit.viewH + "px";
+            }
+            chatPhotoEdit.cropL = 0;
+            chatPhotoEdit.cropT = 0;
+            chatPhotoEdit.cropR = 0;
+            chatPhotoEdit.cropB = 0;
+            chatPhotoEdit.edgeDrag = null;
+            photoEditBase.width = chatPhotoEdit.viewW;
+            photoEditBase.height = chatPhotoEdit.viewH;
+            photoEditDraw.width = chatPhotoEdit.viewW;
+            photoEditDraw.height = chatPhotoEdit.viewH;
+            photoEditDraw.getContext("2d").clearRect(0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
+            chatPhotoEdit.history = [];
+            chatPhotoEdit.historyIndex = -1;
+            chatPhotoEdit.drawTool = "brush";
+            document.getElementById("photoEditToolBrush")?.classList.add("active");
+            document.getElementById("photoEditToolEraser")?.classList.remove("active");
+            redrawChatPhotoBase();
+            saveDrawSnapshot();
+        }
+
+        function replaceChatPhotoImageFromCanvas(sourceCanvas) {
+            if (!sourceCanvas) return;
+            try {
+                const url = sourceCanvas.toDataURL("image/jpeg", 0.95);
+                const newImg = new Image();
+                const prevMode = chatPhotoEdit.mode;
+                newImg.onload = () => {
+                    setupChatPhotoViewFromImage(newImg);
+                    setChatPhotoEditMode(prevMode);
+                };
+                newImg.onerror = () => alert("Не удалось применить преобразование.");
+                newImg.src = url;
+            } catch (err) {
+                alert("Не удалось применить преобразование.");
+            }
+        }
+
+        function chatPhotoRotate90() {
+            const img = chatPhotoEdit.img;
+            if (!img) return;
+            const cw = img.naturalWidth || img.width;
+            const ch = img.naturalHeight || img.height;
+            const c = document.createElement("canvas");
+            c.width = ch;
+            c.height = cw;
+            const ctx = c.getContext("2d");
+            ctx.translate(ch, 0);
+            ctx.rotate(Math.PI / 2);
+            ctx.drawImage(img, 0, 0);
+            replaceChatPhotoImageFromCanvas(c);
+        }
+
+        function chatPhotoFlipHorizontal() {
+            const img = chatPhotoEdit.img;
+            if (!img) return;
+            const cw = img.naturalWidth || img.width;
+            const ch = img.naturalHeight || img.height;
+            const c = document.createElement("canvas");
+            c.width = cw;
+            c.height = ch;
+            const ctx = c.getContext("2d");
+            ctx.translate(cw, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, 0, 0);
+            replaceChatPhotoImageFromCanvas(c);
+        }
+
+        function chatPhotoFlipVertical() {
+            const img = chatPhotoEdit.img;
+            if (!img) return;
+            const cw = img.naturalWidth || img.width;
+            const ch = img.naturalHeight || img.height;
+            const c = document.createElement("canvas");
+            c.width = cw;
+            c.height = ch;
+            const ctx = c.getContext("2d");
+            ctx.translate(0, ch);
+            ctx.scale(1, -1);
+            ctx.drawImage(img, 0, 0);
+            replaceChatPhotoImageFromCanvas(c);
+        }
+
+        function chatPhotoMakePortrait() {
+            const img = chatPhotoEdit.img;
+            if (!img) return;
+            const w = img.naturalWidth || img.width;
+            const h = img.naturalHeight || img.height;
+            if (h >= w) return;
+            chatPhotoRotate90();
         }
 
         function openChatPhotoEditor(file) {
@@ -3132,37 +3266,10 @@
             chatPhotoEdit.objectUrl = URL.createObjectURL(file);
             const img = new Image();
             img.onload = () => {
-                chatPhotoEdit.img = img;
-                const maxW = Math.max(360, window.innerWidth - 56);
-                const maxH = Math.max(240, window.innerHeight - 170);
-                const fitScale = Math.min(maxW / img.width, maxH / img.height, 1.8);
-                chatPhotoEdit.viewW = Math.max(360, Math.round(img.width * fitScale));
-                chatPhotoEdit.viewH = Math.max(260, Math.round(img.height * fitScale));
-                if (photoEditCanvasStackEl) {
-                    photoEditCanvasStackEl.style.aspectRatio = chatPhotoEdit.viewW + " / " + chatPhotoEdit.viewH;
-                    photoEditCanvasStackEl.style.width = chatPhotoEdit.viewW + "px";
-                    photoEditCanvasStackEl.style.height = chatPhotoEdit.viewH + "px";
-                }
-                chatPhotoEdit.cropL = 0;
-                chatPhotoEdit.cropT = 0;
-                chatPhotoEdit.cropR = 0;
-                chatPhotoEdit.cropB = 0;
-                chatPhotoEdit.edgeDrag = null;
-                photoEditBase.width = chatPhotoEdit.viewW;
-                photoEditBase.height = chatPhotoEdit.viewH;
-                photoEditDraw.width = chatPhotoEdit.viewW;
-                photoEditDraw.height = chatPhotoEdit.viewH;
-                photoEditDraw.getContext("2d").clearRect(0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
-                chatPhotoEdit.history = [];
-                chatPhotoEdit.historyIndex = -1;
-                chatPhotoEdit.drawTool = "brush";
-                document.getElementById("photoEditToolBrush")?.classList.add("active");
-                document.getElementById("photoEditToolEraser")?.classList.remove("active");
+                setupChatPhotoViewFromImage(img);
                 setChatPhotoEditMode("crop");
-                redrawChatPhotoBase();
                 photoEditModal.style.display = "flex";
                 document.body.style.overflow = "hidden";
-                saveDrawSnapshot();
             };
             img.onerror = () => {
                 URL.revokeObjectURL(chatPhotoEdit.objectUrl);
@@ -3364,6 +3471,10 @@
 
         document.getElementById("photoEditModeCrop")?.addEventListener("click", () => setChatPhotoEditMode("crop"));
         document.getElementById("photoEditModeDraw")?.addEventListener("click", () => setChatPhotoEditMode("draw"));
+        document.getElementById("photoEditRotateBtn")?.addEventListener("click", () => chatPhotoRotate90());
+        document.getElementById("photoEditFlipHBtn")?.addEventListener("click", () => chatPhotoFlipHorizontal());
+        document.getElementById("photoEditFlipVBtn")?.addEventListener("click", () => chatPhotoFlipVertical());
+        document.getElementById("photoEditPortraitBtn")?.addEventListener("click", () => chatPhotoMakePortrait());
 
         document.getElementById("photoEditCancelBtn")?.addEventListener("click", closeChatPhotoEditor);
         document.getElementById("photoEditCloseBtn")?.addEventListener("click", closeChatPhotoEditor);
@@ -3534,6 +3645,3 @@
     </script>
 </body>
 </html>
-
-
-                                                
