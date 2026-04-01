@@ -407,9 +407,15 @@
                         <div class="settings-item-label">Уведомления и звуки</div>
                         <div class="settings-item-arrow">→</div>
                     </div>
+                    <div class="settings-item" data-settings-page="sessions">
+                        <div class="settings-item-icon">📱</div>
+                        <div class="settings-item-label">Активные сеансы</div>
+                        <div class="settings-item-arrow">→</div>
+                    </div>
                     <div class="settings-item" id="starsItem">
                         <div class="settings-item-icon">⭐</div>
                         <div class="settings-item-label">Мои звёзды</div>
+                        <span class="settings-stars-value" id="starsSettingsValue">{{ format_stars_amount(current_user.stars) }}</span>
                         <div class="settings-item-arrow">→</div>
                     </div>
                     {% if can_backup %}
@@ -602,6 +608,39 @@
                     <button type="button" class="avatar-crop-cancel" id="avatarCropCancelBtn">Отмена</button>
                     <button type="button" class="avatar-crop-apply" id="avatarCropApplyBtn">Готово</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Активные сеансы -->
+    <div id="sessionsModal" class="modal-overlay sessions-modal-overlay" style="display: none;">
+        <div class="modal-container modal-medium sessions-modal-container">
+            <div class="modal-header sessions-modal-header">
+                <button type="button" class="modal-back" id="sessionsBackBtn" aria-label="Назад">←</button>
+                <h3 class="modal-title sessions-modal-title">Активные сеансы</h3>
+                <button type="button" class="modal-close" id="closeSessionsModalBtn" aria-label="Закрыть">&times;</button>
+            </div>
+            <div class="modal-body sessions-modal-body">
+                <div id="sessionsLoading" class="sessions-loading">Загрузка…</div>
+                <div id="sessionsContent" class="sessions-content" style="display: none;">
+                    <div class="sessions-section-label-row">
+                        <span class="sessions-section-hint">Это устройство</span>
+                        <button type="button" class="sessions-rename-btn" id="sessionsRenameThisBtn">Переименовать</button>
+                    </div>
+                    <div id="sessionsThisDevice" class="sessions-card sessions-card-current"></div>
+
+                    <button type="button" class="sessions-terminate-all" id="sessionsTerminateOthersBtn">
+                        <span class="sessions-terminate-icon" aria-hidden="true">⏹</span>
+                        <span class="sessions-terminate-text">
+                            <span class="sessions-terminate-title">Завершить все другие сеансы</span>
+                            <span class="sessions-terminate-sub">Выйти на всех устройствах, кроме текущего.</span>
+                        </span>
+                    </button>
+
+                    <div class="sessions-section-hint sessions-list-heading">Активные сеансы</div>
+                    <div id="sessionsOtherList" class="sessions-list"></div>
+                </div>
+                <div id="sessionsError" class="sessions-error" style="display: none;"></div>
             </div>
         </div>
     </div>
@@ -1138,6 +1177,7 @@
             notifications: document.getElementById("notificationsModal"),
             soundPicker: document.getElementById("soundPickerModal"),
             stars: document.getElementById("starsModal"),
+            sessions: document.getElementById("sessionsModal"),
             backup: document.getElementById("backupModal")
         };
 
@@ -1149,6 +1189,7 @@
                 if (modalId === "main") loadProfileData();
                 if (modalId === "notifications") loadNotificationsSettings();
                 if (modalId === "stars") loadStarsData();
+                if (modalId === "sessions") loadSessionsData();
             }
         }
         
@@ -1183,6 +1224,7 @@
                 closeModal("main");
                 if (page === "account") openModal("account");
                 else if (page === "notifications") openModal("notifications");
+                else if (page === "sessions") openModal("sessions");
                 else if (page === "backup" && CAN_BACKUP) openModal("backup");
             });
         });
@@ -1213,6 +1255,7 @@
             notifications: document.getElementById("notificationsBackBtn"),
             soundPicker: document.getElementById("soundPickerBackBtn"),
             stars: document.getElementById("starsBackBtn"),
+            sessions: document.getElementById("sessionsBackBtn"),
             backup: document.getElementById("backupBackBtn")
         };
         for (let key in backBtns) {
@@ -2648,10 +2691,170 @@
             const s = Number.isFinite(stars) ? stars : 0;
             const starsCounter = document.getElementById("starsCounter");
             const starsTotalText = document.getElementById("starsTotalText");
-            const t = s.toFixed(3);
+            const starsSettingsValue = document.getElementById("starsSettingsValue");
+            const t = formatStarsJs(s);
             if (starsCounter) starsCounter.textContent = t;
             if (starsTotalText) starsTotalText.textContent = "Всего звёзд: " + t;
+            if (starsSettingsValue) starsSettingsValue.textContent = t;
         }
+
+        let sessionsCurrentId = null;
+
+        function sessionPlatformGlyph(platform) {
+            if (platform === "apple") return "🍎";
+            if (platform === "android") return "🤖";
+            return "💻";
+        }
+
+        function renderSessionsThisDevice(sess) {
+            const box = document.getElementById("sessionsThisDevice");
+            const renameBtn = document.getElementById("sessionsRenameThisBtn");
+            if (!box) return;
+            if (!sess) {
+                box.innerHTML = '<div class="sessions-muted">Нет данных о текущем сеансе. Обнови страницу или войди снова.</div>';
+                if (renameBtn) renameBtn.style.display = "none";
+                sessionsCurrentId = null;
+                return;
+            }
+            sessionsCurrentId = sess.id;
+            if (renameBtn) renameBtn.style.display = "";
+            const g = sessionPlatformGlyph(sess.platform || "desktop");
+            box.innerHTML =
+                '<div class="sessions-row-inner">' +
+                '<div class="sessions-device-icon" aria-hidden="true"><span>' + g + "</span></div>" +
+                '<div class="sessions-device-text">' +
+                "<strong>" + escapeHtml(sess.device_name || "Устройство") + "</strong>" +
+                "<span>" + escapeHtml(sess.client_label || "") + "</span>" +
+                "<span class=\"sessions-meta\">" + escapeHtml(sess.meta_line || "") + "</span>" +
+                "</div></div>";
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement("div");
+            d.textContent = s == null ? "" : String(s);
+            return d.innerHTML;
+        }
+
+        function renderSessionsOthers(others) {
+            const list = document.getElementById("sessionsOtherList");
+            if (!list) return;
+            list.innerHTML = "";
+            if (!others.length) {
+                list.innerHTML = '<div class="sessions-muted sessions-muted-pad">Других активных сеансов нет.</div>';
+                return;
+            }
+            others.forEach((sess) => {
+                const row = document.createElement("div");
+                row.className = "sessions-row sessions-row-other";
+                const g = sessionPlatformGlyph(sess.platform || "desktop");
+                row.innerHTML =
+                    '<div class="sessions-row-inner">' +
+                    '<div class="sessions-device-icon" aria-hidden="true"><span>' + g + "</span></div>" +
+                    '<div class="sessions-device-text sessions-device-text-grow">' +
+                    "<strong>" + escapeHtml(sess.device_name || "Устройство") + "</strong>" +
+                    "<span>" + escapeHtml(sess.client_label || "") + "</span>" +
+                    "<span class=\"sessions-meta\">" + escapeHtml(sess.meta_line || "") + "</span>" +
+                    "</div>" +
+                    '<button type="button" class="sessions-row-dismiss" data-session-id="' +
+                    String(sess.id) +
+                    '" aria-label="Завершить сеанс">&times;</button>' +
+                    "</div>";
+                list.appendChild(row);
+            });
+            list.querySelectorAll(".sessions-row-dismiss").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    const id = parseInt(btn.getAttribute("data-session-id"), 10);
+                    if (!id || !confirm("Завершить этот сеанс?")) return;
+                    try {
+                        const r = await fetch("/api/sessions/" + id, { method: "DELETE", credentials: "same-origin" });
+                        if (!r.ok) {
+                            const err = await r.json().catch(() => ({}));
+                            alert(err.detail || "Не удалось завершить сеанс");
+                            return;
+                        }
+                        await loadSessionsData();
+                    } catch (e) {
+                        alert("Ошибка сети");
+                    }
+                });
+            });
+        }
+
+        async function loadSessionsData() {
+            const loadEl = document.getElementById("sessionsLoading");
+            const contentEl = document.getElementById("sessionsContent");
+            const errEl = document.getElementById("sessionsError");
+            if (loadEl) loadEl.style.display = "block";
+            if (contentEl) contentEl.style.display = "none";
+            if (errEl) {
+                errEl.style.display = "none";
+                errEl.textContent = "";
+            }
+            try {
+                const r = await fetch("/api/sessions", { credentials: "same-origin" });
+                if (!r.ok) {
+                    throw new Error("HTTP " + r.status);
+                }
+                const data = await r.json();
+                const list = data.sessions || [];
+                const current = list.find((s) => s.is_current) || null;
+                const others = list.filter((s) => !s.is_current);
+                renderSessionsThisDevice(current);
+                renderSessionsOthers(others);
+                if (loadEl) loadEl.style.display = "none";
+                if (contentEl) contentEl.style.display = "block";
+            } catch (e) {
+                if (loadEl) loadEl.style.display = "none";
+                if (errEl) {
+                    errEl.style.display = "block";
+                    errEl.textContent = "Не удалось загрузить сеансы. Попробуй снова.";
+                }
+            }
+        }
+
+        document.getElementById("sessionsRenameThisBtn")?.addEventListener("click", async () => {
+            if (!sessionsCurrentId) return;
+            const current = document.querySelector("#sessionsThisDevice strong");
+            const def = current ? current.textContent.trim() : "";
+            const name = prompt("Имя устройства", def);
+            if (name == null) return;
+            const trimmed = name.trim();
+            if (!trimmed) return;
+            try {
+                const r = await fetch("/api/sessions/" + sessionsCurrentId, {
+                    method: "PATCH",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ device_name: trimmed }),
+                });
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({}));
+                    alert(err.detail || "Не удалось сохранить");
+                    return;
+                }
+                await loadSessionsData();
+            } catch (e) {
+                alert("Ошибка сети");
+            }
+        });
+
+        document.getElementById("sessionsTerminateOthersBtn")?.addEventListener("click", async () => {
+            if (!confirm("Завершить все сеансы, кроме этого устройства?")) return;
+            try {
+                const r = await fetch("/api/sessions/terminate-others", {
+                    method: "POST",
+                    credentials: "same-origin",
+                });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    alert(j.detail || "Операция не выполнена. Перезайди в аккаунт и попробуй снова.");
+                    return;
+                }
+                await loadSessionsData();
+            } catch (e) {
+                alert("Ошибка сети");
+            }
+        });
 
         async function clickStar() {
             const now = Date.now();
