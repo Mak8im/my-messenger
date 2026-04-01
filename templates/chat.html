@@ -140,10 +140,9 @@
                             <div class="message-row own" data-message-id="{{ msg.id }}">
                                 <div class="message-bubble own">
                                     {% if msg.message_type == "photo" and msg.file_path %}
-                                        <a href="/uploads/{{ msg.file_path }}" target="_blank" class="photo-link">
+                                        <a href="/uploads/{{ msg.file_path }}" class="photo-link js-chat-photo-open">
                                             <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
                                         </a>
-                                        <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
                                     {% elif msg.message_type == "voice" and msg.file_path %}
                                         <div class="voice-message">
                                             <button class="voice-play-btn" data-message-id="{{ msg.id }}" data-audio-url="/uploads/{{ msg.file_path }}">
@@ -182,10 +181,9 @@
                                 <div class="message-bubble">
                                     {% if msg.message_type == "photo" and msg.file_path %}
                                         <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
-                                        <a href="/uploads/{{ msg.file_path }}" target="_blank" class="photo-link">
+                                        <a href="/uploads/{{ msg.file_path }}" class="photo-link js-chat-photo-open">
                                             <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
                                         </a>
-                                        <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
                                     {% elif msg.message_type == "voice" and msg.file_path %}
                                         <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
                                         <div class="voice-message">
@@ -581,6 +579,10 @@
                 <button type="button" class="photo-edit-bottom-btn photo-edit-done-btn" id="photoEditSendBtn">Готово</button>
             </div>
         </div>
+    </div>
+    <div id="chatPhotoPreviewModal" class="modal-overlay photo-preview-overlay" style="display:none;">
+        <button type="button" class="photo-preview-close" id="chatPhotoPreviewClose" aria-label="Закрыть">&times;</button>
+        <img id="chatPhotoPreviewImg" class="photo-preview-img" alt="preview">
     </div>
     {% endif %}
 
@@ -1605,19 +1607,13 @@
             if (messageType === "photo" && fileUrl) {
                 const link = document.createElement("a");
                 link.href = fileUrl;
-                link.target = "_blank";
-                link.className = "photo-link";
+                link.className = "photo-link js-chat-photo-open";
                 const img = document.createElement("img");
                 img.src = fileUrl;
                 img.alt = "photo";
                 img.className = "chat-photo";
                 link.appendChild(img);
                 bubble.appendChild(link);
-                const download = document.createElement("a");
-                download.href = downloadUrl;
-                download.className = "download-link";
-                download.textContent = "Скачать";
-                bubble.appendChild(download);
             } else if (messageType === "voice" && fileUrl) {
                 const voiceDiv = document.createElement("div");
                 voiceDiv.className = "voice-message";
@@ -2510,7 +2506,20 @@
 
         function pickPhotoCropEdge(px, py) {
             const t = 18;
+            const ct = 24;
             const { x0, y0, x1, y1 } = cropViewRect();
+            const corners = [
+                ["lt", x0, y0],
+                ["rt", x1, y0],
+                ["lb", x0, y1],
+                ["rb", x1, y1]
+            ];
+            let bestCorner = null;
+            for (const c of corners) {
+                const d = Math.hypot(px - c[1], py - c[2]);
+                if (d <= ct && (!bestCorner || d < bestCorner[1])) bestCorner = [c[0], d];
+            }
+            if (bestCorner) return bestCorner[0];
             const inV = py >= y0 - t && py <= y1 + t;
             const inH = px >= x0 - t && px <= x1 + t;
             const c = [];
@@ -2581,12 +2590,13 @@
                 [(x0 + x1) / 2, y0], [(x0 + x1) / 2, y1],
                 [x0, (y0 + y1) / 2], [x1, (y0 + y1) / 2]
             ];
+            const handleR = window.innerWidth >= 769 ? 7.2 : 4.8;
             for (const hnd of handles) {
                 ctx.beginPath();
                 ctx.fillStyle = "#ffffff";
                 ctx.strokeStyle = "rgba(0,0,0,0.35)";
                 ctx.lineWidth = 1.2;
-                ctx.arc(hnd[0], hnd[1], 4.8, 0, Math.PI * 2);
+                ctx.arc(hnd[0], hnd[1], handleR, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
             }
@@ -2624,6 +2634,8 @@
                 chatPhotoEdit.viewH = Math.max(260, Math.round(img.height * fitScale));
                 if (photoEditCanvasStackEl) {
                     photoEditCanvasStackEl.style.aspectRatio = chatPhotoEdit.viewW + " / " + chatPhotoEdit.viewH;
+                    photoEditCanvasStackEl.style.width = chatPhotoEdit.viewW + "px";
+                    photoEditCanvasStackEl.style.height = chatPhotoEdit.viewH + "px";
                 }
                 chatPhotoEdit.cropL = 0;
                 chatPhotoEdit.cropT = 0;
@@ -2697,6 +2709,19 @@
             else if (edge === "r") chatPhotoEdit.cropR -= dx;
             else if (edge === "t") chatPhotoEdit.cropT += dy;
             else if (edge === "b") chatPhotoEdit.cropB -= dy;
+            else if (edge === "lt") {
+                chatPhotoEdit.cropL += dx;
+                chatPhotoEdit.cropT += dy;
+            } else if (edge === "rt") {
+                chatPhotoEdit.cropR -= dx;
+                chatPhotoEdit.cropT += dy;
+            } else if (edge === "lb") {
+                chatPhotoEdit.cropL += dx;
+                chatPhotoEdit.cropB -= dy;
+            } else if (edge === "rb") {
+                chatPhotoEdit.cropR -= dx;
+                chatPhotoEdit.cropB -= dy;
+            }
             clampChatPhotoCrops();
             redrawChatPhotoBase();
         }
@@ -2729,7 +2754,7 @@
                 if (chatPhotoEdit.mode !== "crop" || chatPhotoEdit.edgeDrag || !chatPhotoEdit.img) return;
                 const [px, py] = photoEditCanvasXY(e, photoEditBase);
                 const edge = pickPhotoCropEdge(px, py);
-                const cursors = { l: "ew-resize", r: "ew-resize", t: "ns-resize", b: "ns-resize" };
+                const cursors = { l: "ew-resize", r: "ew-resize", t: "ns-resize", b: "ns-resize", lt: "nwse-resize", rb: "nwse-resize", rt: "nesw-resize", lb: "nesw-resize" };
                 photoEditBase.style.cursor = edge ? cursors[edge] : "default";
             });
 
@@ -2838,6 +2863,36 @@
                     })
                     .catch(() => alert("Ошибка сети."));
             });
+        });
+
+        const chatPhotoPreviewModal = document.getElementById("chatPhotoPreviewModal");
+        const chatPhotoPreviewImg = document.getElementById("chatPhotoPreviewImg");
+        const chatPhotoPreviewClose = document.getElementById("chatPhotoPreviewClose");
+
+        function openChatPhotoPreview(src) {
+            if (!chatPhotoPreviewModal || !chatPhotoPreviewImg || !src) return;
+            chatPhotoPreviewImg.src = src;
+            chatPhotoPreviewModal.style.display = "flex";
+            document.body.style.overflow = "hidden";
+        }
+
+        function closeChatPhotoPreview() {
+            if (!chatPhotoPreviewModal || !chatPhotoPreviewImg) return;
+            chatPhotoPreviewModal.style.display = "none";
+            chatPhotoPreviewImg.src = "";
+            document.body.style.overflow = "";
+        }
+
+        messagesBox?.addEventListener("click", (e) => {
+            const link = e.target.closest(".js-chat-photo-open");
+            if (!link) return;
+            e.preventDefault();
+            const img = link.querySelector("img");
+            openChatPhotoPreview((img && img.src) || link.getAttribute("href"));
+        });
+        chatPhotoPreviewClose?.addEventListener("click", closeChatPhotoPreview);
+        chatPhotoPreviewModal?.addEventListener("click", (e) => {
+            if (e.target === chatPhotoPreviewModal) closeChatPhotoPreview();
         });
 
         if (photoInput && photoForm) {
