@@ -1582,24 +1582,6 @@ input:checked + .slider:before {
     touch-action: none;
 }
 
-.photo-edit-zoom-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.photo-edit-zoom-row label {
-    font-size: 14px;
-    color: #6b7280;
-    flex-shrink: 0;
-}
-
-.photo-edit-zoom-row input[type="range"] {
-    flex: 1;
-    min-width: 0;
-}
-
 .photo-edit-draw-tools {
     display: flex;
     flex-wrap: wrap;
@@ -1607,6 +1589,13 @@ input:checked + .slider:before {
     gap: 12px;
     margin-bottom: 14px;
     font-size: 14px;
+}
+
+.photo-edit-draw-tools-bottom {
+    margin-top: 4px;
+    padding-top: 12px;
+    margin-bottom: 10px;
+    border-top: 1px solid #e5e7eb;
 }
 
 .photo-edit-draw-tools label {
@@ -1639,11 +1628,7 @@ input:checked + .slider:before {
 }
 
 .photo-edit-mode-crop #photoEditBase {
-    cursor: grab;
-}
-
-.photo-edit-mode-crop #photoEditBase:active {
-    cursor: grabbing;
+    cursor: default;
 }
 
 .photo-edit-actions {
