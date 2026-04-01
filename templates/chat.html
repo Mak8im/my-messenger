@@ -563,8 +563,16 @@
             </div>
             <div class="photo-edit-bottom-bar">
                 <button type="button" class="photo-edit-bottom-btn" id="photoEditCancelBtn">Отмена</button>
-                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn active" id="photoEditModeCrop">Кадр</button>
-                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn" id="photoEditModeDraw">Рисовать</button>
+                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn active" id="photoEditModeCrop" title="Кадр">
+                    <span class="photo-edit-btn-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M4 7a3 3 0 0 1 3-3h3v2H7a1 1 0 0 0-1 1v3H4V7zm10-3h3a3 3 0 0 1 3 3v3h-2V7a1 1 0 0 0-1-1h-3V4zM4 14h2v3a1 1 0 0 0 1 1h3v2H7a3 3 0 0 1-3-3v-3zm14 0h2v3a3 3 0 0 1-3 3h-3v-2h3a1 1 0 0 0 1-1v-3z"/></svg>
+                    </span>
+                </button>
+                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn" id="photoEditModeDraw" title="Рисовать">
+                    <span class="photo-edit-btn-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm14.71-9.04a1 1 0 0 0 0-1.42L15.2 4.27a1 1 0 0 0-1.41 0l-1.13 1.12 3.75 3.75 1.3-1.13z"/></svg>
+                    </span>
+                </button>
                 <div class="photo-edit-draw-tools" id="photoEditDrawTools" style="display: none;">
                     <label><input type="color" id="photoEditColor" value="#e11d48"></label>
                     <label><input type="range" id="photoEditBrush" min="2" max="24" value="6"></label>
@@ -2550,6 +2558,38 @@
             ctx.strokeStyle = "rgba(255,255,255,0.95)";
             ctx.lineWidth = 2;
             ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+            // 3x3 grid (Telegram-like)
+            ctx.strokeStyle = "rgba(255,255,255,0.36)";
+            ctx.lineWidth = 1;
+            const gw = (x1 - x0) / 3;
+            const gh = (y1 - y0) / 3;
+            for (let i = 1; i <= 2; i += 1) {
+                const gx = x0 + gw * i;
+                const gy = y0 + gh * i;
+                ctx.beginPath();
+                ctx.moveTo(gx, y0);
+                ctx.lineTo(gx, y1);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x0, gy);
+                ctx.lineTo(x1, gy);
+                ctx.stroke();
+            }
+            // Corner and side handles
+            const handles = [
+                [x0, y0], [x1, y0], [x0, y1], [x1, y1],
+                [(x0 + x1) / 2, y0], [(x0 + x1) / 2, y1],
+                [x0, (y0 + y1) / 2], [x1, (y0 + y1) / 2]
+            ];
+            for (const hnd of handles) {
+                ctx.beginPath();
+                ctx.fillStyle = "#ffffff";
+                ctx.strokeStyle = "rgba(0,0,0,0.35)";
+                ctx.lineWidth = 1.2;
+                ctx.arc(hnd[0], hnd[1], 4.8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
         }
 
         function setChatPhotoEditMode(mode) {
