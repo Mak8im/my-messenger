@@ -134,11 +134,23 @@
                     </div>
                 </div>
 
+                <div id="pinnedMessageBar" class="pinned-message-bar" data-pinned-id="{% if pinned_message %}{{ pinned_message.id }}{% endif %}" role="button" tabindex="0" {% if not pinned_message %}style="display:none"{% endif %}>
+                    <div class="pinned-line"></div>
+                    <div class="pinned-main">
+                        <div class="pinned-title">Закреплённое сообщение</div>
+                        <div class="pinned-snippet" id="pinnedSnippet">{% if pinned_message %}{{ pinned_preview }}{% endif %}</div>
+                    </div>
+                    <button type="button" class="pinned-unpin" id="pinnedUnpinBtn" title="Открепить" aria-label="Открепить">&times;</button>
+                </div>
+
                 <div id="messagesBox" class="messages-box tg-messages-box">
                     {% for msg in messages %}
                         {% if msg.sender_id == current_user.id %}
-                            <div class="message-row own" data-message-id="{{ msg.id }}">
+                            <div class="message-row own js-msg-row" data-message-id="{{ msg.id }}" data-msg-type="{{ msg.message_type }}" data-sender-id="{{ msg.sender_id }}">
                                 <div class="message-bubble own">
+                                    {% if msg.reply_parent %}
+                                    <div class="message-reply-quote">{% if msg.reply_parent.message_type == 'text' %}{{ (msg.reply_parent.content or '')[:120] }}{% elif msg.reply_parent.message_type == 'photo' %}📷 Фото{% else %}🎤 Голосовое{% endif %}</div>
+                                    {% endif %}
                                     {% if msg.message_type == "photo" and msg.file_path %}
                                         <a href="/uploads/{{ msg.file_path }}" class="photo-link js-chat-photo-open">
                                             <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
@@ -161,6 +173,9 @@
                                         <div class="message-text">{{ msg.content }}</div>
                                     {% endif %}
                                     <div class="message-time-wrapper">
+                                        {% if msg.edited_at %}
+                                        <span class="msg-edited-label">изменено {{ format_message_time(msg.edited_at) }}</span>
+                                        {% endif %}
                                         <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
                                         <div class="message-status">
                                             {% if msg.is_read %}
@@ -177,8 +192,11 @@
                                 </div>
                             </div>
                         {% else %}
-                            <div class="message-row" data-message-id="{{ msg.id }}">
+                            <div class="message-row js-msg-row" data-message-id="{{ msg.id }}" data-msg-type="{{ msg.message_type }}" data-sender-id="{{ msg.sender_id }}">
                                 <div class="message-bubble">
+                                    {% if msg.reply_parent %}
+                                    <div class="message-reply-quote">{% if msg.reply_parent.message_type == 'text' %}{{ (msg.reply_parent.content or '')[:120] }}{% elif msg.reply_parent.message_type == 'photo' %}📷 Фото{% else %}🎤 Голосовое{% endif %}</div>
+                                    {% endif %}
                                     {% if msg.message_type == "photo" and msg.file_path %}
                                         <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
                                         <a href="/uploads/{{ msg.file_path }}" class="photo-link js-chat-photo-open">
@@ -204,6 +222,9 @@
                                         <div class="message-text">{{ msg.content }}</div>
                                     {% endif %}
                                     <div class="message-time-wrapper">
+                                        {% if msg.edited_at %}
+                                        <span class="msg-edited-label">изменено {{ format_message_time(msg.edited_at) }}</span>
+                                        {% endif %}
                                         <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
                                     </div>
                                 </div>
@@ -212,7 +233,55 @@
                     {% endfor %}
                 </div>
 
+                <div id="msgContextMenu" class="msg-context-menu" style="display: none;" role="menu">
+                    <button type="button" class="msg-ctx-item" data-ctx="reply"><span class="msg-ctx-ico">↩</span> Ответить</button>
+                    <button type="button" class="msg-ctx-item" data-ctx="edit"><span class="msg-ctx-ico">✎</span> Изменить</button>
+                    <button type="button" class="msg-ctx-item" data-ctx="pin"><span class="msg-ctx-ico">📌</span> Закрепить</button>
+                    <button type="button" class="msg-ctx-item" data-ctx="copy"><span class="msg-ctx-ico">⎘</span> Копировать текст</button>
+                    <button type="button" class="msg-ctx-item msg-ctx-danger" data-ctx="delete"><span class="msg-ctx-ico">🗑</span> Удалить</button>
+                    <button type="button" class="msg-ctx-item" data-ctx="select"><span class="msg-ctx-ico">✓</span> Выделить</button>
+                </div>
+
+                <div id="deleteMessageModal" class="modal-overlay" style="display: none;">
+                    <div class="modal-container modal-small delete-msg-modal">
+                        <div class="modal-body">
+                            <p class="delete-msg-title">Удалить это сообщение?</p>
+                            <label class="delete-for-everyone-wrap" id="deleteForEveryoneWrap" style="display: none;">
+                                <input type="checkbox" id="deleteForEveryoneCb">
+                                <span>Также удалить для <span id="deletePeerNameLabel">{{ peer_display_name }}</span></span>
+                            </label>
+                            <div class="delete-msg-actions">
+                                <button type="button" class="delete-msg-cancel" id="deleteMsgCancelBtn">Отмена</button>
+                                <button type="button" class="delete-msg-confirm" id="deleteMsgConfirmBtn">Удалить</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="editMessageModal" class="modal-overlay" style="display: none;">
+                    <div class="modal-container modal-small">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Изменить сообщение</h3>
+                            <button type="button" class="modal-close" id="editMsgCloseBtn">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <textarea id="editMessageTextarea" class="edit-msg-textarea" rows="4"></textarea>
+                            <div class="delete-msg-actions" style="margin-top: 12px;">
+                                <button type="button" class="delete-msg-cancel" id="editMsgCancelBtn">Отмена</button>
+                                <button type="button" class="delete-msg-confirm" id="editMsgSaveBtn">Сохранить</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="message-form tg-message-form">
+                    <div id="replyPreviewBar" class="reply-preview-bar" style="display: none;">
+                        <div class="reply-preview-inner">
+                            <span class="reply-preview-label">Ответ на</span>
+                            <span id="replyPreviewText" class="reply-preview-text"></span>
+                        </div>
+                        <button type="button" class="reply-preview-close" id="replyPreviewClose" aria-label="Отменить ответ">&times;</button>
+                    </div>
                     <form id="photoForm" action="/send-photo" method="post" enctype="multipart/form-data" class="photo-form">
                         <input type="hidden" name="receiver_id" value="{{ selected_user.id }}">
                         <input type="file" id="photoInput" name="photo" accept="image/*" hidden>
@@ -597,6 +666,13 @@
         const CURRENT_USER_ID = {{ current_user.id }};
         const SELECTED_USER_ID = {% if selected_user %}{{ selected_user.id }}{% else %}null{% endif %};
         const SELECTED_USER_EMAIL = {% if selected_user %}"{{ selected_user.email }}"{% else %}""{% endif %};
+        const PEER_DISPLAY_NAME = {{ peer_display_name | tojson }};
+        let pendingReplyId = null;
+        let contextMenuTargetId = null;
+        let deleteTargetId = null;
+        let editTargetId = null;
+        let longPressTimer = null;
+        let longPressStart = null;
         const CHAT_PAGE_LOADED_AT = Date.now();
         const STATUS_DOWNGRADE_GRACE_MS = 1200;
         const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
@@ -1596,14 +1672,24 @@
             if (list && card.parentNode === list) list.prepend(card);
         }
         
-        function appendMessageToChat(senderId, messageType, content, time, senderEmail, fileUrl, downloadUrl, fileName, messageId, isRead, isDelivered) {
+        function appendMessageToChat(senderId, messageType, content, time, senderEmail, fileUrl, downloadUrl, fileName, messageId, isRead, isDelivered, replyPreview, editedTime) {
             if (!messagesBox) return;
+            replyPreview = replyPreview || "";
+            editedTime = editedTime || "";
             const isOwn = senderId === CURRENT_USER_ID;
             const row = document.createElement("div");
-            row.className = `message-row ${isOwn ? "own" : ""}`;
+            row.className = `message-row js-msg-row ${isOwn ? "own" : ""}`;
             row.setAttribute("data-message-id", messageId);
+            row.setAttribute("data-msg-type", messageType || "text");
+            row.setAttribute("data-sender-id", String(senderId));
             const bubble = document.createElement("div");
             bubble.className = `message-bubble ${isOwn ? "own" : ""}`;
+            if (replyPreview) {
+                const rq = document.createElement("div");
+                rq.className = "message-reply-quote";
+                rq.textContent = replyPreview;
+                bubble.appendChild(rq);
+            }
             if (!isOwn) {
                 const author = document.createElement("div");
                 author.className = "message-author";
@@ -1671,6 +1757,12 @@
             
             const timeWrapper = document.createElement("div");
             timeWrapper.className = "message-time-wrapper";
+            if (editedTime) {
+                const ed = document.createElement("span");
+                ed.className = "msg-edited-label";
+                ed.textContent = "изменено " + editedTime;
+                timeWrapper.appendChild(ed);
+            }
             const timeDiv = document.createElement("div");
             timeDiv.className = "message-time";
             timeDiv.textContent = time || "";
@@ -1691,7 +1783,95 @@
                 messageStatuses[messageId] = { isRead, isDelivered };
             }
             
+            hydrateVoiceDurations();
             scrollToBottom();
+        }
+        
+        function removeMessageRow(messageId) {
+            const row = document.querySelector('.js-msg-row[data-message-id="' + messageId + '"]');
+            if (row) row.remove();
+            const pinBar = document.getElementById("pinnedMessageBar");
+            if (pinBar && String(pinBar.dataset.pinnedId || "") === String(messageId)) {
+                clearPinnedBarUI();
+            }
+        }
+        
+        function applyMessageEdited(data) {
+            const row = document.querySelector('.js-msg-row[data-message-id="' + data.message_id + '"]');
+            if (!row) return;
+            const textEl = row.querySelector(".message-text");
+            if (textEl) textEl.textContent = data.content || "";
+            const tw = row.querySelector(".message-time-wrapper");
+            if (!tw) return;
+            let ed = tw.querySelector(".msg-edited-label");
+            if (!ed) {
+                ed = document.createElement("span");
+                ed.className = "msg-edited-label";
+                tw.insertBefore(ed, tw.firstChild);
+            }
+            ed.textContent = "изменено " + (data.edited_time || "");
+        }
+        
+        function setPinnedBarUI(messageId, preview) {
+            const bar = document.getElementById("pinnedMessageBar");
+            if (!bar) return;
+            bar.dataset.pinnedId = String(messageId);
+            const sn = document.getElementById("pinnedSnippet");
+            if (sn) sn.textContent = preview || "";
+            bar.style.display = "flex";
+        }
+        
+        function clearPinnedBarUI() {
+            const bar = document.getElementById("pinnedMessageBar");
+            if (!bar) return;
+            bar.dataset.pinnedId = "";
+            const sn = document.getElementById("pinnedSnippet");
+            if (sn) sn.textContent = "";
+            bar.style.display = "none";
+        }
+        
+        function scrollToMessageById(messageId) {
+            const row = document.querySelector('.js-msg-row[data-message-id="' + messageId + '"]');
+            if (row && messagesBox) {
+                row.scrollIntoView({ block: "center", behavior: "smooth" });
+            }
+        }
+        
+        function hideMsgContextMenu() {
+            const m = document.getElementById("msgContextMenu");
+            if (m) m.style.display = "none";
+            contextMenuTargetId = null;
+        }
+        
+        function positionMsgContextMenu(menu, clientX, clientY) {
+            menu.style.display = "block";
+            const mw = menu.offsetWidth || 200;
+            const mh = menu.offsetHeight || 200;
+            let left = clientX;
+            let top = clientY;
+            if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+            if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
+            if (left < 8) left = 8;
+            if (top < 8) top = 8;
+            menu.style.left = left + "px";
+            menu.style.top = top + "px";
+        }
+        
+        function openMsgContextMenuAt(clientX, clientY, row) {
+            if (!row || SELECTED_USER_ID === null) return;
+            const mid = row.getAttribute("data-message-id");
+            if (!mid) return;
+            contextMenuTargetId = mid;
+            const menu = document.getElementById("msgContextMenu");
+            if (!menu) return;
+            const isOwn = Number(row.getAttribute("data-sender-id")) === CURRENT_USER_ID;
+            const msgType = row.getAttribute("data-msg-type") || "text";
+            const hasText = !!(row.querySelector(".message-text") && (row.querySelector(".message-text").textContent || "").trim());
+            const editBtn = menu.querySelector('[data-ctx="edit"]');
+            const copyBtn = menu.querySelector('[data-ctx="copy"]');
+            if (editBtn) editBtn.style.display = isOwn && msgType === "text" ? "" : "none";
+            if (copyBtn) copyBtn.style.display = hasText ? "" : "none";
+            positionMsgContextMenu(menu, clientX, clientY);
         }
         
         function sendMessage() {
@@ -1702,16 +1882,42 @@
                 alert("Связь с сервером не установлена");
                 return;
             }
-            socket.send(JSON.stringify({
+            const payload = {
                 type: "message",
                 receiver_id: SELECTED_USER_ID,
                 content: content
-            }));
+            };
+            if (pendingReplyId) {
+                payload.reply_to_id = pendingReplyId;
+            }
+            socket.send(JSON.stringify(payload));
             sendTypingStatus(false);
             if (typingTimeout) clearTimeout(typingTimeout);
             isCurrentlyTyping = false;
             messageInput.value = "";
+            clearReplyPreview();
             updateActionButtons();
+        }
+        
+        function clearReplyPreview() {
+            pendingReplyId = null;
+            const bar = document.getElementById("replyPreviewBar");
+            const tx = document.getElementById("replyPreviewText");
+            if (bar) bar.style.display = "none";
+            if (tx) tx.textContent = "";
+        }
+        
+        function setReplyTo(messageId, row) {
+            pendingReplyId = messageId;
+            const bar = document.getElementById("replyPreviewBar");
+            const tx = document.getElementById("replyPreviewText");
+            let preview = "";
+            const t = row.querySelector(".message-text");
+            if (t) preview = (t.textContent || "").slice(0, 80);
+            else if (row.dataset.msgType === "photo") preview = "📷 Фото";
+            else if (row.dataset.msgType === "voice") preview = "🎤 Голосовое";
+            if (tx) tx.textContent = preview || "Сообщение";
+            if (bar) bar.style.display = "flex";
         }
         
         socket.onopen = function() {
@@ -1797,11 +2003,273 @@
                         data.file_name,
                         data.message_id,
                         data.is_read || false,
-                        data.is_delivered || false
+                        data.is_delivered || false,
+                        data.reply_preview || "",
+                        ""
                     );
                 }
+                return;
+            }
+            
+            if (data.type === "message_deleted") {
+                if (SELECTED_USER_ID === null) return;
+                removeMessageRow(data.message_id);
+                return;
+            }
+            
+            if (data.type === "message_edited") {
+                applyMessageEdited(data);
+                return;
+            }
+            
+            if (data.type === "pin_updated") {
+                if (SELECTED_USER_ID === null || data.peer_id !== SELECTED_USER_ID) return;
+                if (data.message_id == null || data.message_id === "") {
+                    clearPinnedBarUI();
+                } else {
+                    setPinnedBarUI(data.message_id, data.preview || "");
+                }
+                return;
             }
         };
+        
+        (function setupMessageActions() {
+            if (SELECTED_USER_ID === null || !messagesBox) return;
+            
+            const msgMenu = document.getElementById("msgContextMenu");
+            const delModal = document.getElementById("deleteMessageModal");
+            const delWrap = document.getElementById("deleteForEveryoneWrap");
+            const delCb = document.getElementById("deleteForEveryoneCb");
+            const editModal = document.getElementById("editMessageModal");
+            const editTa = document.getElementById("editMessageTextarea");
+            const pinBar = document.getElementById("pinnedMessageBar");
+            const unpinBtn = document.getElementById("pinnedUnpinBtn");
+            const replyClose = document.getElementById("replyPreviewClose");
+            
+            if (replyClose) {
+                replyClose.addEventListener("click", () => clearReplyPreview());
+            }
+            
+            function getTargetRow() {
+                if (!contextMenuTargetId) return null;
+                return document.querySelector('.js-msg-row[data-message-id="' + contextMenuTargetId + '"]');
+            }
+            
+            messagesBox.addEventListener("contextmenu", (e) => {
+                const row = e.target.closest(".js-msg-row");
+                if (!row || !messagesBox.contains(row)) return;
+                e.preventDefault();
+                openMsgContextMenuAt(e.clientX, e.clientY, row);
+            });
+            
+            messagesBox.addEventListener("touchstart", (e) => {
+                const row = e.target.closest(".js-msg-row");
+                if (!row || !messagesBox.contains(row)) return;
+                if (e.touches.length !== 1) return;
+                longPressStart = {
+                    x: e.touches[0].clientX,
+                    y: e.touches[0].clientY,
+                    row: row
+                };
+                longPressTimer = window.setTimeout(() => {
+                    longPressTimer = null;
+                    longPressStart = null;
+                    openMsgContextMenuAt(e.touches[0].clientX, e.touches[0].clientY, row);
+                }, 480);
+            }, { passive: true });
+            
+            messagesBox.addEventListener("touchmove", (e) => {
+                if (!longPressStart || !e.touches[0]) return;
+                const dx = e.touches[0].clientX - longPressStart.x;
+                const dy = e.touches[0].clientY - longPressStart.y;
+                if (dx * dx + dy * dy > 120) {
+                    if (longPressTimer) clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                    longPressStart = null;
+                }
+            }, { passive: true });
+            
+            messagesBox.addEventListener("touchend", () => {
+                if (longPressTimer) clearTimeout(longPressTimer);
+                longPressTimer = null;
+                longPressStart = null;
+            }, { passive: true });
+            
+            document.addEventListener("click", (e) => {
+                if (!msgMenu || msgMenu.style.display === "none") return;
+                if (e.target.closest("#msgContextMenu")) return;
+                hideMsgContextMenu();
+            });
+            
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") hideMsgContextMenu();
+            });
+            
+            if (msgMenu) {
+                msgMenu.querySelectorAll("[data-ctx]").forEach((btn) => {
+                    btn.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        const action = btn.getAttribute("data-ctx");
+                        const row = getTargetRow();
+                        const mid = contextMenuTargetId ? parseInt(contextMenuTargetId, 10) : null;
+                        hideMsgContextMenu();
+                        if (!row || !mid) return;
+                        
+                        if (action === "reply") {
+                            setReplyTo(mid, row);
+                            return;
+                        }
+                        if (action === "edit") {
+                            const te = row.querySelector(".message-text");
+                            if (!te) return;
+                            editTargetId = mid;
+                            if (editTa) editTa.value = te.textContent || "";
+                            if (editModal) editModal.style.display = "flex";
+                            return;
+                        }
+                        if (action === "pin") {
+                            fetch("/api/chat/pin", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ peer_id: SELECTED_USER_ID, message_id: mid })
+                            }).catch(() => {});
+                            return;
+                        }
+                        if (action === "copy") {
+                            const te = row.querySelector(".message-text");
+                            if (te && navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(te.textContent || "").catch(() => {});
+                            }
+                            return;
+                        }
+                        if (action === "delete") {
+                            deleteTargetId = mid;
+                            if (delCb) delCb.checked = false;
+                            const isOwn = Number(row.getAttribute("data-sender-id")) === CURRENT_USER_ID;
+                            if (delWrap) delWrap.style.display = isOwn ? "flex" : "none";
+                            if (delModal) delModal.style.display = "flex";
+                            return;
+                        }
+                        if (action === "select") {
+                            const bubble = row.querySelector(".message-bubble");
+                            if (!bubble) return;
+                            const range = document.createRange();
+                            range.selectNodeContents(bubble);
+                            const sel = window.getSelection();
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                        }
+                    });
+                });
+            }
+            
+            const delCancel = document.getElementById("deleteMsgCancelBtn");
+            const delOk = document.getElementById("deleteMsgConfirmBtn");
+            if (delCancel && delModal) {
+                delCancel.addEventListener("click", () => {
+                    delModal.style.display = "none";
+                    deleteTargetId = null;
+                });
+            }
+            if (delModal) {
+                delModal.addEventListener("click", (e) => {
+                    if (e.target === delModal) {
+                        delModal.style.display = "none";
+                        deleteTargetId = null;
+                    }
+                });
+            }
+            if (delOk) {
+                delOk.addEventListener("click", async () => {
+                    const id = deleteTargetId;
+                    if (!id) return;
+                    const row = document.querySelector('.js-msg-row[data-message-id="' + id + '"]');
+                    const isOwn = row && Number(row.getAttribute("data-sender-id")) === CURRENT_USER_ID;
+                    let scope = "me";
+                    if (isOwn && delCb && delCb.checked) scope = "everyone";
+                    try {
+                        const r = await fetch("/api/messages/delete", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ message_id: id, scope: scope })
+                        });
+                        if (r.ok) {
+                            removeMessageRow(id);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                    if (delModal) delModal.style.display = "none";
+                    deleteTargetId = null;
+                });
+            }
+            
+            const editClose = document.getElementById("editMsgCloseBtn");
+            const editCancel = document.getElementById("editMsgCancelBtn");
+            const editSave = document.getElementById("editMsgSaveBtn");
+            function closeEdit() {
+                if (editModal) editModal.style.display = "none";
+                editTargetId = null;
+            }
+            if (editClose) editClose.addEventListener("click", closeEdit);
+            if (editCancel) editCancel.addEventListener("click", closeEdit);
+            if (editModal) {
+                editModal.addEventListener("click", (e) => {
+                    if (e.target === editModal) closeEdit();
+                });
+            }
+            if (editSave) {
+                editSave.addEventListener("click", async () => {
+                    const id = editTargetId;
+                    if (!id || !editTa) return;
+                    const content = (editTa.value || "").trim();
+                    if (!content) return;
+                    try {
+                        const r = await fetch("/api/messages/" + id, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ content: content })
+                        });
+                        if (r.ok) {
+                            const j = await r.json();
+                            applyMessageEdited({
+                                message_id: id,
+                                content: content,
+                                edited_time: j.edited_time || ""
+                            });
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                    closeEdit();
+                });
+            }
+            
+            if (pinBar) {
+                pinBar.addEventListener("click", (e) => {
+                    if (e.target.closest(".pinned-unpin")) return;
+                    const pid = pinBar.dataset.pinnedId;
+                    if (pid) scrollToMessageById(pid);
+                });
+                pinBar.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        const pid = pinBar.dataset.pinnedId;
+                        if (pid) scrollToMessageById(pid);
+                    }
+                });
+            }
+            if (unpinBtn) {
+                unpinBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    fetch("/api/chat/pin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ peer_id: SELECTED_USER_ID, message_id: null })
+                    }).catch(() => {});
+                });
+            }
+        })();
         
         function urlBase64ToUint8Array(base64String) {
             const padding = "=".repeat((4 - base64String.length % 4) % 4);
