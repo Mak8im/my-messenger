@@ -551,6 +551,45 @@
     </div>
     {% endif %}
 
+    {% if selected_user %}
+    <div id="photoEditModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-medium photo-edit-container">
+            <div class="modal-header">
+                <h3 class="modal-title">Фото</h3>
+                <button type="button" class="modal-close" id="photoEditCloseBtn">&times;</button>
+            </div>
+            <div class="modal-body photo-edit-body photo-edit-mode-crop">
+                <p class="tg-settings-text" style="margin-top: 0; margin-bottom: 10px; font-size: 13px;">
+                    <strong>Кадр</strong> — двигай и масштабируй. <strong>Рисовать</strong> — кисть по фото. Потом «Отправить».
+                </p>
+                <div class="photo-edit-modes">
+                    <button type="button" class="photo-edit-mode-btn active" id="photoEditModeCrop">Кадр</button>
+                    <button type="button" class="photo-edit-mode-btn" id="photoEditModeDraw">Рисовать</button>
+                </div>
+                <div class="photo-edit-stage-wrap" id="photoEditStageWrap">
+                    <div class="photo-edit-canvas-stack" id="photoEditCanvasStack">
+                        <canvas id="photoEditBase"></canvas>
+                        <canvas id="photoEditDraw"></canvas>
+                    </div>
+                </div>
+                <div class="photo-edit-zoom-row">
+                    <label for="photoEditZoom">Масштаб</label>
+                    <input type="range" id="photoEditZoom" min="1" max="3" step="0.02" value="1">
+                </div>
+                <div class="photo-edit-draw-tools" id="photoEditDrawTools" style="display: none;">
+                    <label>Цвет <input type="color" id="photoEditColor" value="#e11d48"></label>
+                    <label>Кисть <input type="range" id="photoEditBrush" min="2" max="24" value="6"></label>
+                    <button type="button" class="photo-edit-clear-draw" id="photoEditClearDraw">Стереть</button>
+                </div>
+                <div class="avatar-crop-actions photo-edit-actions">
+                    <button type="button" class="avatar-crop-cancel" id="photoEditCancelBtn">Отмена</button>
+                    <button type="button" class="avatar-crop-apply" id="photoEditSendBtn">Отправить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <script>
         // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
         const CURRENT_USER_ID = {{ current_user.id }};
@@ -2405,9 +2444,349 @@
             });
         }
         
+        const photoEditModal = document.getElementById("photoEditModal");
+        const photoEditBase = document.getElementById("photoEditBase");
+        const photoEditDraw = document.getElementById("photoEditDraw");
+        const photoEditZoomEl = document.getElementById("photoEditZoom");
+        const photoEditStageWrapEl = document.getElementById("photoEditStageWrap");
+
+        const chatPhotoEdit = {
+            img: null,
+            objectUrl: null,
+            viewW: 340,
+            viewH: 420,
+            panX: 0,
+            panY: 0,
+            mode: "crop",
+            dragging: false,
+            lastPointerX: 0,
+            lastPointerY: 0,
+            pinchMode: false,
+            pinchStartDistance: 0,
+            pinchStartZoom: 1
+        };
+
+        function photoEditCanvasXY(ev, canvas) {
+            const r = canvas.getBoundingClientRect();
+            const sx = canvas.width / r.width;
+            const sy = canvas.height / r.height;
+            const cx = "clientX" in ev ? ev.clientX : ev.touches[0].clientX;
+            const cy = "clientY" in ev ? ev.clientY : ev.touches[0].clientY;
+            return [(cx - r.left) * sx, (cy - r.top) * sy];
+        }
+
+        function redrawChatPhotoBase() {
+            if (!photoEditBase || !chatPhotoEdit.img) return;
+            const w = chatPhotoEdit.viewW;
+            const h = chatPhotoEdit.viewH;
+            if (photoEditBase.width !== w) {
+                photoEditBase.width = w;
+                photoEditBase.height = h;
+            }
+            const ctx = photoEditBase.getContext("2d");
+            const img = chatPhotoEdit.img;
+            const zoom = photoEditZoomEl ? parseFloat(photoEditZoomEl.value) || 1 : 1;
+            const base = Math.max(w / img.width, h / img.height);
+            const scale = base * zoom;
+            const dw = img.width * scale;
+            const dh = img.height * scale;
+            const cx = w / 2;
+            const cy = h / 2;
+            ctx.fillStyle = "#111";
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, cx - dw / 2 + chatPhotoEdit.panX, cy - dh / 2 + chatPhotoEdit.panY, dw, dh);
+        }
+
+        function setChatPhotoEditMode(mode) {
+            chatPhotoEdit.mode = mode;
+            const body = document.querySelector(".photo-edit-body");
+            if (body) {
+                body.classList.toggle("photo-edit-mode-crop", mode === "crop");
+                body.classList.toggle("photo-edit-mode-draw", mode === "draw");
+            }
+            const mc = document.getElementById("photoEditModeCrop");
+            const md = document.getElementById("photoEditModeDraw");
+            const tools = document.getElementById("photoEditDrawTools");
+            if (mc) mc.classList.toggle("active", mode === "crop");
+            if (md) md.classList.toggle("active", mode === "draw");
+            if (tools) tools.style.display = mode === "draw" ? "flex" : "none";
+        }
+
+        function openChatPhotoEditor(file) {
+            if (!photoEditModal || !file || !photoEditBase) return;
+            if (chatPhotoEdit.objectUrl) {
+                URL.revokeObjectURL(chatPhotoEdit.objectUrl);
+            }
+            chatPhotoEdit.objectUrl = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                chatPhotoEdit.img = img;
+                chatPhotoEdit.panX = 0;
+                chatPhotoEdit.panY = 0;
+                chatPhotoEdit.pinchMode = false;
+                chatPhotoEdit.dragging = false;
+                if (photoEditZoomEl) photoEditZoomEl.value = "1";
+                photoEditBase.width = chatPhotoEdit.viewW;
+                photoEditBase.height = chatPhotoEdit.viewH;
+                photoEditDraw.width = chatPhotoEdit.viewW;
+                photoEditDraw.height = chatPhotoEdit.viewH;
+                photoEditDraw.getContext("2d").clearRect(0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
+                setChatPhotoEditMode("crop");
+                redrawChatPhotoBase();
+                photoEditModal.style.display = "flex";
+                document.body.style.overflow = "hidden";
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(chatPhotoEdit.objectUrl);
+                chatPhotoEdit.objectUrl = null;
+                alert("Не удалось открыть фото.");
+            };
+            img.src = chatPhotoEdit.objectUrl;
+        }
+
+        function closeChatPhotoEditor() {
+            if (chatPhotoEdit.objectUrl) {
+                URL.revokeObjectURL(chatPhotoEdit.objectUrl);
+                chatPhotoEdit.objectUrl = null;
+            }
+            chatPhotoEdit.img = null;
+            if (photoEditModal) photoEditModal.style.display = "none";
+            document.body.style.overflow = "";
+            if (photoInput) photoInput.value = "";
+        }
+
+        function exportChatPhotoBlob(callback) {
+            if (!chatPhotoEdit.img || !photoEditBase || !photoEditDraw) return;
+            const w = chatPhotoEdit.viewW;
+            const h = chatPhotoEdit.viewH;
+            const img = chatPhotoEdit.img;
+            const zoom = photoEditZoomEl ? parseFloat(photoEditZoomEl.value) || 1 : 1;
+            const dpr = Math.min(1600 / Math.max(w, h), 3);
+            const outW = Math.round(w * dpr);
+            const outH = Math.round(h * dpr);
+            const out = document.createElement("canvas");
+            out.width = outW;
+            out.height = outH;
+            const octx = out.getContext("2d");
+            const baseS = Math.max(w / img.width, h / img.height);
+            const sc = baseS * zoom;
+            const dw = img.width * sc * dpr;
+            const dh = img.height * sc * dpr;
+            const cx = outW / 2;
+            const cy = outH / 2;
+            octx.fillStyle = "#111";
+            octx.fillRect(0, 0, outW, outH);
+            octx.drawImage(
+                img,
+                cx - dw / 2 + chatPhotoEdit.panX * dpr,
+                cy - dh / 2 + chatPhotoEdit.panY * dpr,
+                dw,
+                dh
+            );
+            octx.drawImage(photoEditDraw, 0, 0, w, h, 0, 0, outW, outH);
+            out.toBlob((blob) => callback(blob), "image/jpeg", 0.92);
+        }
+
+        function chatPhotoTouchDist(touches) {
+            if (touches.length < 2) return 0;
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+
+        if (photoEditBase && photoEditStageWrapEl) {
+            photoEditBase.addEventListener("mousedown", (e) => {
+                if (chatPhotoEdit.mode !== "crop" || e.button !== 0) return;
+                chatPhotoEdit.dragging = true;
+                chatPhotoEdit.lastPointerX = e.clientX;
+                chatPhotoEdit.lastPointerY = e.clientY;
+            });
+            window.addEventListener("mousemove", (e) => {
+                if (!chatPhotoEdit.dragging || chatPhotoEdit.mode !== "crop") return;
+                if (e.buttons !== 1) return;
+                chatPhotoEdit.panX += e.clientX - chatPhotoEdit.lastPointerX;
+                chatPhotoEdit.panY += e.clientY - chatPhotoEdit.lastPointerY;
+                chatPhotoEdit.lastPointerX = e.clientX;
+                chatPhotoEdit.lastPointerY = e.clientY;
+                redrawChatPhotoBase();
+            });
+            window.addEventListener("mouseup", () => {
+                chatPhotoEdit.dragging = false;
+            });
+
+            photoEditStageWrapEl.addEventListener(
+                "touchstart",
+                (e) => {
+                    if (chatPhotoEdit.mode !== "crop" || !chatPhotoEdit.img) return;
+                    if (e.touches.length === 1) {
+                        chatPhotoEdit.dragging = true;
+                        chatPhotoEdit.lastPointerX = e.touches[0].clientX;
+                        chatPhotoEdit.lastPointerY = e.touches[0].clientY;
+                    }
+                },
+                { passive: true }
+            );
+
+            photoEditStageWrapEl.addEventListener(
+                "touchmove",
+                (e) => {
+                    if (!chatPhotoEdit.img || chatPhotoEdit.mode !== "crop") return;
+                    if (e.touches.length >= 2) {
+                        e.preventDefault();
+                        const d = chatPhotoTouchDist(e.touches);
+                        if (d < 2) return;
+                        if (!chatPhotoEdit.pinchMode) {
+                            chatPhotoEdit.pinchMode = true;
+                            chatPhotoEdit.dragging = false;
+                            chatPhotoEdit.pinchStartDistance = d;
+                            chatPhotoEdit.pinchStartZoom = parseFloat(photoEditZoomEl.value) || 1;
+                        } else {
+                            const ratio = d / chatPhotoEdit.pinchStartDistance;
+                            let z = chatPhotoEdit.pinchStartZoom * ratio;
+                            z = Math.max(1, Math.min(3, z));
+                            if (photoEditZoomEl) photoEditZoomEl.value = String(z);
+                            chatPhotoEdit.pinchStartDistance = d;
+                            chatPhotoEdit.pinchStartZoom = z;
+                            redrawChatPhotoBase();
+                        }
+                        return;
+                    }
+                    if (chatPhotoEdit.pinchMode) chatPhotoEdit.pinchMode = false;
+                    if (chatPhotoEdit.dragging && e.touches.length === 1) {
+                        e.preventDefault();
+                        const p = e.touches[0];
+                        chatPhotoEdit.panX += p.clientX - chatPhotoEdit.lastPointerX;
+                        chatPhotoEdit.panY += p.clientY - chatPhotoEdit.lastPointerY;
+                        chatPhotoEdit.lastPointerX = p.clientX;
+                        chatPhotoEdit.lastPointerY = p.clientY;
+                        redrawChatPhotoBase();
+                    }
+                },
+                { passive: false }
+            );
+
+            photoEditStageWrapEl.addEventListener("touchend", (e) => {
+                if (!e.touches.length) {
+                    chatPhotoEdit.dragging = false;
+                    chatPhotoEdit.pinchMode = false;
+                } else if (e.touches.length === 1) {
+                    chatPhotoEdit.pinchMode = false;
+                    chatPhotoEdit.lastPointerX = e.touches[0].clientX;
+                    chatPhotoEdit.lastPointerY = e.touches[0].clientY;
+                    chatPhotoEdit.dragging = true;
+                }
+            });
+
+            photoEditStageWrapEl.addEventListener(
+                "wheel",
+                (e) => {
+                    if (!chatPhotoEdit.img || chatPhotoEdit.mode !== "crop") return;
+                    e.preventDefault();
+                    let z = parseFloat(photoEditZoomEl.value) || 1;
+                    let step = 0.07;
+                    if (e.deltaMode === 1) step = 0.2;
+                    else if (e.deltaMode === 2) step = 0.35;
+                    z += e.deltaY > 0 ? -step : step;
+                    z = Math.max(1, Math.min(3, z));
+                    if (photoEditZoomEl) photoEditZoomEl.value = String(z);
+                    redrawChatPhotoBase();
+                },
+                { passive: false }
+            );
+        }
+
+        if (photoEditZoomEl) {
+            photoEditZoomEl.addEventListener("input", () => {
+                if (chatPhotoEdit.img) redrawChatPhotoBase();
+            });
+        }
+
+        let photoEditDrawing = false;
+        let photoEditLastXY = [0, 0];
+
+        if (photoEditDraw) {
+            photoEditDraw.addEventListener("pointerdown", (e) => {
+                if (chatPhotoEdit.mode !== "draw" || e.button !== 0) return;
+                e.preventDefault();
+                photoEditDraw.setPointerCapture(e.pointerId);
+                photoEditDrawing = true;
+                photoEditLastXY = photoEditCanvasXY(e, photoEditDraw);
+            });
+            photoEditDraw.addEventListener("pointermove", (e) => {
+                if (!photoEditDrawing || chatPhotoEdit.mode !== "draw") return;
+                e.preventDefault();
+                const ctx = photoEditDraw.getContext("2d");
+                const col = document.getElementById("photoEditColor");
+                const br = document.getElementById("photoEditBrush");
+                ctx.strokeStyle = col ? col.value : "#000";
+                ctx.lineWidth = br ? parseInt(br.value, 10) || 6 : 6;
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+                const xy = photoEditCanvasXY(e, photoEditDraw);
+                ctx.beginPath();
+                ctx.moveTo(photoEditLastXY[0], photoEditLastXY[1]);
+                ctx.lineTo(xy[0], xy[1]);
+                ctx.stroke();
+                photoEditLastXY = xy;
+            });
+            photoEditDraw.addEventListener("pointerup", (e) => {
+                photoEditDrawing = false;
+                try {
+                    photoEditDraw.releasePointerCapture(e.pointerId);
+                } catch (err) {}
+            });
+            photoEditDraw.addEventListener("pointercancel", () => {
+                photoEditDrawing = false;
+            });
+        }
+
+        document.getElementById("photoEditClearDraw")?.addEventListener("click", () => {
+            const ctx = photoEditDraw?.getContext("2d");
+            if (ctx) ctx.clearRect(0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
+        });
+
+        document.getElementById("photoEditModeCrop")?.addEventListener("click", () => setChatPhotoEditMode("crop"));
+        document.getElementById("photoEditModeDraw")?.addEventListener("click", () => setChatPhotoEditMode("draw"));
+
+        document.getElementById("photoEditCancelBtn")?.addEventListener("click", closeChatPhotoEditor);
+        document.getElementById("photoEditCloseBtn")?.addEventListener("click", closeChatPhotoEditor);
+        photoEditModal?.addEventListener("click", (e) => {
+            if (e.target === photoEditModal) closeChatPhotoEditor();
+        });
+
+        document.getElementById("photoEditSendBtn")?.addEventListener("click", () => {
+            if (!SELECTED_USER_ID || !chatPhotoEdit.img) return;
+            exportChatPhotoBlob((blob) => {
+                if (!blob) {
+                    alert("Не удалось сохранить изображение.");
+                    return;
+                }
+                const fd = new FormData();
+                fd.append("receiver_id", String(SELECTED_USER_ID));
+                fd.append("photo", blob, "photo.jpg");
+                fetch("/send-photo", { method: "POST", body: fd, credentials: "same-origin" })
+                    .then((r) => {
+                        closeChatPhotoEditor();
+                        if (r.ok || r.redirected) {
+                            window.location.href = r.url || "/chat?selected_user_id=" + SELECTED_USER_ID;
+                        } else {
+                            alert("Не удалось отправить фото.");
+                        }
+                    })
+                    .catch(() => alert("Ошибка сети."));
+            });
+        });
+
         if (photoInput && photoForm) {
             photoInput.addEventListener("change", () => {
-                if (photoInput.files?.length) photoForm.submit();
+                const f = photoInput.files && photoInput.files[0];
+                if (!f) return;
+                if (!f.type.startsWith("image/")) {
+                    alert("Нужен файл изображения.");
+                    photoInput.value = "";
+                    return;
+                }
+                openChatPhotoEditor(f);
             });
         }
         
