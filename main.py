@@ -9,6 +9,8 @@ import re
 import zipfile
 import tempfile
 import os
+import logging
+import traceback
 from typing import Optional
 from fastapi import (
     FastAPI,
@@ -23,20 +25,87 @@ from fastapi import (
     HTTPException,
     Body,
 )
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, text
 from pywebpush import webpush, WebPushException
 
 from database import Base, engine, get_db, SessionLocal
 from auth import create_user, authenticate_user
-from models import User, Message, PushSubscription
+from models import User, Message, PushSubscription, ChatPin
 
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
+
+
+def _migrate_sqlite_schema():
+    """Добавляет колонки в существующую SQLite БД (если их ещё нет)."""
+    try:
+        if engine.dialect.name != "sqlite":
+            return
+        with engine.connect() as conn:
+            for stmt in (
+                "ALTER TABLE messages ADD COLUMN edited_at DATETIME",
+                "ALTER TABLE messages ADD COLUMN deleted_for_sender BOOLEAN NOT NULL DEFAULT 0",
+                "ALTER TABLE messages ADD COLUMN deleted_for_receiver BOOLEAN NOT NULL DEFAULT 0",
+                "ALTER TABLE messages ADD COLUMN reply_to_id INTEGER REFERENCES messages(id)",
+            ):
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+    except Exception as e:
+        print("Migration warning:", e)
+
+
+_migrate_sqlite_schema()
+
+
+def normalize_chat_pair(a: int, b: int) -> tuple[int, int]:
+    return (min(a, b), max(a, b))
+
+
+def message_visible_for_user(m: Message, viewer_id: int) -> bool:
+    if m.sender_id == viewer_id:
+        return not m.deleted_for_sender
+    if m.receiver_id == viewer_id:
+        return not m.deleted_for_receiver
+    return False
+
+
+def build_reply_preview(m: Message) -> str:
+    if not m:
+        return ""
+    if m.message_type == "photo":
+        return "📷 Фото"
+    if m.message_type == "voice":
+        return "🎤 Голосовое"
+    return (m.content or "")[:120]
+
+
+def last_visible_message_between(db: Session, current_user_id: int, peer_id: int) -> Optional[Message]:
+    msgs = (
+        db.query(Message)
+        .filter(
+            or_(
+                and_(Message.sender_id == current_user_id, Message.receiver_id == peer_id),
+                and_(Message.sender_id == peer_id, Message.receiver_id == current_user_id),
+            )
+        )
+        .order_by(Message.id.desc())
+        .limit(200)
+        .all()
+    )
+    for m in msgs:
+        if message_visible_for_user(m, current_user_id):
+            return m
+    return None
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -51,6 +120,48 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
 
 templates = Jinja2Templates(directory="templates")
+
+app_log = logging.getLogger("uvicorn.error")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return await http_exception_handler(request, exc)
+    if isinstance(exc, RequestValidationError):
+        return await request_validation_exception_handler(request, exc)
+
+    app_log.exception("Необработанная ошибка: %s %s", request.method, request.url.path)
+    tb = traceback.format_exc()
+    debug = os.environ.get("MESSENGER_DEBUG", "").lower() in ("1", "true", "yes")
+    reason = str(exc).strip() or type(exc).__name__
+
+    if request.url.path.startswith("/api/"):
+        payload = {"error": "Internal Server Error", "reason": reason}
+        if debug:
+            payload["traceback"] = tb
+        return JSONResponse(status_code=500, content=payload)
+
+    accept = request.headers.get("accept") or ""
+    if "text/html" not in accept and "*/*" not in accept and "application/json" in accept:
+        payload = {"error": "Internal Server Error", "reason": reason}
+        if debug:
+            payload["traceback"] = tb
+        return JSONResponse(status_code=500, content=payload)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="error_server.html",
+        status_code=500,
+        context={
+            "error_title": "Ошибка сервера",
+            "error_summary": "Запрос не удалось выполнить из-за внутренней ошибки. Ниже указана причина — её можно переслать разработчику.",
+            "error_reason": reason,
+            "show_traceback": debug,
+            "traceback": tb,
+        },
+    )
+
 
 VAPID_PUBLIC_KEY = "BNwWM6Ck0sZ828Jq5mb56yFN4bS8mzj3eCA3sA1bxUYl7ysSZdCRSWZvrT7V9p7m9DBBX2WwHOkBemAJfo0Ya8M"
 VAPID_PRIVATE_KEY = "UN14rpjZaky3nH_LOKLRJg2H5wEHEJYBGULYvLGkhSw"
@@ -150,7 +261,8 @@ def get_unread_count(current_user_id: int, other_user_id: int, db: Session) -> i
         .filter(
             Message.sender_id == other_user_id,
             Message.receiver_id == current_user_id,
-            Message.is_read == False
+            Message.is_read == False,
+            Message.deleted_for_receiver == False,
         )
         .count()
     )
@@ -177,17 +289,7 @@ def build_dialogs_for_user(current_user: User, db: Session, online_users: set):
     dialogs = []
 
     for user in all_users:
-        last_message = (
-            db.query(Message)
-            .filter(
-                or_(
-                    and_(Message.sender_id == current_user.id, Message.receiver_id == user.id),
-                    and_(Message.sender_id == user.id, Message.receiver_id == current_user.id),
-                )
-            )
-            .order_by(Message.id.desc())
-            .first()
-        )
+        last_message = last_visible_message_between(db, current_user.id, user.id)
 
         preview = "Начать диалог"
         time_str = ""
@@ -511,8 +613,6 @@ async def login_user(
     else:
         max_age = 7 * 24 * 60 * 60
     
-    expires = datetime.now(timezone.utc) + timedelta(seconds=max_age)
-    
     is_secure = request.url.scheme == "https"
     
     response.set_cookie(
@@ -520,10 +620,9 @@ async def login_user(
         value=str(user.id),
         httponly=True,
         max_age=max_age,
-        expires=expires,
         secure=is_secure,
         samesite="lax",
-        path="/"
+        path="/",
     )
     
     return response
@@ -547,6 +646,8 @@ async def chat_page(
 
     messages = []
     selected_user = None
+    pinned_message = None
+    pinned_preview = ""
 
     if selected_user_id:
         selected_user = db.query(User).filter(User.id == selected_user_id).first()
@@ -559,7 +660,8 @@ async def chat_page(
                 .filter(
                     Message.sender_id == selected_user_id,
                     Message.receiver_id == current_user.id,
-                    Message.is_read == False
+                    Message.is_read == False,
+                    Message.deleted_for_receiver == False,
                 )
                 .all()
             )
@@ -578,7 +680,7 @@ async def chat_page(
                             "is_read": True
                         })
 
-            messages = (
+            raw_messages = (
                 db.query(Message)
                 .filter(
                     or_(
@@ -589,6 +691,32 @@ async def chat_page(
                 .order_by(Message.id.asc())
                 .all()
             )
+            messages = [m for m in raw_messages if message_visible_for_user(m, current_user.id)]
+            reply_ids = [m.reply_to_id for m in messages if m.reply_to_id]
+            reply_map = {}
+            if reply_ids:
+                for rp in db.query(Message).filter(Message.id.in_(reply_ids)).all():
+                    reply_map[rp.id] = rp
+            for m in messages:
+                m.reply_parent = reply_map.get(m.reply_to_id) if m.reply_to_id else None
+
+    if selected_user:
+        lo, hi = normalize_chat_pair(current_user.id, selected_user.id)
+        pin = (
+            db.query(ChatPin)
+            .filter(ChatPin.user_low_id == lo, ChatPin.user_high_id == hi)
+            .first()
+        )
+        if pin:
+            pm = db.query(Message).filter(Message.id == pin.message_id).first()
+            if pm and message_visible_for_user(pm, current_user.id):
+                pinned_message = pm
+                pinned_preview = build_reply_preview(pm)
+                if pm.message_type == "text" and (pm.content or "").strip():
+                    pinned_preview = (pm.content or "")[:80]
+            else:
+                db.delete(pin)
+                db.commit()
 
     dialogs = build_dialogs_for_user(current_user, db, manager.online_users)
     
@@ -614,6 +742,9 @@ async def chat_page(
             "format_last_seen": format_last_seen,
             "vapid_public_key": VAPID_PUBLIC_KEY,
             "can_backup": can_backup,
+            "pinned_message": pinned_message,
+            "pinned_preview": pinned_preview,
+            "peer_display_name": (selected_user.full_name or selected_user.email) if selected_user else "",
         }
     )
 
@@ -1114,6 +1245,149 @@ async def download_file(
     )
 
 
+@app.post("/api/messages/delete")
+async def api_delete_message(
+    payload: dict = Body(...),
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    message_id = int(payload.get("message_id"))
+    scope = (payload.get("scope") or "me").lower()
+    if scope not in ("me", "everyone"):
+        raise HTTPException(status_code=400, detail="Некорректный scope")
+
+    msg = db.query(Message).filter(Message.id == message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+    if current_user.id not in (msg.sender_id, msg.receiver_id):
+        raise HTTPException(status_code=403, detail="Нет доступа")
+
+    if scope == "everyone":
+        if msg.sender_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Нельзя удалить у всех")
+        sid = msg.sender_id
+        rid = msg.receiver_id
+        lo, hi = normalize_chat_pair(sid, rid)
+        pin = db.query(ChatPin).filter(ChatPin.user_low_id == lo, ChatPin.user_high_id == hi).first()
+        if pin and pin.message_id == msg.id:
+            db.delete(pin)
+        if msg.file_path:
+            fp = UPLOADS_DIR / msg.file_path
+            if fp.exists():
+                try:
+                    fp.unlink()
+                except OSError:
+                    pass
+        db.delete(msg)
+        db.commit()
+        await manager.send_to_user(sid, {"type": "message_deleted", "message_id": message_id, "scope": "everyone"})
+        await manager.send_to_user(rid, {"type": "message_deleted", "message_id": message_id, "scope": "everyone"})
+        return {"ok": True}
+
+    if msg.sender_id == current_user.id:
+        msg.deleted_for_sender = True
+    else:
+        msg.deleted_for_receiver = True
+    db.commit()
+    return {"ok": True}
+
+
+@app.put("/api/messages/{message_id}")
+async def api_edit_message(
+    message_id: int,
+    payload: dict = Body(...),
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    content = (payload.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Пустой текст")
+
+    msg = db.query(Message).filter(Message.id == message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+    if msg.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    if msg.message_type != "text":
+        raise HTTPException(status_code=400, detail="Можно редактировать только текст")
+
+    msg.content = content
+    msg.edited_at = datetime.now(timezone.utc)
+    db.commit()
+
+    edited_time = format_message_time(msg.edited_at)
+    out = {
+        "type": "message_edited",
+        "message_id": msg.id,
+        "content": msg.content,
+        "edited_time": edited_time,
+    }
+    await manager.send_to_user(msg.sender_id, out)
+    await manager.send_to_user(msg.receiver_id, out)
+    return {"ok": True, "edited_time": edited_time}
+
+
+@app.post("/api/chat/pin")
+async def api_pin_message(
+    payload: dict = Body(...),
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    peer_id = int(payload.get("peer_id"))
+    message_id = payload.get("message_id")
+    if message_id is not None and message_id != "":
+        message_id = int(message_id)
+    else:
+        message_id = None
+
+    lo, hi = normalize_chat_pair(current_user.id, peer_id)
+    pin = db.query(ChatPin).filter(ChatPin.user_low_id == lo, ChatPin.user_high_id == hi).first()
+
+    if message_id is None:
+        if pin:
+            db.delete(pin)
+            db.commit()
+        await manager.send_to_user(current_user.id, {"type": "pin_updated", "peer_id": peer_id, "message_id": None, "preview": ""})
+        await manager.send_to_user(peer_id, {"type": "pin_updated", "peer_id": current_user.id, "message_id": None, "preview": ""})
+        return {"ok": True}
+
+    msg = db.query(Message).filter(Message.id == message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+    if msg.sender_id not in (current_user.id, peer_id) or msg.receiver_id not in (current_user.id, peer_id):
+        raise HTTPException(status_code=400, detail="Сообщение не из этого чата")
+
+    preview = build_reply_preview(msg)
+    if msg.message_type == "text" and (msg.content or "").strip():
+        preview = (msg.content or "")[:80]
+
+    if pin:
+        pin.message_id = message_id
+    else:
+        db.add(
+            ChatPin(
+                user_low_id=lo,
+                user_high_id=hi,
+                message_id=message_id,
+            )
+        )
+    db.commit()
+
+    pin_payload = {"type": "pin_updated", "message_id": message_id, "preview": preview}
+    await manager.send_to_user(current_user.id, {**pin_payload, "peer_id": peer_id})
+    await manager.send_to_user(peer_id, {**pin_payload, "peer_id": current_user.id})
+    return {"ok": True}
+
+
 @app.get("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
     raw = request.cookies.get("user_id")
@@ -1241,10 +1515,21 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                 if not content:
                     continue
 
+                reply_to_id = data.get("reply_to_id")
+                if reply_to_id is not None:
+                    reply_to_id = int(reply_to_id)
+                else:
+                    reply_to_id = None
+
                 sender_email = ""
                 try:
                     sender = db.query(User).filter(User.id == user_id).first()
                     sender_email = sender.email if sender else ""
+
+                    if reply_to_id:
+                        rp = db.query(Message).filter(Message.id == reply_to_id).first()
+                        if not rp or rp.sender_id not in (user_id, receiver_id) or rp.receiver_id not in (user_id, receiver_id):
+                            reply_to_id = None
 
                     new_message = Message(
                         sender_id=user_id,
@@ -1253,7 +1538,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                         content=content,
                         created_at=datetime.now(timezone.utc),
                         is_read=False,
-                        is_delivered=False
+                        is_delivered=False,
+                        reply_to_id=reply_to_id,
                     )
                     db.add(new_message)
                     db.commit()
@@ -1276,6 +1562,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     print(f"Error saving message: {e}")
                     continue
 
+                reply_preview = ""
+                if reply_to_id:
+                    rp = db.query(Message).filter(Message.id == reply_to_id).first()
+                    if rp:
+                        reply_preview = build_reply_preview(rp)
+
                 outgoing_to_sender = {
                     "type": "message",
                     "message_type": "text",
@@ -1287,7 +1579,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     "unread_count": 0,
                     "sender_email": sender_email,
                     "is_read": False,
-                    "is_delivered": True
+                    "is_delivered": True,
+                    "reply_to_id": reply_to_id,
+                    "reply_preview": reply_preview,
                 }
 
                 outgoing_to_receiver = {
@@ -1301,7 +1595,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     "unread_count": unread_count_for_receiver,
                     "sender_email": sender_email,
                     "is_read": False,
-                    "is_delivered": True
+                    "is_delivered": True,
+                    "reply_to_id": reply_to_id,
+                    "reply_preview": reply_preview,
                 }
 
                 await manager.send_to_user(user_id, outgoing_to_sender)
