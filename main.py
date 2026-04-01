@@ -79,13 +79,37 @@ def message_visible_for_user(m: Message, viewer_id: int) -> bool:
     return False
 
 
+def format_stars_amount(v: float | str | None) -> str:
+    try:
+        x = float(v or 0)
+    except (TypeError, ValueError):
+        return str(v or "0")
+    t = f"{x:.3f}".rstrip("0").rstrip(".")
+    return t if t else "0"
+
+
+def stars_display_label(u: User) -> str:
+    t = (u.username or "").strip()
+    if t:
+        return t if t.startswith("@") else f"@{t}"
+    return (u.email or "").strip() or "Пользователь"
+
+
+def stars_transfer_banner(sender: User, amount: float | str) -> str:
+    return f"{stars_display_label(sender)} отправил(а) {format_stars_amount(amount)}"
+
+
 def build_reply_preview(m: Message) -> str:
     if not m:
         return ""
     if m.message_type == "photo":
         return "📷 Фото"
+    if m.message_type == "video":
+        return "🎬 Видео"
     if m.message_type == "voice":
         return "🎤 Голосовое"
+    if m.message_type == "stars":
+        return f"⭐ {format_stars_amount(m.content)}"
     return (m.content or "")[:120]
 
 
@@ -274,8 +298,12 @@ def build_message_preview(message: Message, current_user_id: int) -> str:
 
     if message.message_type == "photo":
         base = "📷 Фото"
+    elif message.message_type == "video":
+        base = "🎬 Видео"
     elif message.message_type == "voice":
         base = "🎤 Голосовое"
+    elif message.message_type == "stars":
+        base = f"⭐ {format_stars_amount(message.content)}"
     else:
         base = (message.content or "")[:40]
 
@@ -402,6 +430,7 @@ class ConnectionManager:
         self.online_users = set()
 
     async def connect(self, user_id: int, websocket: WebSocket, db: Session):
+        user_id = int(user_id)
         await websocket.accept()
         self.active_connections[user_id].append(websocket)
         
@@ -442,22 +471,23 @@ class ConnectionManager:
             await self.broadcast_presence(db)
 
     async def send_to_user(self, user_id: int, data: dict):
-        if user_id not in self.active_connections:
+        uid = int(user_id)
+        if uid not in self.active_connections:
             return
 
         dead = []
-        for ws in list(self.active_connections[user_id]):
+        for ws in list(self.active_connections[uid]):
             try:
                 await ws.send_json(data)
             except Exception:
                 dead.append(ws)
 
         for ws in dead:
-            if user_id in self.active_connections and ws in self.active_connections[user_id]:
-                self.active_connections[user_id].remove(ws)
+            if uid in self.active_connections and ws in self.active_connections[uid]:
+                self.active_connections[uid].remove(ws)
 
-        if user_id in self.active_connections and not self.active_connections[user_id]:
-            del self.active_connections[user_id]
+        if uid in self.active_connections and not self.active_connections[uid]:
+            del self.active_connections[uid]
 
     async def broadcast_all(self, data: dict):
         dead_connections = []
@@ -745,6 +775,8 @@ async def chat_page(
             "pinned_message": pinned_message,
             "pinned_preview": pinned_preview,
             "peer_display_name": (selected_user.full_name or selected_user.email) if selected_user else "",
+            "stars_transfer_banner": stars_transfer_banner,
+            "format_stars_amount": format_stars_amount,
         }
     )
 
@@ -959,6 +991,85 @@ async def click_star(
     return {"stars": current_user.stars}
 
 
+@app.post("/api/stars/send")
+async def api_send_stars(
+    payload: dict = Body(...),
+    user_id: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+
+    receiver_id = int(payload.get("receiver_id"))
+    try:
+        amount = float(payload.get("amount"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некорректная сумма")
+
+    if receiver_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Нельзя отправить звёзды самому себе")
+    if amount < 0.1 - 1e-9:
+        raise HTTPException(status_code=400, detail="Минимум 0.1 звезды")
+
+    amount = round(amount, 3)
+    receiver = db.query(User).filter(User.id == receiver_id).first()
+    if not receiver:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    balance = float(current_user.stars or 0.0)
+    if balance + 1e-9 < amount:
+        raise HTTPException(status_code=400, detail="Недостаточно звёзд")
+
+    current_user.stars = balance - amount
+    receiver.stars = float(receiver.stars or 0.0) + amount
+
+    new_message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver_id,
+        message_type="stars",
+        content=str(amount),
+        created_at=datetime.now(timezone.utc),
+        is_read=False,
+        is_delivered=True,
+    )
+    db.add(new_message)
+    db.commit()
+    db.refresh(new_message)
+
+    unread_count_for_receiver = get_unread_count(receiver_id, current_user.id, db)
+    banner = stars_transfer_banner(current_user, amount)
+    base_out = {
+        "type": "message",
+        "message_type": "stars",
+        "message_id": new_message.id,
+        "sender_id": current_user.id,
+        "receiver_id": receiver_id,
+        "content": str(amount),
+        "stars_banner": banner,
+        "time": format_message_time(new_message.created_at),
+        "sender_email": current_user.email,
+        "is_read": False,
+        "is_delivered": True,
+        "reply_to_id": None,
+        "reply_preview": "",
+    }
+    await manager.send_to_user(current_user.id, {**base_out, "unread_count": 0})
+    await manager.send_to_user(receiver_id, {**base_out, "unread_count": unread_count_for_receiver})
+
+    receiver_was_offline = receiver_id not in manager.online_users
+    if receiver_was_offline:
+        send_push_to_user(
+            db=db,
+            user_id=receiver_id,
+            title=f"Звёзды от {stars_display_label(current_user)}",
+            body=banner,
+            url=f"/chat?selected_user_id={current_user.id}",
+        )
+
+    return {"ok": True, "stars": float(current_user.stars or 0.0)}
+
+
 # ========== ДРУГИЕ РОУТЫ ==========
 
 @app.post("/subscribe")
@@ -1086,6 +1197,104 @@ async def send_photo(
             user_id=receiver_id,
             title=f"Новое фото от {current_user.email}",
             body="📷 Фото",
+            url=f"/chat?selected_user_id={current_user.id}",
+        )
+
+    return RedirectResponse(url=f"/chat?selected_user_id={receiver_id}", status_code=303)
+
+
+@app.post("/send-video")
+async def send_video(
+    receiver_id: int = Form(...),
+    video: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user_id: str | None = Cookie(default=None),
+):
+    current_user = get_current_user(user_id, db)
+    if not current_user:
+        return RedirectResponse(url="/", status_code=303)
+
+    ct = (video.content_type or "").lower()
+    fn = (video.filename or "").lower()
+    if not ct.startswith("video/") and not any(
+        fn.endswith(x) for x in (".mp4", ".webm", ".mov", ".m4v", ".ogv")
+    ):
+        return RedirectResponse(url=f"/chat?selected_user_id={receiver_id}", status_code=303)
+
+    if fn.endswith(".webm"):
+        extension = ".webm"
+    elif fn.endswith(".mov"):
+        extension = ".mov"
+    else:
+        extension = ".mp4"
+
+    safe_name = f"{uuid.uuid4().hex}{extension}"
+    save_path = UPLOADS_DIR / safe_name
+
+    with save_path.open("wb") as buffer:
+        content = await video.read()
+        if len(content) > 80 * 1024 * 1024:
+            return RedirectResponse(url=f"/chat?selected_user_id={receiver_id}", status_code=303)
+        buffer.write(content)
+
+    new_message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver_id,
+        message_type="video",
+        content="",
+        file_name=video.filename or "video",
+        file_path=safe_name,
+        created_at=datetime.now(timezone.utc),
+        is_read=False,
+        is_delivered=False,
+    )
+    db.add(new_message)
+    db.commit()
+    db.refresh(new_message)
+
+    unread_count_for_receiver = get_unread_count(receiver_id, current_user.id, db)
+    file_url = f"/uploads/{safe_name}"
+    download_url = f"/download-file/{new_message.id}"
+
+    outgoing_to_sender = {
+        "type": "message",
+        "message_type": "video",
+        "message_id": new_message.id,
+        "sender_id": current_user.id,
+        "receiver_id": receiver_id,
+        "content": "",
+        "time": format_message_time(new_message.created_at),
+        "unread_count": 0,
+        "file_url": file_url,
+        "download_url": download_url,
+        "file_name": new_message.file_name or "video",
+        "sender_email": current_user.email,
+        "is_read": False,
+        "is_delivered": False,
+    }
+    outgoing_to_receiver = {
+        **outgoing_to_sender,
+        "unread_count": unread_count_for_receiver,
+    }
+
+    await manager.send_to_user(current_user.id, outgoing_to_sender)
+    await manager.send_to_user(receiver_id, outgoing_to_receiver)
+
+    new_message.is_delivered = True
+    db.commit()
+
+    await manager.send_to_user(current_user.id, {
+        "type": "delivered",
+        "message_id": new_message.id,
+        "is_delivered": True,
+    })
+
+    if receiver_id not in manager.online_users:
+        send_push_to_user(
+            db=db,
+            user_id=receiver_id,
+            title=f"Видео от {current_user.email}",
+            body="🎬 Видео",
             url=f"/chat?selected_user_id={current_user.id}",
         )
 
@@ -1283,8 +1492,15 @@ async def api_delete_message(
                     pass
         db.delete(msg)
         db.commit()
-        await manager.send_to_user(sid, {"type": "message_deleted", "message_id": message_id, "scope": "everyone"})
-        await manager.send_to_user(rid, {"type": "message_deleted", "message_id": message_id, "scope": "everyone"})
+        deleted_payload = {
+            "type": "message_deleted",
+            "message_id": int(message_id),
+            "scope": "everyone",
+            "sender_id": int(sid),
+            "receiver_id": int(rid),
+        }
+        await manager.send_to_user(sid, deleted_payload)
+        await manager.send_to_user(rid, deleted_payload)
         return {"ok": True}
 
     if msg.sender_id == current_user.id:
