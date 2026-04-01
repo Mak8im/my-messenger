@@ -299,16 +299,6 @@
                         <div class="settings-item-arrow">→</div>
                     </div>
                     {% endif %}
-                    <div class="settings-item-row" id="darkModeRow">
-                        <div class="settings-item-info">
-                            <div class="settings-item-label">Ночной режим</div>
-                            <div class="settings-item-description">Тёмная тема интерфейса</div>
-                        </div>
-                        <label class="switch" for="darkModeToggle">
-                            <input type="checkbox" id="darkModeToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
                     <div class="settings-logout">
                         <a href="/logout" class="settings-logout-btn">Выйти из аккаунта</a>
                     </div>
@@ -618,8 +608,6 @@
         let isCurrentlyTyping = false;
         let userStatuses = {};
         let currentNotificationSound = "default";
-        const prefersDarkScheme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-        let darkModeEnabled = localStorage.getItem("dark_mode") === null ? prefersDarkScheme : localStorage.getItem("dark_mode") === "1";
         
         let messageStatuses = {};
 
@@ -981,14 +969,6 @@
             backup: document.getElementById("backupModal")
         };
 
-        function applyDarkModeState() {
-            document.body.classList.toggle("theme-dark", darkModeEnabled);
-            const metaTheme = document.querySelector('meta[name="theme-color"]');
-            if (metaTheme) metaTheme.setAttribute("content", darkModeEnabled ? "#0f172a" : "#3390ec");
-            const darkToggle = document.getElementById("darkModeToggle");
-            if (darkToggle) darkToggle.checked = darkModeEnabled;
-        }
-        applyDarkModeState();
         
         function openModal(modalId) {
             if (modals[modalId]) {
@@ -1045,18 +1025,6 @@
         
         const settingsTrigger = document.getElementById("settingsTrigger");
         if (settingsTrigger) settingsTrigger.addEventListener("click", () => openModal("main"));
-        document.getElementById("darkModeToggle")?.addEventListener("change", (e) => {
-            darkModeEnabled = !!e.target.checked;
-            localStorage.setItem("dark_mode", darkModeEnabled ? "1" : "0");
-            applyDarkModeState();
-        });
-        document.getElementById("darkModeRow")?.addEventListener("click", (e) => {
-            if (e.target.closest("input")) return;
-            const t = document.getElementById("darkModeToggle");
-            if (!t) return;
-            t.checked = !t.checked;
-            t.dispatchEvent(new Event("change"));
-        });
         
         for (let key in modals) {
             const modal = modals[key];
