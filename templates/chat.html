@@ -552,35 +552,25 @@
     {% endif %}
 
     {% if selected_user %}
-    <div id="photoEditModal" class="modal-overlay" style="display: none;">
-        <div class="modal-container modal-medium photo-edit-container">
-            <div class="modal-header">
-                <h3 class="modal-title">Фото</h3>
-                <button type="button" class="modal-close" id="photoEditCloseBtn">&times;</button>
+    <div id="photoEditModal" class="modal-overlay photo-edit-overlay" style="display: none;">
+        <div class="photo-edit-shell photo-edit-body photo-edit-mode-crop">
+            <button type="button" class="photo-edit-top-close" id="photoEditCloseBtn" aria-label="Закрыть">&times;</button>
+            <div class="photo-edit-stage-wrap" id="photoEditStageWrap">
+                <div class="photo-edit-canvas-stack" id="photoEditCanvasStack">
+                    <canvas id="photoEditBase"></canvas>
+                    <canvas id="photoEditDraw"></canvas>
+                </div>
             </div>
-            <div class="modal-body photo-edit-body photo-edit-mode-crop">
-                <p class="tg-settings-text" style="margin-top: 0; margin-bottom: 10px; font-size: 13px;">
-                    <strong>Кадр</strong> — тяни края рамки, чтобы убрать лишнее с фото. <strong>Рисовать</strong> — кисть внизу. Потом «Отправить».
-                </p>
-                <div class="photo-edit-modes">
-                    <button type="button" class="photo-edit-mode-btn active" id="photoEditModeCrop">Кадр</button>
-                    <button type="button" class="photo-edit-mode-btn" id="photoEditModeDraw">Рисовать</button>
-                </div>
-                <div class="photo-edit-stage-wrap" id="photoEditStageWrap">
-                    <div class="photo-edit-canvas-stack" id="photoEditCanvasStack">
-                        <canvas id="photoEditBase"></canvas>
-                        <canvas id="photoEditDraw"></canvas>
-                    </div>
-                </div>
-                <div class="photo-edit-draw-tools photo-edit-draw-tools-bottom" id="photoEditDrawTools" style="display: none;">
-                    <label>Цвет <input type="color" id="photoEditColor" value="#e11d48"></label>
-                    <label>Кисть <input type="range" id="photoEditBrush" min="2" max="24" value="6"></label>
+            <div class="photo-edit-bottom-bar">
+                <button type="button" class="photo-edit-bottom-btn" id="photoEditCancelBtn">Отмена</button>
+                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn active" id="photoEditModeCrop">Кадр</button>
+                <button type="button" class="photo-edit-bottom-btn photo-edit-mode-btn" id="photoEditModeDraw">Рисовать</button>
+                <div class="photo-edit-draw-tools" id="photoEditDrawTools" style="display: none;">
+                    <label><input type="color" id="photoEditColor" value="#e11d48"></label>
+                    <label><input type="range" id="photoEditBrush" min="2" max="24" value="6"></label>
                     <button type="button" class="photo-edit-clear-draw" id="photoEditClearDraw">Стереть</button>
                 </div>
-                <div class="avatar-crop-actions photo-edit-actions">
-                    <button type="button" class="avatar-crop-cancel" id="photoEditCancelBtn">Отмена</button>
-                    <button type="button" class="avatar-crop-apply" id="photoEditSendBtn">Отправить</button>
-                </div>
+                <button type="button" class="photo-edit-bottom-btn photo-edit-done-btn" id="photoEditSendBtn">Готово</button>
             </div>
         </div>
     </div>
@@ -2444,6 +2434,7 @@
         const photoEditBase = document.getElementById("photoEditBase");
         const photoEditDraw = document.getElementById("photoEditDraw");
         const photoEditStageWrapEl = document.getElementById("photoEditStageWrap");
+        const photoEditCanvasStackEl = document.getElementById("photoEditCanvasStack");
 
         const chatPhotoEdit = {
             img: null,
@@ -2586,6 +2577,14 @@
             const img = new Image();
             img.onload = () => {
                 chatPhotoEdit.img = img;
+                const maxW = 1200;
+                const maxH = 760;
+                const fitScale = Math.min(maxW / img.width, maxH / img.height, 1.8);
+                chatPhotoEdit.viewW = Math.max(360, Math.round(img.width * fitScale));
+                chatPhotoEdit.viewH = Math.max(260, Math.round(img.height * fitScale));
+                if (photoEditCanvasStackEl) {
+                    photoEditCanvasStackEl.style.aspectRatio = chatPhotoEdit.viewW + " / " + chatPhotoEdit.viewH;
+                }
                 chatPhotoEdit.cropL = 0;
                 chatPhotoEdit.cropT = 0;
                 chatPhotoEdit.cropR = 0;
