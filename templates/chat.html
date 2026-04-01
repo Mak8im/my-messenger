@@ -30,19 +30,15 @@
                     <div
                         class="avatar avatar-tappable-preview"
                         id="sidebarAvatar"
-                        {% if current_user.avatar %}
                         role="button"
                         tabindex="0"
                         title="Показать аватар"
                         aria-label="Показать аватар крупно"
-                        {% else %}
-                        style="display: none;"
-                        hidden
-                        aria-hidden="true"
-                        {% endif %}
                     >
                         {% if current_user.avatar %}
                             <img src="/avatars/{{ current_user.avatar }}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                        {% else %}
+                            {{ current_user.email[0]|upper }}
                         {% endif %}
                     </div>
                     <div class="tg-current-user-meta">
@@ -1055,23 +1051,17 @@
             if (sidebarAvatar) {
                 if (profile.avatar) {
                     sidebarAvatar.innerHTML = `<img src="${profile.avatar}" alt="" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-                    sidebarAvatar.style.display = "";
-                    sidebarAvatar.removeAttribute("hidden");
-                    sidebarAvatar.removeAttribute("aria-hidden");
-                    sidebarAvatar.setAttribute("role", "button");
-                    sidebarAvatar.setAttribute("tabindex", "0");
-                    sidebarAvatar.title = "Показать аватар";
-                    sidebarAvatar.setAttribute("aria-label", "Показать аватар крупно");
                 } else {
-                    sidebarAvatar.innerHTML = "";
-                    sidebarAvatar.style.display = "none";
-                    sidebarAvatar.setAttribute("hidden", "");
-                    sidebarAvatar.setAttribute("aria-hidden", "true");
-                    sidebarAvatar.removeAttribute("role");
-                    sidebarAvatar.removeAttribute("tabindex");
-                    sidebarAvatar.removeAttribute("title");
-                    sidebarAvatar.removeAttribute("aria-label");
+                    const em = profile.email || "";
+                    sidebarAvatar.innerHTML = em ? em.charAt(0).toUpperCase() : "?";
                 }
+                sidebarAvatar.style.display = "";
+                sidebarAvatar.removeAttribute("hidden");
+                sidebarAvatar.removeAttribute("aria-hidden");
+                sidebarAvatar.setAttribute("role", "button");
+                sidebarAvatar.setAttribute("tabindex", "0");
+                sidebarAvatar.title = "Показать аватар";
+                sidebarAvatar.setAttribute("aria-label", "Показать аватар крупно");
             }
         }
         
@@ -2328,12 +2318,10 @@
         const sidebarAvatarEl = document.getElementById("sidebarAvatar");
         if (sidebarAvatarEl) {
             sidebarAvatarEl.addEventListener("click", (e) => {
-                if (sidebarAvatarEl.style.display === "none" || sidebarAvatarEl.hasAttribute("hidden")) return;
                 e.stopPropagation();
                 openAvatarPreviewModal(sidebarAvatarEl);
             });
             sidebarAvatarEl.addEventListener("keydown", (e) => {
-                if (sidebarAvatarEl.style.display === "none" || sidebarAvatarEl.hasAttribute("hidden")) return;
                 if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     openAvatarPreviewModal(sidebarAvatarEl);
