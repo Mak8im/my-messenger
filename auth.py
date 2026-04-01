@@ -1,4 +1,5 @@
 from passlib.context import CryptContext
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from models import User
 
@@ -14,6 +15,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def create_user(db: Session, email: str, password: str):
+    email = (email or "").strip()
+    if not email:
+        return None
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
         return None
@@ -22,10 +26,14 @@ def create_user(db: Session, email: str, password: str):
         email=email,
         password=hash_password(password)
     )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return new_user
+    except IntegrityError:
+        db.rollback()
+        return None
 
 
 def authenticate_user(db: Session, identifier: str, password: str):
@@ -33,6 +41,10 @@ def authenticate_user(db: Session, identifier: str, password: str):
     Проверяет пользователя по email или username (с @)
     Пример: "user@mail.com" или "@username"
     """
+    identifier = (identifier or "").strip()
+    if not identifier:
+        return None
+
     user = None
     
     # Если введено что-то с @ и похоже на email (содержит точку после @)
@@ -46,7 +58,11 @@ def authenticate_user(db: Session, identifier: str, password: str):
     if not user:
         return None
 
-    if not verify_password(password, user.password):
+    try:
+        ok = verify_password(password, user.password)
+    except (ValueError, TypeError):
+        return None
+    if not ok:
         return None
 
     return user
