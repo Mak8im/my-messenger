@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{{ error_title or "Ошибка" }} — Messenger</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <meta name="theme-color" content="#b91c1c">
+</head>
+<body class="auth-page error-server-page">
+    <div class="auth-wrapper">
+        <div class="auth-left">
+            <div class="brand-badge brand-badge--error">Messenger</div>
+            <h1 class="auth-title-big">{{ error_title or "Что-то пошло не так" }}</h1>
+            <p class="auth-description">
+                {{ error_summary or "На сервере произошла ошибка. Попробуй обновить страницу или зайти позже." }}
+            </p>
+        </div>
+        <div class="auth-right">
+            <div class="auth-card error-server-card">
+                <div class="error-server-code">500</div>
+                <h2 class="auth-card-title">Internal Server Error</h2>
+                <p class="error-server-reason-label">Причина</p>
+                <div class="error-server-reason">{{ error_reason or "Неизвестная ошибка" }}</div>
+                {% if show_traceback and traceback %}
+                <details class="error-server-details">
+                    <summary>Технические подробности</summary>
+                    <pre class="error-server-trace">{{ traceback }}</pre>
+                </details>
+                {% endif %}
+                <div class="error-server-actions">
+                    <a href="/" class="auth-button error-server-btn">На страницу входа</a>
+                    <button type="button" class="error-server-secondary" onclick="window.location.reload()">Обновить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
