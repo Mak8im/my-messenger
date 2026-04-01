@@ -299,6 +299,16 @@
                         <div class="settings-item-arrow">→</div>
                     </div>
                     {% endif %}
+                    <div class="settings-item-row" id="darkModeRow">
+                        <div class="settings-item-info">
+                            <div class="settings-item-label">Ночной режим</div>
+                            <div class="settings-item-description">Тёмная тема интерфейса</div>
+                        </div>
+                        <label class="switch" for="darkModeToggle">
+                            <input type="checkbox" id="darkModeToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="settings-logout">
                         <a href="/logout" class="settings-logout-btn">Выйти из аккаунта</a>
                     </div>
@@ -572,8 +582,12 @@
                     </span>
                 </button>
                 <div class="photo-edit-draw-tools" id="photoEditDrawTools" style="display: none;">
+                    <button type="button" class="photo-edit-tool-btn active" id="photoEditToolBrush">Кисть</button>
+                    <button type="button" class="photo-edit-tool-btn" id="photoEditToolEraser">Ластик</button>
                     <label><input type="color" id="photoEditColor" value="#e11d48"></label>
                     <label><input type="range" id="photoEditBrush" min="2" max="24" value="6"></label>
+                    <button type="button" class="photo-edit-clear-draw" id="photoEditUndoBtn">Назад</button>
+                    <button type="button" class="photo-edit-clear-draw" id="photoEditRedoBtn">Вперёд</button>
                     <button type="button" class="photo-edit-clear-draw" id="photoEditClearDraw">Стереть</button>
                 </div>
                 <button type="button" class="photo-edit-bottom-btn photo-edit-done-btn" id="photoEditSendBtn">Готово</button>
@@ -581,8 +595,10 @@
         </div>
     </div>
     <div id="chatPhotoPreviewModal" class="modal-overlay photo-preview-overlay" style="display:none;">
+        <button type="button" class="photo-preview-nav photo-preview-prev" id="chatPhotoPreviewPrev" aria-label="Предыдущее">‹</button>
         <button type="button" class="photo-preview-close" id="chatPhotoPreviewClose" aria-label="Закрыть">&times;</button>
         <img id="chatPhotoPreviewImg" class="photo-preview-img" alt="preview">
+        <button type="button" class="photo-preview-nav photo-preview-next" id="chatPhotoPreviewNext" aria-label="Следующее">›</button>
     </div>
     {% endif %}
 
@@ -602,6 +618,8 @@
         let isCurrentlyTyping = false;
         let userStatuses = {};
         let currentNotificationSound = "default";
+        const prefersDarkScheme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        let darkModeEnabled = localStorage.getItem("dark_mode") === null ? prefersDarkScheme : localStorage.getItem("dark_mode") === "1";
         
         let messageStatuses = {};
 
@@ -962,6 +980,15 @@
             stars: document.getElementById("starsModal"),
             backup: document.getElementById("backupModal")
         };
+
+        function applyDarkModeState() {
+            document.body.classList.toggle("theme-dark", darkModeEnabled);
+            const metaTheme = document.querySelector('meta[name="theme-color"]');
+            if (metaTheme) metaTheme.setAttribute("content", darkModeEnabled ? "#0f172a" : "#3390ec");
+            const darkToggle = document.getElementById("darkModeToggle");
+            if (darkToggle) darkToggle.checked = darkModeEnabled;
+        }
+        applyDarkModeState();
         
         function openModal(modalId) {
             if (modals[modalId]) {
@@ -1018,6 +1045,18 @@
         
         const settingsTrigger = document.getElementById("settingsTrigger");
         if (settingsTrigger) settingsTrigger.addEventListener("click", () => openModal("main"));
+        document.getElementById("darkModeToggle")?.addEventListener("change", (e) => {
+            darkModeEnabled = !!e.target.checked;
+            localStorage.setItem("dark_mode", darkModeEnabled ? "1" : "0");
+            applyDarkModeState();
+        });
+        document.getElementById("darkModeRow")?.addEventListener("click", (e) => {
+            if (e.target.closest("input")) return;
+            const t = document.getElementById("darkModeToggle");
+            if (!t) return;
+            t.checked = !t.checked;
+            t.dispatchEvent(new Event("change"));
+        });
         
         for (let key in modals) {
             const modal = modals[key];
@@ -2452,8 +2491,39 @@
             mode: "crop",
             edgeDrag: null,
             lastCanvasX: 0,
-            lastCanvasY: 0
+            lastCanvasY: 0,
+            drawTool: "brush",
+            history: [],
+            historyIndex: -1
         };
+
+        function saveDrawSnapshot() {
+            if (!photoEditDraw) return;
+            try {
+                const snap = photoEditDraw.toDataURL("image/png");
+                if (chatPhotoEdit.historyIndex < chatPhotoEdit.history.length - 1) {
+                    chatPhotoEdit.history = chatPhotoEdit.history.slice(0, chatPhotoEdit.historyIndex + 1);
+                }
+                chatPhotoEdit.history.push(snap);
+                if (chatPhotoEdit.history.length > 30) chatPhotoEdit.history.shift();
+                chatPhotoEdit.historyIndex = chatPhotoEdit.history.length - 1;
+            } catch (err) {}
+        }
+
+        function restoreDrawSnapshot(step) {
+            if (!photoEditDraw || !chatPhotoEdit.history.length) return;
+            const next = chatPhotoEdit.historyIndex + step;
+            if (next < 0 || next >= chatPhotoEdit.history.length) return;
+            const dataUrl = chatPhotoEdit.history[next];
+            const img = new Image();
+            img.onload = () => {
+                const ctx = photoEditDraw.getContext("2d");
+                ctx.clearRect(0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
+                ctx.drawImage(img, 0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
+                chatPhotoEdit.historyIndex = next;
+            };
+            img.src = dataUrl;
+        }
 
         function chatPhotoFitMetrics() {
             const img = chatPhotoEdit.img;
@@ -2647,10 +2717,16 @@
                 photoEditDraw.width = chatPhotoEdit.viewW;
                 photoEditDraw.height = chatPhotoEdit.viewH;
                 photoEditDraw.getContext("2d").clearRect(0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
+                chatPhotoEdit.history = [];
+                chatPhotoEdit.historyIndex = -1;
+                chatPhotoEdit.drawTool = "brush";
+                document.getElementById("photoEditToolBrush")?.classList.add("active");
+                document.getElementById("photoEditToolEraser")?.classList.remove("active");
                 setChatPhotoEditMode("crop");
                 redrawChatPhotoBase();
                 photoEditModal.style.display = "flex";
                 document.body.style.overflow = "hidden";
+                saveDrawSnapshot();
             };
             img.onerror = () => {
                 URL.revokeObjectURL(chatPhotoEdit.objectUrl);
@@ -2810,6 +2886,7 @@
                 ctx.lineWidth = br ? parseInt(br.value, 10) || 6 : 6;
                 ctx.lineCap = "round";
                 ctx.lineJoin = "round";
+                ctx.globalCompositeOperation = chatPhotoEdit.drawTool === "eraser" ? "destination-out" : "source-over";
                 const xy = photoEditCanvasXY(e, photoEditDraw);
                 ctx.beginPath();
                 ctx.moveTo(photoEditLastXY[0], photoEditLastXY[1]);
@@ -2819,6 +2896,7 @@
             });
             photoEditDraw.addEventListener("pointerup", (e) => {
                 photoEditDrawing = false;
+                saveDrawSnapshot();
                 try {
                     photoEditDraw.releasePointerCapture(e.pointerId);
                 } catch (err) {}
@@ -2830,7 +2908,22 @@
 
         document.getElementById("photoEditClearDraw")?.addEventListener("click", () => {
             const ctx = photoEditDraw?.getContext("2d");
-            if (ctx) ctx.clearRect(0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
+            if (ctx) {
+                ctx.clearRect(0, 0, chatPhotoEdit.viewW, chatPhotoEdit.viewH);
+                saveDrawSnapshot();
+            }
+        });
+        document.getElementById("photoEditUndoBtn")?.addEventListener("click", () => restoreDrawSnapshot(-1));
+        document.getElementById("photoEditRedoBtn")?.addEventListener("click", () => restoreDrawSnapshot(1));
+        document.getElementById("photoEditToolBrush")?.addEventListener("click", () => {
+            chatPhotoEdit.drawTool = "brush";
+            document.getElementById("photoEditToolBrush")?.classList.add("active");
+            document.getElementById("photoEditToolEraser")?.classList.remove("active");
+        });
+        document.getElementById("photoEditToolEraser")?.addEventListener("click", () => {
+            chatPhotoEdit.drawTool = "eraser";
+            document.getElementById("photoEditToolEraser")?.classList.add("active");
+            document.getElementById("photoEditToolBrush")?.classList.remove("active");
         });
 
         document.getElementById("photoEditModeCrop")?.addEventListener("click", () => setChatPhotoEditMode("crop"));
@@ -2868,12 +2961,28 @@
         const chatPhotoPreviewModal = document.getElementById("chatPhotoPreviewModal");
         const chatPhotoPreviewImg = document.getElementById("chatPhotoPreviewImg");
         const chatPhotoPreviewClose = document.getElementById("chatPhotoPreviewClose");
+        const chatPhotoPreviewPrev = document.getElementById("chatPhotoPreviewPrev");
+        const chatPhotoPreviewNext = document.getElementById("chatPhotoPreviewNext");
+        let chatGalleryItems = [];
+        let chatGalleryIndex = -1;
+        let chatPreviewTouchX = 0;
 
         function openChatPhotoPreview(src) {
             if (!chatPhotoPreviewModal || !chatPhotoPreviewImg || !src) return;
+            chatGalleryItems = Array.from(document.querySelectorAll(".js-chat-photo-open"));
+            chatGalleryIndex = chatGalleryItems.findIndex((a) => a.getAttribute("href") === src || a.querySelector("img")?.src === src);
+            if (chatGalleryIndex < 0) chatGalleryIndex = 0;
             chatPhotoPreviewImg.src = src;
             chatPhotoPreviewModal.style.display = "flex";
             document.body.style.overflow = "hidden";
+        }
+        function showChatGalleryAt(index) {
+            if (!chatGalleryItems.length || !chatPhotoPreviewImg) return;
+            const n = chatGalleryItems.length;
+            chatGalleryIndex = (index + n) % n;
+            const link = chatGalleryItems[chatGalleryIndex];
+            const src = (link.querySelector("img") && link.querySelector("img").src) || link.getAttribute("href");
+            if (src) chatPhotoPreviewImg.src = src;
         }
 
         function closeChatPhotoPreview() {
@@ -2891,8 +3000,26 @@
             openChatPhotoPreview((img && img.src) || link.getAttribute("href"));
         });
         chatPhotoPreviewClose?.addEventListener("click", closeChatPhotoPreview);
+        chatPhotoPreviewPrev?.addEventListener("click", () => showChatGalleryAt(chatGalleryIndex - 1));
+        chatPhotoPreviewNext?.addEventListener("click", () => showChatGalleryAt(chatGalleryIndex + 1));
         chatPhotoPreviewModal?.addEventListener("click", (e) => {
             if (e.target === chatPhotoPreviewModal) closeChatPhotoPreview();
+        });
+        chatPhotoPreviewModal?.addEventListener("touchstart", (e) => {
+            if (e.touches && e.touches[0]) chatPreviewTouchX = e.touches[0].clientX;
+        }, { passive: true });
+        chatPhotoPreviewModal?.addEventListener("touchend", (e) => {
+            if (!e.changedTouches || !e.changedTouches[0]) return;
+            const dx = e.changedTouches[0].clientX - chatPreviewTouchX;
+            if (Math.abs(dx) < 40) return;
+            if (dx < 0) showChatGalleryAt(chatGalleryIndex + 1);
+            else showChatGalleryAt(chatGalleryIndex - 1);
+        }, { passive: true });
+        window.addEventListener("keydown", (e) => {
+            if (!chatPhotoPreviewModal || chatPhotoPreviewModal.style.display !== "flex") return;
+            if (e.key === "ArrowLeft") showChatGalleryAt(chatGalleryIndex - 1);
+            if (e.key === "ArrowRight") showChatGalleryAt(chatGalleryIndex + 1);
+            if (e.key === "Escape") closeChatPhotoPreview();
         });
 
         if (photoInput && photoForm) {
