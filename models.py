@@ -65,3 +65,16 @@ class PushSubscription(Base):
     endpoint = Column(Text, nullable=False, unique=True)
     p256dh = Column(Text, nullable=False)
     auth = Column(Text, nullable=False)
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    session_token = Column(String(64), unique=True, nullable=False, index=True)
+    device_name = Column(String(128), nullable=False, default="Устройство")
+    user_agent = Column(Text, nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    last_activity = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=True)
