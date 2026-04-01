@@ -27,11 +27,22 @@
                 </div>
 
                 <div class="tg-current-user">
-а                    <div class="avatar avatar-tappable-preview" id="sidebarAvatar" role="button" tabindex="0" title="Показать аватар" aria-label="Показать аватар крупно">
+                    <div
+                        class="avatar avatar-tappable-preview"
+                        id="sidebarAvatar"
                         {% if current_user.avatar %}
-                            <img src="/avatars/{{ current_user.avatar }}" style="width: 100%; height: 100%; object-fit: cover;">
+                        role="button"
+                        tabindex="0"
+                        title="Показать аватар"
+                        aria-label="Показать аватар крупно"
                         {% else %}
-                            {{ current_user.email[0]|upper }}
+                        style="display: none;"
+                        hidden
+                        aria-hidden="true"
+                        {% endif %}
+                    >
+                        {% if current_user.avatar %}
+                            <img src="/avatars/{{ current_user.avatar }}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
                         {% endif %}
                     </div>
                     <div class="tg-current-user-meta">
@@ -537,6 +548,13 @@
     </div>
     {% endif %}
 
+    {% if not selected_user %}
+    <div class="tg-mobile-bottom-nav">
+        <button type="button" class="tg-mobile-tab active" id="tabChatsBtn">Чаты</button>
+        <button type="button" class="tg-mobile-tab" id="tabSettingsBtn">Настройки</button>
+    </div>
+    {% endif %}
+
     <script>
         // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
         const CURRENT_USER_ID = {{ current_user.id }};
@@ -924,10 +942,20 @@
             }
         }
         
+        function resetMobileSettingsTab() {
+            const tc = document.getElementById("tabChatsBtn");
+            const ts = document.getElementById("tabSettingsBtn");
+            if (tc && ts) {
+                tc.classList.add("active");
+                ts.classList.remove("active");
+            }
+        }
+
         function closeModal(modalId) {
             if (modals[modalId]) {
                 modals[modalId].style.display = "none";
                 document.body.style.overflow = "";
+                if (modalId === "main") resetMobileSettingsTab();
             }
         }
         
@@ -936,6 +964,7 @@
                 if (modals[key]) modals[key].style.display = "none";
             }
             document.body.style.overflow = "";
+            resetMobileSettingsTab();
         }
         
         document.querySelectorAll("[data-settings-page]").forEach(item => {
@@ -1025,9 +1054,23 @@
             const sidebarAvatar = document.getElementById("sidebarAvatar");
             if (sidebarAvatar) {
                 if (profile.avatar) {
-                    sidebarAvatar.innerHTML = `<img src="${profile.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                    sidebarAvatar.innerHTML = `<img src="${profile.avatar}" alt="" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                    sidebarAvatar.style.display = "";
+                    sidebarAvatar.removeAttribute("hidden");
+                    sidebarAvatar.removeAttribute("aria-hidden");
+                    sidebarAvatar.setAttribute("role", "button");
+                    sidebarAvatar.setAttribute("tabindex", "0");
+                    sidebarAvatar.title = "Показать аватар";
+                    sidebarAvatar.setAttribute("aria-label", "Показать аватар крупно");
                 } else {
-                    sidebarAvatar.innerHTML = profile.email[0].toUpperCase();
+                    sidebarAvatar.innerHTML = "";
+                    sidebarAvatar.style.display = "none";
+                    sidebarAvatar.setAttribute("hidden", "");
+                    sidebarAvatar.setAttribute("aria-hidden", "true");
+                    sidebarAvatar.removeAttribute("role");
+                    sidebarAvatar.removeAttribute("tabindex");
+                    sidebarAvatar.removeAttribute("title");
+                    sidebarAvatar.removeAttribute("aria-label");
                 }
             }
         }
@@ -2285,10 +2328,12 @@
         const sidebarAvatarEl = document.getElementById("sidebarAvatar");
         if (sidebarAvatarEl) {
             sidebarAvatarEl.addEventListener("click", (e) => {
+                if (sidebarAvatarEl.style.display === "none" || sidebarAvatarEl.hasAttribute("hidden")) return;
                 e.stopPropagation();
                 openAvatarPreviewModal(sidebarAvatarEl);
             });
             sidebarAvatarEl.addEventListener("keydown", (e) => {
+                if (sidebarAvatarEl.style.display === "none" || sidebarAvatarEl.hasAttribute("hidden")) return;
                 if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     openAvatarPreviewModal(sidebarAvatarEl);
@@ -2387,6 +2432,20 @@
                     const username = (item.dataset.userUsername || "").toLowerCase();
                     item.style.display = (name.includes(val) || username.includes(val)) ? "" : "none";
                 });
+            });
+        }
+
+        const tabChatsBtn = document.getElementById("tabChatsBtn");
+        const tabSettingsBtn = document.getElementById("tabSettingsBtn");
+        if (tabChatsBtn && tabSettingsBtn) {
+            tabChatsBtn.addEventListener("click", () => {
+                tabChatsBtn.classList.add("active");
+                tabSettingsBtn.classList.remove("active");
+            });
+            tabSettingsBtn.addEventListener("click", () => {
+                tabSettingsBtn.classList.add("active");
+                tabChatsBtn.classList.remove("active");
+                openModal("main");
             });
         }
     </script>
