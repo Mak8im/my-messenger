@@ -1727,7 +1727,7 @@ input:checked + .slider:before {
     }
 
     .tg-settings-trigger {
-        bottom: max(20px, env(safe-area-inset-bottom));
+        display: none;
     }
     
     .sidebar {
@@ -1736,7 +1736,7 @@ input:checked + .slider:before {
         height: 100%;
         max-height: 100dvh;
         border-right: none;
-        padding-bottom: 0;
+        padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
     }
     
     .chat-area {
@@ -1794,6 +1794,35 @@ input:checked + .slider:before {
     
     .chat-photo {
         max-width: 180px;
+    }
+
+    .tg-mobile-bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        background: rgba(255, 255, 255, 0.97);
+        border-top: 1px solid #e5e7eb;
+        backdrop-filter: blur(12px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        z-index: 30;
+    }
+
+    .tg-mobile-tab {
+        border: none;
+        background: transparent;
+        padding: 14px 10px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+        font-family: inherit;
+    }
+
+    .tg-mobile-tab.active {
+        color: #3390ec;
     }
 
     .voice-recording-indicator {
