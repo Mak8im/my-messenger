@@ -307,6 +307,28 @@ body:not(.auth-page) {
     background:
         radial-gradient(circle at top left, rgba(255,255,255,0.6), rgba(255,255,255,0) 30%),
         #e7ebf0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(51, 144, 236, 0.42) rgba(220, 228, 236, 0.75);
+}
+
+.messages-box::-webkit-scrollbar {
+    width: 7px;
+}
+
+.messages-box::-webkit-scrollbar-track {
+    background: rgba(220, 228, 236, 0.65);
+    border-radius: 10px;
+    margin: 4px 0;
+}
+
+.messages-box::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(51, 144, 236, 0.55), rgba(83, 189, 235, 0.45));
+    border-radius: 10px;
+    border: 2px solid rgba(231, 235, 240, 0.9);
+}
+
+.messages-box::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(51, 144, 236, 0.75), rgba(83, 189, 235, 0.6));
 }
 
 .message-row {
@@ -686,6 +708,25 @@ body:not(.auth-page) {
     overflow-x: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(51, 144, 236, 0.35) rgba(241, 243, 245, 0.9);
+}
+
+.tg-dialogs-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tg-dialogs-list::-webkit-scrollbar-track {
+    background: rgba(241, 243, 245, 0.85);
+}
+
+.tg-dialogs-list::-webkit-scrollbar-thumb {
+    background: rgba(51, 144, 236, 0.4);
+    border-radius: 8px;
+}
+
+.tg-dialogs-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(51, 144, 236, 0.58);
 }
 
 .tg-dialog-item {
@@ -1641,16 +1682,37 @@ input:checked + .slider:before {
     touch-action: none;
 }
 
+.photo-edit-transform-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .photo-edit-bottom-bar {
     margin-top: 8px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     padding: 8px 10px;
     border-radius: 12px;
     background: rgba(8, 12, 20, 0.75);
     border: 1px solid rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(8px);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.photo-edit-bottom-btn.photo-edit-icon-only {
+    min-width: 40px;
+    padding: 8px;
+}
+
+.photo-edit-icon-only .photo-edit-btn-icon {
+    width: 22px;
+    height: 22px;
 }
 
 .photo-edit-bottom-btn {
@@ -1699,7 +1761,9 @@ input:checked + .slider:before {
 .photo-edit-draw-tools {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .photo-edit-tool-btn {
@@ -1713,9 +1777,43 @@ input:checked + .slider:before {
     font-family: inherit;
 }
 
+.photo-edit-tool-btn.photo-edit-icon-only {
+    padding: 8px;
+    min-width: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.photo-edit-tool-btn.photo-edit-icon-only svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+.photo-edit-clear-draw.photo-edit-icon-only {
+    min-width: 40px;
+    padding: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.photo-edit-clear-draw.photo-edit-icon-only svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
 .photo-edit-tool-btn.active {
     background: rgba(51, 144, 236, 0.4);
     color: #fff;
+}
+
+.photo-edit-color-wrap,
+.photo-edit-brush-wrap {
+    display: inline-flex;
+    align-items: center;
 }
 
 .photo-edit-draw-tools label {
