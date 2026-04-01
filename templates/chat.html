@@ -560,7 +560,7 @@
             </div>
             <div class="modal-body photo-edit-body photo-edit-mode-crop">
                 <p class="tg-settings-text" style="margin-top: 0; margin-bottom: 10px; font-size: 13px;">
-                    <strong>Кадр</strong> — двигай и масштабируй. <strong>Рисовать</strong> — кисть по фото. Потом «Отправить».
+                    <strong>Кадр</strong> — тяни края рамки, чтобы убрать лишнее с фото. <strong>Рисовать</strong> — кисть внизу. Потом «Отправить».
                 </p>
                 <div class="photo-edit-modes">
                     <button type="button" class="photo-edit-mode-btn active" id="photoEditModeCrop">Кадр</button>
@@ -572,11 +572,7 @@
                         <canvas id="photoEditDraw"></canvas>
                     </div>
                 </div>
-                <div class="photo-edit-zoom-row">
-                    <label for="photoEditZoom">Масштаб</label>
-                    <input type="range" id="photoEditZoom" min="1" max="3" step="0.02" value="1">
-                </div>
-                <div class="photo-edit-draw-tools" id="photoEditDrawTools" style="display: none;">
+                <div class="photo-edit-draw-tools photo-edit-draw-tools-bottom" id="photoEditDrawTools" style="display: none;">
                     <label>Цвет <input type="color" id="photoEditColor" value="#e11d48"></label>
                     <label>Кисть <input type="range" id="photoEditBrush" min="2" max="24" value="6"></label>
                     <button type="button" class="photo-edit-clear-draw" id="photoEditClearDraw">Стереть</button>
@@ -2447,7 +2443,6 @@
         const photoEditModal = document.getElementById("photoEditModal");
         const photoEditBase = document.getElementById("photoEditBase");
         const photoEditDraw = document.getElementById("photoEditDraw");
-        const photoEditZoomEl = document.getElementById("photoEditZoom");
         const photoEditStageWrapEl = document.getElementById("photoEditStageWrap");
 
         const chatPhotoEdit = {
@@ -2455,16 +2450,79 @@
             objectUrl: null,
             viewW: 340,
             viewH: 420,
-            panX: 0,
-            panY: 0,
+            cropL: 0,
+            cropT: 0,
+            cropR: 0,
+            cropB: 0,
             mode: "crop",
-            dragging: false,
-            lastPointerX: 0,
-            lastPointerY: 0,
-            pinchMode: false,
-            pinchStartDistance: 0,
-            pinchStartZoom: 1
+            edgeDrag: null,
+            lastCanvasX: 0,
+            lastCanvasY: 0
         };
+
+        function chatPhotoFitMetrics() {
+            const img = chatPhotoEdit.img;
+            const w = chatPhotoEdit.viewW;
+            const h = chatPhotoEdit.viewH;
+            const s = Math.min(w / img.width, h / img.height);
+            const ox = (w - img.width * s) / 2;
+            const oy = (h - img.height * s) / 2;
+            return { s, ox, oy, iw: img.width, ih: img.height };
+        }
+
+        function chatPhotoCropMinSize() {
+            const { iw, ih } = chatPhotoFitMetrics();
+            return Math.max(32, Math.floor(Math.min(iw, ih) * 0.08));
+        }
+
+        function clampChatPhotoCrops() {
+            if (!chatPhotoEdit.img) return;
+            const { iw, ih } = chatPhotoFitMetrics();
+            const minW = chatPhotoCropMinSize();
+            const minH = chatPhotoCropMinSize();
+            chatPhotoEdit.cropL = Math.max(0, Math.min(chatPhotoEdit.cropL, iw - 1));
+            chatPhotoEdit.cropR = Math.max(0, Math.min(chatPhotoEdit.cropR, iw - 1));
+            chatPhotoEdit.cropT = Math.max(0, Math.min(chatPhotoEdit.cropT, ih - 1));
+            chatPhotoEdit.cropB = Math.max(0, Math.min(chatPhotoEdit.cropB, ih - 1));
+            if (iw - chatPhotoEdit.cropL - chatPhotoEdit.cropR < minW) {
+                const over = minW - (iw - chatPhotoEdit.cropL - chatPhotoEdit.cropR);
+                const takeL = Math.min(over, chatPhotoEdit.cropL);
+                chatPhotoEdit.cropL -= takeL;
+                chatPhotoEdit.cropR = Math.max(0, iw - minW - chatPhotoEdit.cropL);
+            }
+            if (ih - chatPhotoEdit.cropT - chatPhotoEdit.cropB < minH) {
+                const over = minH - (ih - chatPhotoEdit.cropT - chatPhotoEdit.cropB);
+                const takeT = Math.min(over, chatPhotoEdit.cropT);
+                chatPhotoEdit.cropT -= takeT;
+                chatPhotoEdit.cropB = Math.max(0, ih - minH - chatPhotoEdit.cropT);
+            }
+        }
+
+        function cropViewRect() {
+            const { s, ox, oy, iw, ih } = chatPhotoFitMetrics();
+            clampChatPhotoCrops();
+            return {
+                x0: ox + chatPhotoEdit.cropL * s,
+                y0: oy + chatPhotoEdit.cropT * s,
+                x1: ox + (iw - chatPhotoEdit.cropR) * s,
+                y1: oy + (ih - chatPhotoEdit.cropB) * s
+            };
+        }
+
+        function pickPhotoCropEdge(px, py) {
+            const t = 18;
+            const { x0, y0, x1, y1 } = cropViewRect();
+            const inV = py >= y0 - t && py <= y1 + t;
+            const inH = px >= x0 - t && px <= x1 + t;
+            const c = [];
+            if (inV && Math.abs(px - x0) <= t) c.push(["l", Math.abs(px - x0)]);
+            if (inV && Math.abs(px - x1) <= t) c.push(["r", Math.abs(px - x1)]);
+            if (inH && Math.abs(py - y0) <= t) c.push(["t", Math.abs(py - y0)]);
+            if (inH && Math.abs(py - y1) <= t) c.push(["b", Math.abs(py - y1)]);
+            if (!c.length) return null;
+            c.sort((a, b) => a[1] - b[1]);
+            return c[0][0];
+        }
 
         function photoEditCanvasXY(ev, canvas) {
             const r = canvas.getBoundingClientRect();
@@ -2483,22 +2541,29 @@
                 photoEditBase.width = w;
                 photoEditBase.height = h;
             }
+            clampChatPhotoCrops();
             const ctx = photoEditBase.getContext("2d");
             const img = chatPhotoEdit.img;
-            const zoom = photoEditZoomEl ? parseFloat(photoEditZoomEl.value) || 1 : 1;
-            const base = Math.max(w / img.width, h / img.height);
-            const scale = base * zoom;
-            const dw = img.width * scale;
-            const dh = img.height * scale;
-            const cx = w / 2;
-            const cy = h / 2;
+            const { s, ox, oy, iw, ih } = chatPhotoFitMetrics();
             ctx.fillStyle = "#111";
             ctx.fillRect(0, 0, w, h);
-            ctx.drawImage(img, cx - dw / 2 + chatPhotoEdit.panX, cy - dh / 2 + chatPhotoEdit.panY, dw, dh);
+            ctx.drawImage(img, 0, 0, iw, ih, ox, oy, iw * s, ih * s);
+            const { x0, y0, x1, y1 } = cropViewRect();
+            ctx.save();
+            ctx.fillStyle = "rgba(0,0,0,0.52)";
+            ctx.beginPath();
+            ctx.rect(0, 0, w, h);
+            ctx.rect(x0, y0, x1 - x0, y1 - y0);
+            ctx.fill("evenodd");
+            ctx.restore();
+            ctx.strokeStyle = "rgba(255,255,255,0.95)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
         }
 
         function setChatPhotoEditMode(mode) {
             chatPhotoEdit.mode = mode;
+            chatPhotoEdit.edgeDrag = null;
             const body = document.querySelector(".photo-edit-body");
             if (body) {
                 body.classList.toggle("photo-edit-mode-crop", mode === "crop");
@@ -2521,11 +2586,11 @@
             const img = new Image();
             img.onload = () => {
                 chatPhotoEdit.img = img;
-                chatPhotoEdit.panX = 0;
-                chatPhotoEdit.panY = 0;
-                chatPhotoEdit.pinchMode = false;
-                chatPhotoEdit.dragging = false;
-                if (photoEditZoomEl) photoEditZoomEl.value = "1";
+                chatPhotoEdit.cropL = 0;
+                chatPhotoEdit.cropT = 0;
+                chatPhotoEdit.cropR = 0;
+                chatPhotoEdit.cropB = 0;
+                chatPhotoEdit.edgeDrag = null;
                 photoEditBase.width = chatPhotoEdit.viewW;
                 photoEditBase.height = chatPhotoEdit.viewH;
                 photoEditDraw.width = chatPhotoEdit.viewW;
@@ -2550,6 +2615,7 @@
                 chatPhotoEdit.objectUrl = null;
             }
             chatPhotoEdit.img = null;
+            chatPhotoEdit.edgeDrag = null;
             if (photoEditModal) photoEditModal.style.display = "none";
             document.body.style.overflow = "";
             if (photoInput) photoInput.value = "";
@@ -2557,147 +2623,105 @@
 
         function exportChatPhotoBlob(callback) {
             if (!chatPhotoEdit.img || !photoEditBase || !photoEditDraw) return;
-            const w = chatPhotoEdit.viewW;
-            const h = chatPhotoEdit.viewH;
             const img = chatPhotoEdit.img;
-            const zoom = photoEditZoomEl ? parseFloat(photoEditZoomEl.value) || 1 : 1;
-            const dpr = Math.min(1600 / Math.max(w, h), 3);
-            const outW = Math.round(w * dpr);
-            const outH = Math.round(h * dpr);
+            clampChatPhotoCrops();
+            const sw = img.width - chatPhotoEdit.cropL - chatPhotoEdit.cropR;
+            const sh = img.height - chatPhotoEdit.cropT - chatPhotoEdit.cropB;
+            if (sw < 1 || sh < 1) return;
+            const dpr = Math.min(1600 / Math.max(sw, sh), 3);
+            const outW = Math.round(sw * dpr);
+            const outH = Math.round(sh * dpr);
+            const { x0, y0, x1, y1 } = cropViewRect();
+            const vx0 = x0;
+            const vy0 = y0;
+            const vww = x1 - x0;
+            const vhh = y1 - y0;
             const out = document.createElement("canvas");
             out.width = outW;
             out.height = outH;
             const octx = out.getContext("2d");
-            const baseS = Math.max(w / img.width, h / img.height);
-            const sc = baseS * zoom;
-            const dw = img.width * sc * dpr;
-            const dh = img.height * sc * dpr;
-            const cx = outW / 2;
-            const cy = outH / 2;
             octx.fillStyle = "#111";
             octx.fillRect(0, 0, outW, outH);
-            octx.drawImage(
-                img,
-                cx - dw / 2 + chatPhotoEdit.panX * dpr,
-                cy - dh / 2 + chatPhotoEdit.panY * dpr,
-                dw,
-                dh
-            );
-            octx.drawImage(photoEditDraw, 0, 0, w, h, 0, 0, outW, outH);
+            octx.drawImage(img, chatPhotoEdit.cropL, chatPhotoEdit.cropT, sw, sh, 0, 0, outW, outH);
+            octx.drawImage(photoEditDraw, vx0, vy0, vww, vhh, 0, 0, outW, outH);
             out.toBlob((blob) => callback(blob), "image/jpeg", 0.92);
         }
 
-        function chatPhotoTouchDist(touches) {
-            if (touches.length < 2) return 0;
-            const dx = touches[0].clientX - touches[1].clientX;
-            const dy = touches[0].clientY - touches[1].clientY;
-            return Math.hypot(dx, dy);
+        function applyEdgeDragMove(px, py) {
+            const { s } = chatPhotoFitMetrics();
+            const dx = (px - chatPhotoEdit.lastCanvasX) / s;
+            const dy = (py - chatPhotoEdit.lastCanvasY) / s;
+            chatPhotoEdit.lastCanvasX = px;
+            chatPhotoEdit.lastCanvasY = py;
+            const edge = chatPhotoEdit.edgeDrag;
+            if (edge === "l") chatPhotoEdit.cropL += dx;
+            else if (edge === "r") chatPhotoEdit.cropR -= dx;
+            else if (edge === "t") chatPhotoEdit.cropT += dy;
+            else if (edge === "b") chatPhotoEdit.cropB -= dy;
+            clampChatPhotoCrops();
+            redrawChatPhotoBase();
         }
 
         if (photoEditBase && photoEditStageWrapEl) {
             photoEditBase.addEventListener("mousedown", (e) => {
-                if (chatPhotoEdit.mode !== "crop" || e.button !== 0) return;
-                chatPhotoEdit.dragging = true;
-                chatPhotoEdit.lastPointerX = e.clientX;
-                chatPhotoEdit.lastPointerY = e.clientY;
+                if (chatPhotoEdit.mode !== "crop" || e.button !== 0 || !chatPhotoEdit.img) return;
+                const [px, py] = photoEditCanvasXY(e, photoEditBase);
+                const edge = pickPhotoCropEdge(px, py);
+                if (!edge) return;
+                e.preventDefault();
+                chatPhotoEdit.edgeDrag = edge;
+                chatPhotoEdit.lastCanvasX = px;
+                chatPhotoEdit.lastCanvasY = py;
             });
             window.addEventListener("mousemove", (e) => {
-                if (!chatPhotoEdit.dragging || chatPhotoEdit.mode !== "crop") return;
-                if (e.buttons !== 1) return;
-                chatPhotoEdit.panX += e.clientX - chatPhotoEdit.lastPointerX;
-                chatPhotoEdit.panY += e.clientY - chatPhotoEdit.lastPointerY;
-                chatPhotoEdit.lastPointerX = e.clientX;
-                chatPhotoEdit.lastPointerY = e.clientY;
-                redrawChatPhotoBase();
+                if (!chatPhotoEdit.edgeDrag || chatPhotoEdit.mode !== "crop" || !photoEditBase) return;
+                if (e.buttons !== 1) {
+                    chatPhotoEdit.edgeDrag = null;
+                    return;
+                }
+                const [px, py] = photoEditCanvasXY(e, photoEditBase);
+                applyEdgeDragMove(px, py);
             });
             window.addEventListener("mouseup", () => {
-                chatPhotoEdit.dragging = false;
+                chatPhotoEdit.edgeDrag = null;
+            });
+
+            photoEditBase.addEventListener("mousemove", (e) => {
+                if (chatPhotoEdit.mode !== "crop" || chatPhotoEdit.edgeDrag || !chatPhotoEdit.img) return;
+                const [px, py] = photoEditCanvasXY(e, photoEditBase);
+                const edge = pickPhotoCropEdge(px, py);
+                const cursors = { l: "ew-resize", r: "ew-resize", t: "ns-resize", b: "ns-resize" };
+                photoEditBase.style.cursor = edge ? cursors[edge] : "default";
             });
 
             photoEditStageWrapEl.addEventListener(
                 "touchstart",
                 (e) => {
-                    if (chatPhotoEdit.mode !== "crop" || !chatPhotoEdit.img) return;
-                    if (e.touches.length === 1) {
-                        chatPhotoEdit.dragging = true;
-                        chatPhotoEdit.lastPointerX = e.touches[0].clientX;
-                        chatPhotoEdit.lastPointerY = e.touches[0].clientY;
-                    }
+                    if (chatPhotoEdit.mode !== "crop" || !chatPhotoEdit.img || e.touches.length !== 1) return;
+                    const [px, py] = photoEditCanvasXY(e, photoEditBase);
+                    const edge = pickPhotoCropEdge(px, py);
+                    if (!edge) return;
+                    e.preventDefault();
+                    chatPhotoEdit.edgeDrag = edge;
+                    chatPhotoEdit.lastCanvasX = px;
+                    chatPhotoEdit.lastCanvasY = py;
                 },
-                { passive: true }
+                { passive: false }
             );
 
             photoEditStageWrapEl.addEventListener(
                 "touchmove",
                 (e) => {
-                    if (!chatPhotoEdit.img || chatPhotoEdit.mode !== "crop") return;
-                    if (e.touches.length >= 2) {
-                        e.preventDefault();
-                        const d = chatPhotoTouchDist(e.touches);
-                        if (d < 2) return;
-                        if (!chatPhotoEdit.pinchMode) {
-                            chatPhotoEdit.pinchMode = true;
-                            chatPhotoEdit.dragging = false;
-                            chatPhotoEdit.pinchStartDistance = d;
-                            chatPhotoEdit.pinchStartZoom = parseFloat(photoEditZoomEl.value) || 1;
-                        } else {
-                            const ratio = d / chatPhotoEdit.pinchStartDistance;
-                            let z = chatPhotoEdit.pinchStartZoom * ratio;
-                            z = Math.max(1, Math.min(3, z));
-                            if (photoEditZoomEl) photoEditZoomEl.value = String(z);
-                            chatPhotoEdit.pinchStartDistance = d;
-                            chatPhotoEdit.pinchStartZoom = z;
-                            redrawChatPhotoBase();
-                        }
-                        return;
-                    }
-                    if (chatPhotoEdit.pinchMode) chatPhotoEdit.pinchMode = false;
-                    if (chatPhotoEdit.dragging && e.touches.length === 1) {
-                        e.preventDefault();
-                        const p = e.touches[0];
-                        chatPhotoEdit.panX += p.clientX - chatPhotoEdit.lastPointerX;
-                        chatPhotoEdit.panY += p.clientY - chatPhotoEdit.lastPointerY;
-                        chatPhotoEdit.lastPointerX = p.clientX;
-                        chatPhotoEdit.lastPointerY = p.clientY;
-                        redrawChatPhotoBase();
-                    }
-                },
-                { passive: false }
-            );
-
-            photoEditStageWrapEl.addEventListener("touchend", (e) => {
-                if (!e.touches.length) {
-                    chatPhotoEdit.dragging = false;
-                    chatPhotoEdit.pinchMode = false;
-                } else if (e.touches.length === 1) {
-                    chatPhotoEdit.pinchMode = false;
-                    chatPhotoEdit.lastPointerX = e.touches[0].clientX;
-                    chatPhotoEdit.lastPointerY = e.touches[0].clientY;
-                    chatPhotoEdit.dragging = true;
-                }
-            });
-
-            photoEditStageWrapEl.addEventListener(
-                "wheel",
-                (e) => {
-                    if (!chatPhotoEdit.img || chatPhotoEdit.mode !== "crop") return;
+                    if (!chatPhotoEdit.edgeDrag || chatPhotoEdit.mode !== "crop" || e.touches.length !== 1) return;
                     e.preventDefault();
-                    let z = parseFloat(photoEditZoomEl.value) || 1;
-                    let step = 0.07;
-                    if (e.deltaMode === 1) step = 0.2;
-                    else if (e.deltaMode === 2) step = 0.35;
-                    z += e.deltaY > 0 ? -step : step;
-                    z = Math.max(1, Math.min(3, z));
-                    if (photoEditZoomEl) photoEditZoomEl.value = String(z);
-                    redrawChatPhotoBase();
+                    const [px, py] = photoEditCanvasXY(e, photoEditBase);
+                    applyEdgeDragMove(px, py);
                 },
                 { passive: false }
             );
-        }
 
-        if (photoEditZoomEl) {
-            photoEditZoomEl.addEventListener("input", () => {
-                if (chatPhotoEdit.img) redrawChatPhotoBase();
+            photoEditStageWrapEl.addEventListener("touchend", () => {
+                chatPhotoEdit.edgeDrag = null;
             });
         }
 
