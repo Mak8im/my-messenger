@@ -1526,14 +1526,15 @@ input:checked + .slider:before {
 }
 
 .photo-edit-shell {
-    width: min(96vw, 1240px);
-    height: min(92vh, 860px);
+    width: min(96vw, 1240px) !important;
+    height: min(92vh, 860px) !important;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 18px 18px 10px;
     position: relative;
+    overflow: hidden;
 }
 
 .photo-edit-top-close {
@@ -1567,6 +1568,9 @@ input:checked + .slider:before {
     height: min(74vh, 700px);
     max-height: 100%;
     margin: 0 auto;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35);
 }
 
 .photo-edit-canvas-stack #photoEditBase,
@@ -1602,6 +1606,11 @@ input:checked + .slider:before {
     border-radius: 10px;
     cursor: pointer;
     font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    min-height: 34px;
 }
 
 .photo-edit-bottom-btn:hover {
@@ -1616,6 +1625,18 @@ input:checked + .slider:before {
 .photo-edit-done-btn {
     color: #61b4ff;
     font-weight: 600;
+}
+
+.photo-edit-btn-icon {
+    display: inline-flex;
+    width: 18px;
+    height: 18px;
+}
+
+.photo-edit-btn-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
 }
 
 .photo-edit-draw-tools {
