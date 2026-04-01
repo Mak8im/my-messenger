@@ -2617,8 +2617,8 @@
             const img = new Image();
             img.onload = () => {
                 chatPhotoEdit.img = img;
-                const maxW = 1200;
-                const maxH = 760;
+                const maxW = Math.max(360, window.innerWidth - 56);
+                const maxH = Math.max(240, window.innerHeight - 170);
                 const fitScale = Math.min(maxW / img.width, maxH / img.height, 1.8);
                 chatPhotoEdit.viewW = Math.max(360, Math.round(img.width * fitScale));
                 chatPhotoEdit.viewH = Math.max(260, Math.round(img.height * fitScale));
