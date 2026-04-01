@@ -145,11 +145,43 @@
 
                 <div id="messagesBox" class="messages-box tg-messages-box">
                     {% for msg in messages %}
-                        {% if msg.sender_id == current_user.id %}
+                        {% if msg.message_type == "stars" %}
+                            {% if msg.sender_id == current_user.id %}
+                                {% set star_sender = current_user %}
+                            {% else %}
+                                {% set star_sender = selected_user %}
+                            {% endif %}
+                            <div class="message-row message-row-stars js-msg-row {% if msg.sender_id == current_user.id %}own{% endif %}" data-message-id="{{ msg.id }}" data-msg-type="stars" data-sender-id="{{ msg.sender_id }}">
+                                <div class="stars-transfer-block {% if msg.sender_id == current_user.id %}stars-transfer-block--own{% endif %}">
+                                    <div class="stars-transfer-banner">{{ stars_transfer_banner(star_sender, msg.content) }}</div>
+                                    <div class="stars-transfer-card">
+                                        <div class="stars-transfer-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="44" height="44"><path fill="currentColor" d="M12 2l2.6 7.5h8l-6.5 4.7 2.5 7.8-6.6-4.8-6.6 4.8 2.5-7.8L3.4 9.5h8L12 2z"/></svg></div>
+                                        <div class="stars-transfer-line">Звёзды</div>
+                                        <div class="stars-transfer-value">+{{ format_stars_amount(msg.content) }}</div>
+                                    </div>
+                                    <div class="stars-transfer-meta">
+                                        <div class="message-time">{{ format_message_time(msg.created_at) }}</div>
+                                        {% if msg.sender_id == current_user.id %}
+                                        <div class="message-status">
+                                            {% if msg.is_read %}
+                                            <span class="tg-msg-status tg-msg-status--read" title="Прочитано">
+                                            {% elif msg.is_delivered %}
+                                            <span class="tg-msg-status tg-msg-status--delivered" title="Доставлено">
+                                            {% else %}
+                                            <span class="tg-msg-status tg-msg-status--pending" title="Отправка">
+                                            {% endif %}
+                                                <svg class="tg-msg-status-svg" viewBox="0 0 18 10" width="18" height="10" aria-hidden="true"><path class="tg-tick tg-tick-1" d="M0.65 5.2l2.9 2.9L8.75 1.25" stroke="currentColor" stroke-width="1.45" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path class="tg-tick tg-tick-2" d="M6.65 5.2l2.9 2.9L14.75 1.25" stroke="currentColor" stroke-width="1.45" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% elif msg.sender_id == current_user.id %}
                             <div class="message-row own js-msg-row" data-message-id="{{ msg.id }}" data-msg-type="{{ msg.message_type }}" data-sender-id="{{ msg.sender_id }}">
                                 <div class="message-bubble own">
                                     {% if msg.reply_parent %}
-                                    <div class="message-reply-quote">{% if msg.reply_parent.message_type == 'text' %}{{ (msg.reply_parent.content or '')[:120] }}{% elif msg.reply_parent.message_type == 'photo' %}📷 Фото{% else %}🎤 Голосовое{% endif %}</div>
+                                    <div class="message-reply-quote">{% if msg.reply_parent.message_type == 'text' %}{{ (msg.reply_parent.content or '')[:120] }}{% elif msg.reply_parent.message_type == 'photo' %}📷 Фото{% elif msg.reply_parent.message_type == 'video' %}🎬 Видео{% elif msg.reply_parent.message_type == 'stars' %}⭐ {{ format_stars_amount(msg.reply_parent.content) }}{% else %}🎤 Голосовое{% endif %}</div>
                                     {% endif %}
                                     {% if msg.message_type == "photo" and msg.file_path %}
                                         <a href="/uploads/{{ msg.file_path }}" class="photo-link js-chat-photo-open">
@@ -168,6 +200,9 @@
                                             </div>
                                             <span class="voice-duration" id="duration-{{ msg.id }}">--:--</span>
                                         </div>
+                                        <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
+                                    {% elif msg.message_type == "video" and msg.file_path %}
+                                        <video class="chat-video" src="/uploads/{{ msg.file_path }}" controls playsinline preload="metadata"></video>
                                         <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
                                     {% else %}
                                         <div class="message-text">{{ msg.content }}</div>
@@ -195,13 +230,17 @@
                             <div class="message-row js-msg-row" data-message-id="{{ msg.id }}" data-msg-type="{{ msg.message_type }}" data-sender-id="{{ msg.sender_id }}">
                                 <div class="message-bubble">
                                     {% if msg.reply_parent %}
-                                    <div class="message-reply-quote">{% if msg.reply_parent.message_type == 'text' %}{{ (msg.reply_parent.content or '')[:120] }}{% elif msg.reply_parent.message_type == 'photo' %}📷 Фото{% else %}🎤 Голосовое{% endif %}</div>
+                                    <div class="message-reply-quote">{% if msg.reply_parent.message_type == 'text' %}{{ (msg.reply_parent.content or '')[:120] }}{% elif msg.reply_parent.message_type == 'photo' %}📷 Фото{% elif msg.reply_parent.message_type == 'video' %}🎬 Видео{% elif msg.reply_parent.message_type == 'stars' %}⭐ {{ format_stars_amount(msg.reply_parent.content) }}{% else %}🎤 Голосовое{% endif %}</div>
                                     {% endif %}
                                     {% if msg.message_type == "photo" and msg.file_path %}
                                         <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
                                         <a href="/uploads/{{ msg.file_path }}" class="photo-link js-chat-photo-open">
                                             <img src="/uploads/{{ msg.file_path }}" alt="photo" class="chat-photo">
                                         </a>
+                                    {% elif msg.message_type == "video" and msg.file_path %}
+                                        <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
+                                        <video class="chat-video" src="/uploads/{{ msg.file_path }}" controls playsinline preload="metadata"></video>
+                                        <a href="/download-file/{{ msg.id }}" class="download-link">Скачать</a>
                                     {% elif msg.message_type == "voice" and msg.file_path %}
                                         <div class="message-author">{{ selected_user.full_name or selected_user.email }}</div>
                                         <div class="voice-message">
@@ -282,11 +321,23 @@
                         </div>
                         <button type="button" class="reply-preview-close" id="replyPreviewClose" aria-label="Отменить ответ">&times;</button>
                     </div>
-                    <form id="photoForm" action="/send-photo" method="post" enctype="multipart/form-data" class="photo-form">
-                        <input type="hidden" name="receiver_id" value="{{ selected_user.id }}">
-                        <input type="file" id="photoInput" name="photo" accept="image/*" hidden>
-                        <button type="button" class="attach-btn" onclick="document.getElementById('photoInput').click()">＋</button>
-                    </form>
+                    <div class="attach-wrap" id="attachWrap">
+                        <div id="attachPopover" class="attach-popover" style="display: none;" role="menu">
+                            <button type="button" class="attach-popover-item" id="attachPickPhotoVideo">
+                                <span class="attach-popover-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></span>
+                                <span class="attach-popover-text">Фото или видео</span>
+                            </button>
+                            <button type="button" class="attach-popover-item" id="attachPickStars">
+                                <span class="attach-popover-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 2l2.6 7.5h8l-6.5 4.7 2.5 7.8-6.6-4.8-6.6 4.8 2.5-7.8L3.4 9.5h8L12 2z"/></svg></span>
+                                <span class="attach-popover-text">Отправить звёзды</span>
+                            </button>
+                        </div>
+                        <form id="photoForm" action="/send-photo" method="post" enctype="multipart/form-data" class="photo-form">
+                            <input type="hidden" name="receiver_id" value="{{ selected_user.id }}">
+                            <input type="file" id="photoInput" name="photo" accept="image/*" hidden>
+                        </form>
+                        <button type="button" class="attach-btn" id="attachMenuBtn" aria-haspopup="true" aria-expanded="false" title="Вложения">＋</button>
+                    </div>
 
                     <input
                         type="text"
@@ -678,6 +729,23 @@
                 <button type="button" class="photo-edit-bottom-btn photo-edit-done-btn photo-edit-icon-only" id="photoEditSendBtn" title="Готово" aria-label="Отправить фото">
                     <span class="photo-edit-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>
                 </button>
+            </div>
+        </div>
+    </div>
+    <div id="starsSendModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-small stars-send-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Отправить звёзды</h3>
+                <button type="button" class="modal-close" id="starsSendCloseBtn" aria-label="Закрыть">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="stars-send-balance">Твой баланс: <strong id="starsSendBalance">0</strong></p>
+                <label class="stars-send-label" for="starsSendAmount">Сумма (от 0.1)</label>
+                <input type="number" id="starsSendAmount" class="stars-send-input" min="0.1" step="0.1" value="1">
+                <div class="stars-send-actions">
+                    <button type="button" class="delete-msg-cancel" id="starsSendCancelBtn">Отмена</button>
+                    <button type="button" class="delete-msg-confirm" id="starsSendConfirmBtn">Отправить</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1524,8 +1592,28 @@
             }
         }
         
+        function formatStarsJs(content) {
+            const v = parseFloat(String(content || "0"), 10);
+            if (!Number.isFinite(v)) return String(content || "0");
+            const t = v.toFixed(3).replace(/\.?0+$/, "");
+            return t || "0";
+        }
+
+        function scrollChatToBottomStable() {
+            if (!messagesBox) return;
+            const run = () => {
+                messagesBox.scrollTop = messagesBox.scrollHeight;
+            };
+            run();
+            requestAnimationFrame(run);
+            queueMicrotask(run);
+            setTimeout(run, 50);
+            setTimeout(run, 200);
+            setTimeout(run, 450);
+        }
+
         function scrollToBottom() {
-            if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
+            scrollChatToBottomStable();
         }
         
         function formatLastSeen(lastActivity) {
@@ -1619,7 +1707,7 @@
         }
         
         function updateMessageStatus(messageId, isRead, isDelivered) {
-            const messageRow = document.querySelector(`.message-row[data-message-id="${messageId}"]`);
+            const messageRow = document.querySelector('.js-msg-row[data-message-id="' + messageId + '"]');
             if (!messageRow) return;
             
             const statusSpan = messageRow.querySelector(".message-status");
@@ -1692,7 +1780,9 @@
             const dialogTime = card.querySelector(".dialog-time");
             let preview = "";
             if (messageType === "photo") preview = "📷 Фото";
+            else if (messageType === "video") preview = "🎬 Видео";
             else if (messageType === "voice") preview = "🎤 Голосовое";
+            else if (messageType === "stars") preview = "⭐ " + formatStarsJs(content);
             else preview = content || "";
             if (lastMsg) lastMsg.textContent = (isMine ? "Ты: " : "") + preview;
             if (dialogTime) dialogTime.textContent = time || "";
@@ -1700,11 +1790,62 @@
             if (list && card.parentNode === list) list.prepend(card);
         }
         
-        function appendMessageToChat(senderId, messageType, content, time, senderEmail, fileUrl, downloadUrl, fileName, messageId, isRead, isDelivered, replyPreview, editedTime) {
+        function appendMessageToChat(senderId, messageType, content, time, senderEmail, fileUrl, downloadUrl, fileName, messageId, isRead, isDelivered, replyPreview, editedTime, starsBanner) {
             if (!messagesBox) return;
             replyPreview = replyPreview || "";
             editedTime = editedTime || "";
+            starsBanner = starsBanner || "";
             const isOwn = senderId === CURRENT_USER_ID;
+
+            if (messageType === "stars" && starsBanner) {
+                const row = document.createElement("div");
+                row.className = `message-row message-row-stars js-msg-row ${isOwn ? "own" : ""}`;
+                row.setAttribute("data-message-id", messageId);
+                row.setAttribute("data-msg-type", "stars");
+                row.setAttribute("data-sender-id", String(senderId));
+                const block = document.createElement("div");
+                block.className = "stars-transfer-block" + (isOwn ? " stars-transfer-block--own" : "");
+                const ban = document.createElement("div");
+                ban.className = "stars-transfer-banner";
+                ban.textContent = starsBanner;
+                const card = document.createElement("div");
+                card.className = "stars-transfer-card";
+                const icon = document.createElement("div");
+                icon.className = "stars-transfer-icon";
+                icon.setAttribute("aria-hidden", "true");
+                icon.innerHTML = '<svg viewBox="0 0 24 24" width="44" height="44"><path fill="currentColor" d="M12 2l2.6 7.5h8l-6.5 4.7 2.5 7.8-6.6-4.8-6.6 4.8 2.5-7.8L3.4 9.5h8L12 2z"/></svg>';
+                const lineEl = document.createElement("div");
+                lineEl.className = "stars-transfer-line";
+                lineEl.textContent = "Звёзды";
+                const val = document.createElement("div");
+                val.className = "stars-transfer-value";
+                val.textContent = "+" + formatStarsJs(content);
+                card.appendChild(icon);
+                card.appendChild(lineEl);
+                card.appendChild(val);
+                const meta = document.createElement("div");
+                meta.className = "stars-transfer-meta";
+                const timeDivOwn = document.createElement("div");
+                timeDivOwn.className = "message-time";
+                timeDivOwn.textContent = time || "";
+                meta.appendChild(timeDivOwn);
+                if (isOwn) {
+                    const statusSpan = document.createElement("div");
+                    statusSpan.className = "message-status";
+                    statusSpan.innerHTML = messageStatusHtml(isRead, isDelivered);
+                    meta.appendChild(statusSpan);
+                    messageStatuses[messageId] = { isRead, isDelivered };
+                }
+                block.appendChild(ban);
+                block.appendChild(card);
+                block.appendChild(meta);
+                row.appendChild(block);
+                messagesBox.appendChild(row);
+                hydrateVoiceDurations();
+                scrollToBottom();
+                return;
+            }
+
             const row = document.createElement("div");
             row.className = `message-row js-msg-row ${isOwn ? "own" : ""}`;
             row.setAttribute("data-message-id", messageId);
@@ -1735,6 +1876,19 @@
                 img.className = "chat-photo";
                 link.appendChild(img);
                 bubble.appendChild(link);
+            } else if (messageType === "video" && fileUrl) {
+                const vid = document.createElement("video");
+                vid.className = "chat-video";
+                vid.src = fileUrl;
+                vid.controls = true;
+                vid.setAttribute("playsinline", "");
+                vid.preload = "metadata";
+                bubble.appendChild(vid);
+                const dl = document.createElement("a");
+                dl.href = downloadUrl || ("/download-file/" + messageId);
+                dl.className = "download-link";
+                dl.textContent = "Скачать";
+                bubble.appendChild(dl);
             } else if (messageType === "voice" && fileUrl) {
                 const voiceDiv = document.createElement("div");
                 voiceDiv.className = "voice-message";
@@ -1895,10 +2049,11 @@
             const isOwn = Number(row.getAttribute("data-sender-id")) === CURRENT_USER_ID;
             const msgType = row.getAttribute("data-msg-type") || "text";
             const hasText = !!(row.querySelector(".message-text") && (row.querySelector(".message-text").textContent || "").trim());
+            const hasStarsBanner = !!(row.querySelector(".stars-transfer-banner"));
             const editBtn = menu.querySelector('[data-ctx="edit"]');
             const copyBtn = menu.querySelector('[data-ctx="copy"]');
             if (editBtn) editBtn.style.display = isOwn && msgType === "text" ? "" : "none";
-            if (copyBtn) copyBtn.style.display = hasText ? "" : "none";
+            if (copyBtn) copyBtn.style.display = hasText || hasStarsBanner ? "" : "none";
             positionMsgContextMenu(menu, clientX, clientY);
         }
         
@@ -1941,9 +2096,13 @@
             const tx = document.getElementById("replyPreviewText");
             let preview = "";
             const t = row.querySelector(".message-text");
+            const sb = row.querySelector(".stars-transfer-banner");
             if (t) preview = (t.textContent || "").slice(0, 80);
+            else if (sb) preview = (sb.textContent || "").slice(0, 80);
             else if (row.dataset.msgType === "photo") preview = "📷 Фото";
+            else if (row.dataset.msgType === "video") preview = "🎬 Видео";
             else if (row.dataset.msgType === "voice") preview = "🎤 Голосовое";
+            else if (row.dataset.msgType === "stars") preview = "⭐ " + formatStarsJs(row.querySelector(".stars-transfer-value")?.textContent?.replace(/^\+/, "") || "");
             if (tx) tx.textContent = preview || "Сообщение";
             if (bar) bar.style.display = "flex";
         }
@@ -1956,6 +2115,7 @@
                     chat_user_id: SELECTED_USER_ID
                 }));
             }
+            scrollChatToBottomStable();
         };
         
         socket.onclose = function() { console.log("❌ WebSocket disconnected"); };
@@ -1995,7 +2155,9 @@
                     playNotificationSound();
                     let notifBody = "";
                     if (data.message_type === "photo") notifBody = "📷 Фото";
+                    else if (data.message_type === "video") notifBody = "🎬 Видео";
                     else if (data.message_type === "voice") notifBody = "🎤 Голосовое";
+                    else if (data.message_type === "stars") notifBody = data.stars_banner || "⭐ Звёзды";
                     else notifBody = data.content || "";
                     if (notifBody.length > 100) notifBody = notifBody.substring(0, 100) + "...";
                     showBrowserNotification(`Новое сообщение от ${data.sender_email || "пользователя"}`, notifBody);
@@ -2033,15 +2195,24 @@
                         data.is_read || false,
                         data.is_delivered || false,
                         data.reply_preview || "",
-                        ""
+                        "",
+                        data.stars_banner || ""
                     );
                 }
                 return;
             }
             
             if (data.type === "message_deleted") {
-                if (SELECTED_USER_ID === null) return;
-                removeMessageRow(data.message_id);
+                const mid = data.message_id != null ? String(data.message_id) : "";
+                if (!mid) return;
+                if (SELECTED_USER_ID != null && data.sender_id != null && data.receiver_id != null) {
+                    const me = Number(CURRENT_USER_ID);
+                    const sel = Number(SELECTED_USER_ID);
+                    const a = Number(data.sender_id);
+                    const b = Number(data.receiver_id);
+                    if (!((a === sel && b === me) || (b === sel && a === me))) return;
+                }
+                removeMessageRow(mid);
                 return;
             }
             
@@ -2165,8 +2336,10 @@
                         }
                         if (action === "copy") {
                             const te = row.querySelector(".message-text");
-                            if (te && navigator.clipboard && navigator.clipboard.writeText) {
-                                navigator.clipboard.writeText(te.textContent || "").catch(() => {});
+                            const sb = row.querySelector(".stars-transfer-banner");
+                            const txt = (te && te.textContent) || (sb && sb.textContent) || "";
+                            if (txt && navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(txt).catch(() => {});
                             }
                             return;
                         }
@@ -2179,7 +2352,7 @@
                             return;
                         }
                         if (action === "select") {
-                            const bubble = row.querySelector(".message-bubble");
+                            const bubble = row.querySelector(".message-bubble") || row.querySelector(".stars-transfer-block");
                             if (!bubble) return;
                             const range = document.createRange();
                             range.selectNodeContents(bubble);
@@ -2297,6 +2470,127 @@
                     }).catch(() => {});
                 });
             }
+        })();
+        
+        (function setupAttachMenu() {
+            const wrap = document.getElementById("attachWrap");
+            const pop = document.getElementById("attachPopover");
+            const btn = document.getElementById("attachMenuBtn");
+            const pickPV = document.getElementById("attachPickPhotoVideo");
+            const pickSt = document.getElementById("attachPickStars");
+            const starsSendModal = document.getElementById("starsSendModal");
+            if (!wrap || !pop || !btn || SELECTED_USER_ID === null) return;
+
+            let hoverTimer = null;
+            function closePop() {
+                pop.style.display = "none";
+                btn.setAttribute("aria-expanded", "false");
+            }
+            function openPop() {
+                pop.style.display = "block";
+                btn.setAttribute("aria-expanded", "true");
+            }
+
+            wrap.addEventListener("mouseenter", () => {
+                if (window.innerWidth < 769) return;
+                if (hoverTimer) clearTimeout(hoverTimer);
+                openPop();
+            });
+            wrap.addEventListener("mouseleave", () => {
+                if (window.innerWidth < 769) return;
+                hoverTimer = setTimeout(closePop, 200);
+            });
+
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (pop.style.display === "none" || pop.style.display === "") openPop();
+                else closePop();
+            });
+            document.addEventListener("click", (e) => {
+                if (!wrap.contains(e.target)) closePop();
+            });
+
+            function showStarsSendModal() {
+                if (!starsSendModal) return;
+                fetch("/api/stars", { credentials: "same-origin" })
+                    .then((r) => r.json())
+                    .then((d) => {
+                        const bal = document.getElementById("starsSendBalance");
+                        if (bal) bal.textContent = formatStarsJs(String(d.stars || 0));
+                    })
+                    .catch(() => {});
+                starsSendModal.style.display = "flex";
+            }
+
+            pickPV?.addEventListener("click", () => {
+                closePop();
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = "image/*,video/*";
+                input.onchange = () => {
+                    const f = input.files && input.files[0];
+                    if (!f) return;
+                    if (f.type.startsWith("video/")) {
+                        const fd = new FormData();
+                        fd.append("receiver_id", String(SELECTED_USER_ID));
+                        fd.append("video", f, f.name || "video.mp4");
+                        fetch("/send-video", { method: "POST", body: fd, credentials: "same-origin" })
+                            .then((r) => {
+                                if (r.ok || r.redirected) {
+                                    window.location.href = r.url || "/chat?selected_user_id=" + SELECTED_USER_ID;
+                                } else alert("Не удалось отправить видео.");
+                            })
+                            .catch(() => alert("Ошибка сети."));
+                    } else if (typeof openChatPhotoEditor === "function") {
+                        openChatPhotoEditor(f);
+                    }
+                };
+                input.click();
+            });
+
+            pickSt?.addEventListener("click", () => {
+                closePop();
+                showStarsSendModal();
+            });
+
+            function closeStarsSend() {
+                if (starsSendModal) starsSendModal.style.display = "none";
+            }
+            document.getElementById("starsSendCloseBtn")?.addEventListener("click", closeStarsSend);
+            document.getElementById("starsSendCancelBtn")?.addEventListener("click", closeStarsSend);
+            starsSendModal?.addEventListener("click", (e) => {
+                if (e.target === starsSendModal) closeStarsSend();
+            });
+            document.getElementById("starsSendConfirmBtn")?.addEventListener("click", async () => {
+                const inp = document.getElementById("starsSendAmount");
+                const amt = inp ? parseFloat(inp.value, 10) : NaN;
+                if (!Number.isFinite(amt) || amt < 0.1) {
+                    alert("Минимум 0.1 звезды.");
+                    return;
+                }
+                const rounded = Math.round(amt * 1000) / 1000;
+                try {
+                    const r = await fetch("/api/stars/send", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ receiver_id: SELECTED_USER_ID, amount: rounded }),
+                        credentials: "same-origin",
+                    });
+                    const j = await r.json().catch(() => ({}));
+                    if (!r.ok) {
+                        let msg = "Не удалось отправить.";
+                        if (typeof j.detail === "string") msg = j.detail;
+                        else if (Array.isArray(j.detail)) msg = j.detail.map((x) => x.msg || "").filter(Boolean).join(" ") || msg;
+                        alert(msg);
+                        return;
+                    }
+                    if (typeof j.stars === "number") setStarsUI(j.stars);
+                    closeStarsSend();
+                } catch (err) {
+                    alert("Ошибка сети.");
+                }
+            });
         })();
         
         function urlBase64ToUint8Array(base64String) {
@@ -2518,8 +2812,12 @@
             document.addEventListener("click", enableAudio);
             document.addEventListener("touchstart", enableAudio);
 
-            scrollToBottom();
+            scrollChatToBottomStable();
             if (SELECTED_USER_ID !== null) updateUnreadBadge(SELECTED_USER_ID, 0);
+        });
+        
+        window.addEventListener("pageshow", () => {
+            if (SELECTED_USER_ID !== null) scrollChatToBottomStable();
         });
         
         const saveProfileBtn = document.getElementById("saveProfileBtn");
