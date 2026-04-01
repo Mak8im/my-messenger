@@ -544,6 +544,27 @@ body:not(.auth-page) {
     cursor: pointer;
 }
 
+.photo-preview-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 38px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.photo-preview-prev { left: 16px; }
+.photo-preview-next { right: 16px; }
+
 .empty-chat {
     flex: 1;
     display: flex;
@@ -1681,6 +1702,22 @@ input:checked + .slider:before {
     gap: 8px;
 }
 
+.photo-edit-tool-btn {
+    border: none;
+    background: rgba(255, 255, 255, 0.14);
+    color: #eef3ff;
+    border-radius: 10px;
+    padding: 7px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.photo-edit-tool-btn.active {
+    background: rgba(51, 144, 236, 0.4);
+    color: #fff;
+}
+
 .photo-edit-draw-tools label {
     display: inline-flex;
     align-items: center;
@@ -2265,4 +2302,61 @@ input:checked + .slider:before {
 
 .tg-current-user .avatar.avatar-tappable-preview:focus:not(:focus-visible) {
     outline: none;
+}
+
+/* Dark mode */
+body.theme-dark:not(.auth-page) {
+    background: #0f172a;
+    color: #e5e7eb;
+}
+body.theme-dark .sidebar,
+body.theme-dark .tg-chat-header,
+body.theme-dark .tg-sidebar-header {
+    background: #111827;
+    border-color: #1f2937;
+}
+body.theme-dark .messages-box {
+    background: #0b1220;
+}
+body.theme-dark .message-bubble {
+    background: #1f2937;
+    color: #e5e7eb;
+}
+body.theme-dark .message-bubble.own {
+    background: #1d4f6d;
+}
+body.theme-dark .message-form {
+    background: #111827;
+    border-top-color: #1f2937;
+}
+body.theme-dark .message-input,
+body.theme-dark .attach-btn {
+    background: #1f2937;
+    color: #e5e7eb;
+    box-shadow: inset 0 0 0 1px #374151;
+}
+body.theme-dark .tg-dialog-item {
+    background: #111827;
+    border-bottom-color: #1f2937;
+}
+body.theme-dark .tg-dialog-item:hover {
+    background: #1f2937;
+}
+body.theme-dark .tg-dialog-name,
+body.theme-dark .chat-user-name,
+body.theme-dark .tg-brand,
+body.theme-dark .settings-item-label,
+body.theme-dark .modal-title {
+    color: #f3f4f6;
+}
+body.theme-dark .modal-container {
+    background: #111827;
+}
+body.theme-dark .modal-header {
+    background: #111827;
+    border-bottom-color: #1f2937;
+}
+body.theme-dark .modal-close:hover,
+body.theme-dark .modal-header .modal-back:hover {
+    background: #1f2937;
 }
