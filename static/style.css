@@ -488,16 +488,19 @@ body:not(.auth-page) {
 
 .chat-photo {
     display: block;
-    max-width: 220px;
-    width: 100%;
+    max-width: min(300px, 56vw);
+    max-height: 360px;
+    width: auto;
+    height: auto;
     border-radius: 12px;
     margin-top: 2px;
+    object-fit: contain;
 }
 
 .photo-link {
     display: inline-block;
     text-decoration: none;
-    cursor: zoom-in;
+    cursor: pointer;
 }
 
 .download-link {
