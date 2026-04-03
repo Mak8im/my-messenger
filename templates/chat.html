@@ -827,6 +827,7 @@
         const PEER_DISPLAY_NAME = {{ peer_display_name | tojson }};
         let pendingReplyId = null;
         let contextMenuTargetId = null;
+        let contextMenuFocusRow = null;
         let deleteTargetId = null;
         let editTargetId = null;
         let longPressTimer = null;
@@ -2087,7 +2088,17 @@
             }
         }
         
+        function clearMsgContextRowFocus() {
+            const box = document.getElementById("messagesBox");
+            if (box) box.classList.remove("msg-ctx-sibling-blur");
+            if (contextMenuFocusRow) {
+                contextMenuFocusRow.classList.remove("js-msg-row--ctx-focus");
+                contextMenuFocusRow = null;
+            }
+        }
+        
         function hideMsgContextMenu() {
+            clearMsgContextRowFocus();
             const m = document.getElementById("msgContextMenu");
             if (m) {
                 m.style.display = "none";
@@ -2141,6 +2152,11 @@
             const header = document.getElementById("msgCtxHeader");
             const mobile = isMobileMsgContext();
             if (mobile && row) {
+                clearMsgContextRowFocus();
+                const mb = document.getElementById("messagesBox");
+                if (mb) mb.classList.add("msg-ctx-sibling-blur");
+                row.classList.add("js-msg-row--ctx-focus");
+                contextMenuFocusRow = row;
                 menu.classList.add("msg-context-menu--mobile");
                 if (header) header.textContent = formatMsgCtxHeader(row);
                 menu.style.display = "block";
@@ -2166,6 +2182,7 @@
                 });
                 return;
             }
+            clearMsgContextRowFocus();
             menu.classList.remove("msg-context-menu--mobile");
             if (header) header.textContent = "";
             menu.style.left = "";
