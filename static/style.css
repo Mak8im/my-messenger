@@ -304,11 +304,26 @@ body:not(.auth-page) {
     flex: 1;
     overflow-y: auto;
     padding: 18px;
+    position: relative;
     background:
         radial-gradient(circle at top left, rgba(255,255,255,0.6), rgba(255,255,255,0) 30%),
         #e7ebf0;
     scrollbar-width: thin;
     scrollbar-color: rgba(51, 144, 236, 0.42) rgba(220, 228, 236, 0.75);
+}
+
+/* Долгое нажатие на телефоне: остальные сообщения размыты, выбранное — чёткое */
+#messagesBox.msg-ctx-sibling-blur .js-msg-row:not(.js-msg-row--ctx-focus) {
+    filter: blur(11px);
+    opacity: 0.5;
+    transition: filter 0.22s ease, opacity 0.22s ease;
+}
+
+#messagesBox.msg-ctx-sibling-blur .js-msg-row.js-msg-row--ctx-focus {
+    position: relative;
+    z-index: 20;
+    filter: none;
+    opacity: 1;
 }
 
 .messages-box::-webkit-scrollbar {
@@ -777,6 +792,16 @@ body:not(.auth-page) {
 /* TELEGRAM STYLE SIDEBAR */
 .telegram-app {
     background: #ffffff;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.telegram-app input,
+.telegram-app textarea,
+.telegram-app select {
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 .tg-sidebar-header {
@@ -1625,60 +1650,62 @@ input:checked + .slider:before {
     font-size: 16px;
 }
 
-/* Active sessions (тёмный экран как в референсе) */
+/* Active sessions — светлая тема как в приложении */
 .sessions-modal-overlay {
-    background: rgba(0, 0, 0, 0.72);
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
 }
 
 .sessions-modal-container {
-    background: #1c1c1e;
-    color: #e8e8ed;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
 }
 
 .sessions-modal-header {
-    background: #1c1c1e;
-    border-bottom: 1px solid #2c2c2e;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
     padding: 14px 16px;
 }
 
 .sessions-modal-container .modal-title.sessions-modal-title {
-    color: #fff;
+    color: #111827;
     font-size: 18px;
 }
 
 .sessions-modal-header .modal-back {
-    color: #8e8e93;
+    color: #3390ec;
 }
 
 .sessions-modal-header .modal-back:hover {
-    background: #2c2c2e;
-    color: #fff;
+    background: #f3f4f6;
+    color: #2563eb;
 }
 
 .sessions-modal-header .modal-close {
-    color: #8e8e93;
+    color: #6b7280;
 }
 
 .sessions-modal-header .modal-close:hover {
-    background: #2c2c2e;
-    color: #fff;
+    background: #f3f4f6;
+    color: #111827;
 }
 
 .sessions-modal-body {
-    background: #000;
+    background: #f9fafb;
     padding: 0;
 }
 
 .sessions-loading,
 .sessions-error {
     padding: 20px 16px;
-    color: #8e8e93;
+    color: #6b7280;
     font-size: 15px;
 }
 
 .sessions-error {
-    color: #ff6b6b;
+    color: #dc2626;
 }
 
 .sessions-section-label-row {
@@ -1690,13 +1717,13 @@ input:checked + .slider:before {
 
 .sessions-section-hint {
     font-size: 14px;
-    color: #8e8e93;
+    color: #6b7280;
 }
 
 .sessions-rename-btn {
     background: none;
     border: none;
-    color: #aeaeb2;
+    color: #3390ec;
     font-size: 14px;
     cursor: pointer;
     padding: 4px 0;
@@ -1704,14 +1731,16 @@ input:checked + .slider:before {
 }
 
 .sessions-rename-btn:hover {
-    color: #fff;
+    color: #2563eb;
 }
 
 .sessions-card-current {
     margin: 0 12px 12px;
     padding: 12px;
-    background: #1c1c1e;
+    background: #ffffff;
     border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .sessions-row-inner {
@@ -1724,7 +1753,7 @@ input:checked + .slider:before {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: linear-gradient(145deg, #5b4cdb, #8b5cf6);
+    background: linear-gradient(145deg, #6366f1, #8b5cf6);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1741,19 +1770,19 @@ input:checked + .slider:before {
 }
 
 .sessions-device-text strong {
-    color: #fff;
+    color: #111827;
     font-size: 16px;
     font-weight: 600;
 }
 
 .sessions-device-text > span:not(.sessions-meta) {
     font-size: 13px;
-    color: #aeaeb2;
+    color: #4b5563;
 }
 
 .sessions-meta {
     font-size: 12px;
-    color: #8e8e93;
+    color: #6b7280;
 }
 
 .sessions-terminate-all {
@@ -1762,25 +1791,26 @@ input:checked + .slider:before {
     width: calc(100% - 24px);
     margin: 8px 12px 16px;
     padding: 14px;
-    background: #1c1c1e;
-    border: none;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     cursor: pointer;
     text-align: left;
     align-items: flex-start;
     font-family: inherit;
     box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .sessions-terminate-all:hover {
-    background: #2c2c2e;
+    background: #f9fafb;
 }
 
 .sessions-terminate-icon {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: linear-gradient(145deg, #5b4cdb, #8b5cf6);
+    background: linear-gradient(145deg, #6366f1, #8b5cf6);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1791,7 +1821,7 @@ input:checked + .slider:before {
 
 .sessions-terminate-title {
     display: block;
-    color: #b794f6;
+    color: #4f46e5;
     font-weight: 600;
     font-size: 15px;
     margin-bottom: 4px;
@@ -1800,7 +1830,7 @@ input:checked + .slider:before {
 .sessions-terminate-sub {
     display: block;
     font-size: 12px;
-    color: #8e8e93;
+    color: #6b7280;
     line-height: 1.35;
 }
 
@@ -1814,10 +1844,12 @@ input:checked + .slider:before {
 }
 
 .sessions-row-other {
-    background: #1c1c1e;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     margin-bottom: 8px;
     padding: 10px 6px 10px 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .sessions-device-text-grow {
@@ -1827,7 +1859,7 @@ input:checked + .slider:before {
 .sessions-row-dismiss {
     background: none;
     border: none;
-    color: #8e8e93;
+    color: #9ca3af;
     font-size: 22px;
     line-height: 1;
     cursor: pointer;
@@ -1837,11 +1869,11 @@ input:checked + .slider:before {
 }
 
 .sessions-row-dismiss:hover {
-    color: #fff;
+    color: #374151;
 }
 
 .sessions-muted {
-    color: #8e8e93;
+    color: #6b7280;
     font-size: 14px;
     line-height: 1.4;
 }
@@ -3011,7 +3043,7 @@ input:checked + .slider:before {
     border: none;
 }
 
-/* Мобильное меню: размытие фона, панель под пузырём */
+/* Мобильное меню: светлая тема; размытие только у других сообщений в ленте */
 .msg-context-menu.msg-context-menu--mobile {
     inset: 0;
     width: 100%;
@@ -3022,9 +3054,9 @@ input:checked + .slider:before {
     display: block;
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-panel {
@@ -3037,9 +3069,9 @@ input:checked + .slider:before {
     max-height: min(420px, calc(100vh - 24px));
     padding: 0;
     border-radius: 16px;
-    background: rgba(28, 28, 30, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -3052,12 +3084,10 @@ input:checked + .slider:before {
     z-index: 1;
     padding: 10px 16px 8px;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.45);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
     letter-spacing: 0.01em;
-    background: rgba(28, 28, 30, 0.97);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.98);
 }
 
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-item {
@@ -3066,7 +3096,8 @@ input:checked + .slider:before {
     padding: 14px 16px;
     font-size: 16px;
     border-radius: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid #f3f4f6;
+    color: #111827;
 }
 
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-item:last-of-type {
@@ -3075,28 +3106,34 @@ input:checked + .slider:before {
 
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-item:hover,
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-item:active {
-    background: rgba(255, 255, 255, 0.06);
+    background: #f3f4f6;
 }
 
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-ico {
-    opacity: 0.9;
+    opacity: 0.75;
+    color: #4b5563;
 }
 
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-divider {
     height: 8px;
     margin: 0;
-    background: rgba(0, 0, 0, 0.25);
+    background: #f3f4f6;
     border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-item.msg-ctx-danger {
-    color: #ff453a;
+    color: #dc2626;
 }
 
 .msg-context-menu.msg-context-menu--mobile .msg-ctx-item.msg-ctx-danger .msg-ctx-svg {
-    stroke: #ff453a;
+    stroke: #dc2626;
+}
+
+.msg-context-menu.msg-context-menu--mobile .msg-ctx-item.msg-ctx-danger .msg-ctx-ico {
+    color: #dc2626;
+    opacity: 1;
 }
 
 .delete-msg-modal .modal-body {
