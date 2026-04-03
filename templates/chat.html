@@ -2089,6 +2089,8 @@
         }
         
         function clearMsgContextRowFocus() {
+            const app = document.querySelector(".telegram-app");
+            if (app) app.classList.remove("msg-ctx-mobile-open");
             const box = document.getElementById("messagesBox");
             if (box) box.classList.remove("msg-ctx-sibling-blur");
             if (contextMenuFocusRow) {
@@ -2157,6 +2159,8 @@
                 if (mb) mb.classList.add("msg-ctx-sibling-blur");
                 row.classList.add("js-msg-row--ctx-focus");
                 contextMenuFocusRow = row;
+                const appEl = document.querySelector(".telegram-app");
+                if (appEl) appEl.classList.add("msg-ctx-mobile-open");
                 menu.classList.add("msg-context-menu--mobile");
                 if (header) header.textContent = formatMsgCtxHeader(row);
                 menu.style.display = "block";
@@ -2655,50 +2659,11 @@
             const starsSendModal = document.getElementById("starsSendModal");
             if (!wrap || !pop || !btn || SELECTED_USER_ID === null) return;
 
-            let hoverTimer = null;
-            function closePop() {
-                pop.style.display = "none";
-                btn.setAttribute("aria-expanded", "false");
-            }
-            function openPop() {
-                pop.style.display = "block";
-                btn.setAttribute("aria-expanded", "true");
+            function isDesktopAttachUi() {
+                return window.matchMedia("(min-width: 769px)").matches;
             }
 
-            wrap.addEventListener("mouseenter", () => {
-                if (window.innerWidth < 769) return;
-                if (hoverTimer) clearTimeout(hoverTimer);
-                openPop();
-            });
-            wrap.addEventListener("mouseleave", () => {
-                if (window.innerWidth < 769) return;
-                hoverTimer = setTimeout(closePop, 200);
-            });
-
-            btn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (pop.style.display === "none" || pop.style.display === "") openPop();
-                else closePop();
-            });
-            document.addEventListener("click", (e) => {
-                if (!wrap.contains(e.target)) closePop();
-            });
-
-            function showStarsSendModal() {
-                if (!starsSendModal) return;
-                fetch("/api/stars", { credentials: "same-origin" })
-                    .then((r) => r.json())
-                    .then((d) => {
-                        const bal = document.getElementById("starsSendBalance");
-                        if (bal) bal.textContent = formatStarsJs(String(d.stars || 0));
-                    })
-                    .catch(() => {});
-                starsSendModal.style.display = "flex";
-            }
-
-            pickPV?.addEventListener("click", () => {
-                closePop();
+            function openPhotoOrVideoPickerForChat() {
                 const input = document.createElement("input");
                 input.type = "file";
                 input.accept = "image/*,video/*";
@@ -2721,6 +2686,58 @@
                     }
                 };
                 input.click();
+            }
+
+            let hoverTimer = null;
+            function closePop() {
+                pop.style.display = "none";
+                btn.setAttribute("aria-expanded", "false");
+            }
+            function openPop() {
+                pop.style.display = "block";
+                btn.setAttribute("aria-expanded", "true");
+            }
+
+            wrap.addEventListener("mouseenter", () => {
+                if (!isDesktopAttachUi()) return;
+                if (hoverTimer) clearTimeout(hoverTimer);
+                openPop();
+            });
+            wrap.addEventListener("mouseleave", () => {
+                if (!isDesktopAttachUi()) return;
+                hoverTimer = setTimeout(closePop, 200);
+            });
+
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isDesktopAttachUi()) {
+                    closePop();
+                    openPhotoOrVideoPickerForChat();
+                    return;
+                }
+                if (pop.style.display === "none" || pop.style.display === "") openPop();
+                else closePop();
+            });
+            document.addEventListener("click", (e) => {
+                if (!wrap.contains(e.target)) closePop();
+            });
+
+            function showStarsSendModal() {
+                if (!starsSendModal) return;
+                fetch("/api/stars", { credentials: "same-origin" })
+                    .then((r) => r.json())
+                    .then((d) => {
+                        const bal = document.getElementById("starsSendBalance");
+                        if (bal) bal.textContent = formatStarsJs(String(d.stars || 0));
+                    })
+                    .catch(() => {});
+                starsSendModal.style.display = "flex";
+            }
+
+            pickPV?.addEventListener("click", () => {
+                closePop();
+                openPhotoOrVideoPickerForChat();
             });
 
             pickSt?.addEventListener("click", () => {
