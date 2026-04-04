@@ -1746,6 +1746,60 @@ async def api_pin_message(
     return {"ok": True}
 
 
+@app.post("/api/chat/clear")
+async def api_clear_chat(
+    payload: dict = Body(...),
+    user_id: str | None = Cookie(default=None),
+    session_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(user_id, session_token, db)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    peer_id = int(payload.get("peer_id"))
+    scope = (payload.get("scope") or "me").lower()
+    if scope not in ("me", "both"):
+        raise HTTPException(status_code=400, detail="Некорректный scope")
+    if peer_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Некорректный собеседник")
+    other = db.query(User).filter(User.id == peer_id).first()
+    if not other:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    pair_filter = or_(
+        and_(Message.sender_id == current_user.id, Message.receiver_id == peer_id),
+        and_(Message.sender_id == peer_id, Message.receiver_id == current_user.id),
+    )
+    msgs = db.query(Message).filter(pair_filter).all()
+
+    if scope == "me":
+        for m in msgs:
+            if m.sender_id == current_user.id:
+                m.deleted_for_sender = True
+            else:
+                m.deleted_for_receiver = True
+        db.commit()
+        return {"ok": True, "scope": "me"}
+
+    lo, hi = normalize_chat_pair(current_user.id, peer_id)
+    pin = db.query(ChatPin).filter(ChatPin.user_low_id == lo, ChatPin.user_high_id == hi).first()
+    if pin:
+        db.delete(pin)
+    for m in msgs:
+        if m.file_path:
+            fp = UPLOADS_DIR / m.file_path
+            if fp.exists():
+                try:
+                    fp.unlink()
+                except OSError:
+                    pass
+        db.delete(m)
+    db.commit()
+    await manager.send_to_user(peer_id, {"type": "chat_cleared", "peer_id": current_user.id, "scope": "both"})
+    await manager.send_to_user(current_user.id, {"type": "chat_cleared", "peer_id": peer_id, "scope": "both"})
+    return {"ok": True, "scope": "both"}
+
+
 def _session_api_dict(sess: UserSession, current_token: str | None) -> dict:
     return {
         "id": sess.id,
