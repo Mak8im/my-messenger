@@ -120,15 +120,92 @@
                                 {% endif %}
                                 <span id="selectedUserOnlineDot" class="online-dot" style="display: none;"></span>
                             </div>
-                            <div>
+                            <div class="chat-user-text-block">
                                 <div class="chat-user-name">{{ selected_user.full_name or selected_user.email }}</div>
                                 {% if selected_user.username %}
-                                    <div class="chat-user-username" style="font-size: 12px; color: #7a7f85;">{{ selected_user.username }}</div>
+                                <div class="chat-user-username">{{ selected_user.username }}</div>
                                 {% endif %}
                                 <div class="chat-user-status" id="selectedUserStatus" data-initial-status="{{ selected_user_status|e }}">
                                     {{ selected_user_status }}
                                 </div>
                                 <div id="typingIndicator" class="chat-user-typing" style="display: none;">печатает...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tg-chat-right">
+                        <button type="button" class="tg-chat-tool-btn" id="chatSearchOpenBtn" title="Поиск по чату" aria-label="Поиск">
+                            <svg class="tg-chat-tool-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg>
+                        </button>
+                        <button type="button" class="tg-chat-tool-btn tg-chat-tool-btn--disabled" id="chatCallBtn" title="Звонок (скоро)" aria-label="Звонок" disabled>
+                            <svg class="tg-chat-tool-svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                        </button>
+                        <div class="tg-chat-menu-anchor" id="chatHeaderMenuAnchor">
+                            <button type="button" class="tg-chat-tool-btn" id="chatHeaderMenuBtn" title="Меню чата" aria-expanded="false" aria-haspopup="true" aria-label="Меню">
+                                <svg class="tg-chat-tool-svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg>
+                            </button>
+                            <div id="chatHeaderMenu" class="tg-chat-header-menu" style="display: none;" role="menu">
+                                <button type="button" class="tg-chat-menu-row" id="chatMenuNotifyBtn" role="menuitem">
+                                    <span class="tg-chat-menu-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M11 5a4 4 0 0 1 4 4v2.5l2 2V11a6 6 0 0 0-12 0v2.5l2-2V9a4 4 0 0 1 4-4z"/><path d="M6 11h12v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6z"/><path d="M9 19v1a3 3 0 0 0 6 0v-1"/></svg></span>
+                                    <span class="tg-chat-menu-label" id="chatMenuNotifyLabel">Выключить уведомления</span>
+                                </button>
+                                <div class="tg-chat-menu-sep" role="separator"></div>
+                                <button type="button" class="tg-chat-menu-row" id="chatMenuWallpaperBtn" role="menuitem">
+                                    <span class="tg-chat-menu-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 20h16V4H4v16z"/><path d="M8 14l2.5-3 2.5 3 3-4L20 16H4l4-6z"/><circle cx="9" cy="8" r="1.5"/></svg></span>
+                                    <span class="tg-chat-menu-label">Установить обои</span>
+                                </button>
+                                <div class="tg-chat-menu-sep" role="separator"></div>
+                                <button type="button" class="tg-chat-menu-row tg-chat-menu-row--danger" id="chatMenuDeleteBtn" role="menuitem">
+                                    <span class="tg-chat-menu-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 7h16"/><path d="M10 11v7M14 11v7M6 7l1 14h10l1-14"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>
+                                    <span class="tg-chat-menu-label">Удалить чат</span>
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="chatWallpaperFileInput" accept="image/*" hidden>
+                    </div>
+                </div>
+
+                <div id="chatSearchModal" class="modal-overlay" style="display: none;">
+                    <div class="modal-container modal-small chat-search-modal">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Поиск в чате</h3>
+                            <button type="button" class="modal-close" id="chatSearchModalClose" aria-label="Закрыть">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="search" id="chatSearchInput" class="chat-search-input" placeholder="Поиск по сообщениям…" autocomplete="off">
+                            <p id="chatSearchHint" class="chat-search-hint"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="chatWallpaperModal" class="modal-overlay" style="display: none;">
+                    <div class="modal-container modal-small">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Обои чата</h3>
+                            <button type="button" class="modal-close" id="chatWallpaperModalClose" aria-label="Закрыть">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="tg-settings-text" style="margin-top: 0;">Только в этом чате на этом устройстве.</p>
+                            <button type="button" class="auth-button" id="chatWallpaperPickBtn" style="width: 100%; margin-bottom: 10px;">Выбрать изображение</button>
+                            <button type="button" class="delete-msg-cancel" id="chatWallpaperResetBtn" style="width: 100%;">Стандартный фон</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="deleteChatModal" class="modal-overlay" style="display: none;">
+                    <div class="modal-container modal-small delete-msg-modal">
+                        <div class="modal-body">
+                            <p class="delete-msg-title">Удалить чат с {{ peer_display_name | e }}?</p>
+                            <label class="delete-for-everyone-wrap" style="display: flex;">
+                                <input type="radio" name="deleteChatScope" value="me" checked>
+                                <span>Только у меня (история скроется, у собеседника останется)</span>
+                            </label>
+                            <label class="delete-for-everyone-wrap" style="display: flex;">
+                                <input type="radio" name="deleteChatScope" value="both">
+                                <span>У обоих (все сообщения удалятся навсегда)</span>
+                            </label>
+                            <div class="delete-msg-actions">
+                                <button type="button" class="delete-msg-cancel" id="deleteChatCancelBtn">Отмена</button>
+                                <button type="button" class="delete-msg-confirm" id="deleteChatConfirmBtn">Удалить</button>
                             </div>
                         </div>
                     </div>
@@ -1531,9 +1608,10 @@
             }
         }
         
-        function showBrowserNotification(title, body) {
+        function showBrowserNotification(title, body, fromUserId) {
             if (!notificationsEnabled || !notificationPermissionGranted) return;
             if (document.visibilityState === "visible") return;
+            if (fromUserId != null && isPeerNotifyMuted(fromUserId)) return;
             try {
                 const notification = new Notification(title, {
                     body: body,
@@ -2324,7 +2402,7 @@
             
             if (data.type === "message") {
                 const isFromOther = data.sender_id !== CURRENT_USER_ID;
-                if (isFromOther) {
+                if (isFromOther && !isPeerNotifyMuted(data.sender_id)) {
                     playNotificationSound();
                     let notifBody = "";
                     if (data.message_type === "photo") notifBody = "📷 Фото";
@@ -2333,7 +2411,7 @@
                     else if (data.message_type === "stars") notifBody = data.stars_banner || "⭐ Звёзды";
                     else notifBody = data.content || "";
                     if (notifBody.length > 100) notifBody = notifBody.substring(0, 100) + "...";
-                    showBrowserNotification(`Новое сообщение от ${data.sender_email || "пользователя"}`, notifBody);
+                    showBrowserNotification(`Новое сообщение от ${data.sender_email || "пользователя"}`, notifBody, data.sender_id);
                 }
                 const isCurrentChat = SELECTED_USER_ID !== null && (
                     (data.sender_id === CURRENT_USER_ID && data.receiver_id === SELECTED_USER_ID) ||
@@ -2400,6 +2478,16 @@
                     clearPinnedBarUI();
                 } else {
                     setPinnedBarUI(data.message_id, data.preview || "");
+                }
+                return;
+            }
+
+            if (data.type === "chat_cleared" && data.scope === "both") {
+                if (
+                    SELECTED_USER_ID !== null &&
+                    Number(data.peer_id) === Number(SELECTED_USER_ID)
+                ) {
+                    window.location.reload();
                 }
                 return;
             }
@@ -2650,6 +2738,291 @@
             }
         })();
         
+        const CHAT_NOTIFY_MUTED_KEY = "messengerChatNotifyMuted";
+        const CHAT_WALLPAPER_PREFIX = "messengerChatWallpaper_";
+
+        function readNotifyMutedMap() {
+            try {
+                const raw = localStorage.getItem(CHAT_NOTIFY_MUTED_KEY);
+                return raw ? JSON.parse(raw) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function isPeerNotifyMuted(peerId) {
+            const m = readNotifyMutedMap();
+            return !!m[String(peerId)];
+        }
+
+        function setPeerNotifyMuted(peerId, muted) {
+            const m = readNotifyMutedMap();
+            const k = String(peerId);
+            if (muted) m[k] = true;
+            else delete m[k];
+            localStorage.setItem(CHAT_NOTIFY_MUTED_KEY, JSON.stringify(m));
+        }
+
+        function wallpaperStorageKey() {
+            return SELECTED_USER_ID != null ? CHAT_WALLPAPER_PREFIX + SELECTED_USER_ID : null;
+        }
+
+        function applyChatWallpaperFromStorage() {
+            const box = document.getElementById("messagesBox");
+            const key = wallpaperStorageKey();
+            if (!box || !key) return;
+            let url = "";
+            try {
+                url = localStorage.getItem(key) || "";
+            } catch (e) {}
+            if (url) {
+                box.style.backgroundImage = "linear-gradient(rgba(255,255,255,0.82), rgba(255,255,255,0.82)), url(" + url.replace(/"/g, '\\"') + ")";
+                box.style.backgroundSize = "cover, cover";
+                box.style.backgroundPosition = "center, center";
+                box.style.backgroundRepeat = "no-repeat, no-repeat";
+                box.style.backgroundAttachment = "fixed, fixed";
+            } else {
+                box.style.backgroundImage = "";
+                box.style.backgroundSize = "";
+                box.style.backgroundPosition = "";
+                box.style.backgroundRepeat = "";
+                box.style.backgroundAttachment = "";
+            }
+        }
+
+        function updateChatHeaderNotifyLabel() {
+            const el = document.getElementById("chatMenuNotifyLabel");
+            if (!el || SELECTED_USER_ID === null) return;
+            el.textContent = isPeerNotifyMuted(SELECTED_USER_ID)
+                ? "Включить уведомления"
+                : "Выключить уведомления";
+        }
+
+        function getMessageRowSearchText(row) {
+            if (!row) return "";
+            const parts = [];
+            row.querySelectorAll(".message-text").forEach((n) => parts.push(n.textContent || ""));
+            row.querySelectorAll(".stars-transfer-banner").forEach((n) => parts.push(n.textContent || ""));
+            row.querySelectorAll(".message-reply-quote").forEach((n) => parts.push(n.textContent || ""));
+            const t = row.getAttribute("data-msg-type") || "";
+            if (t === "photo") parts.push("фото");
+            if (t === "video") parts.push("видео");
+            if (t === "voice") parts.push("голосовое");
+            if (t === "stars") parts.push("звёзды");
+            return parts.join(" ").toLowerCase();
+        }
+
+        function clearChatSearchHighlights() {
+            document.querySelectorAll(".js-msg-row.chat-search-hit").forEach((r) => r.classList.remove("chat-search-hit"));
+        }
+
+        function runChatSearch(query) {
+            clearChatSearchHighlights();
+            const hint = document.getElementById("chatSearchHint");
+            const box = document.getElementById("messagesBox");
+            if (!box) return;
+            const q = (query || "").trim().toLowerCase();
+            if (!q) {
+                if (hint) hint.textContent = "";
+                return;
+            }
+            const rows = box.querySelectorAll(".js-msg-row");
+            let n = 0;
+            let first = null;
+            rows.forEach((row) => {
+                if (getMessageRowSearchText(row).indexOf(q) !== -1) {
+                    row.classList.add("chat-search-hit");
+                    n++;
+                    if (!first) first = row;
+                }
+            });
+            if (hint) {
+                hint.textContent = n ? ("Найдено: " + n) : "Ничего не найдено";
+            }
+            if (first) first.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+
+        (function setupChatHeaderTools() {
+            if (SELECTED_USER_ID === null) return;
+
+            applyChatWallpaperFromStorage();
+            updateChatHeaderNotifyLabel();
+
+            const menuBtn = document.getElementById("chatHeaderMenuBtn");
+            const menu = document.getElementById("chatHeaderMenu");
+            const anchor = document.getElementById("chatHeaderMenuAnchor");
+
+            function closeHeaderMenu() {
+                if (menu) menu.style.display = "none";
+                if (menuBtn) menuBtn.setAttribute("aria-expanded", "false");
+            }
+
+            function openHeaderMenu() {
+                if (!menu || !menuBtn) return;
+                menu.style.display = "block";
+                menuBtn.setAttribute("aria-expanded", "true");
+                const place = () => {
+                    if (!menuBtn || !menu) return;
+                    const r = menuBtn.getBoundingClientRect();
+                    menu.style.position = "fixed";
+                    menu.style.top = r.bottom + 6 + "px";
+                    menu.style.right = Math.max(8, window.innerWidth - r.right) + "px";
+                    menu.style.left = "auto";
+                    menu.style.zIndex = "5000";
+                };
+                requestAnimationFrame(place);
+            }
+
+            function toggleHeaderMenu() {
+                if (!menu) return;
+                if (menu.style.display === "none" || menu.style.display === "") {
+                    updateChatHeaderNotifyLabel();
+                    openHeaderMenu();
+                } else closeHeaderMenu();
+            }
+
+            menuBtn?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                toggleHeaderMenu();
+            });
+
+            document.addEventListener("click", (e) => {
+                if (!anchor || anchor.contains(e.target)) return;
+                closeHeaderMenu();
+            });
+            document.addEventListener("keydown", (e) => {
+                if (e.key !== "Escape") return;
+                const sm = document.getElementById("chatSearchModal");
+                if (sm && sm.style.display === "flex") {
+                    sm.style.display = "none";
+                    clearChatSearchHighlights();
+                    const si = document.getElementById("chatSearchInput");
+                    if (si) si.value = "";
+                    const h = document.getElementById("chatSearchHint");
+                    if (h) h.textContent = "";
+                    return;
+                }
+                closeHeaderMenu();
+            });
+
+            document.getElementById("chatMenuNotifyBtn")?.addEventListener("click", () => {
+                const cur = isPeerNotifyMuted(SELECTED_USER_ID);
+                setPeerNotifyMuted(SELECTED_USER_ID, !cur);
+                updateChatHeaderNotifyLabel();
+                closeHeaderMenu();
+            });
+
+            const wallModal = document.getElementById("chatWallpaperModal");
+            document.getElementById("chatMenuWallpaperBtn")?.addEventListener("click", () => {
+                closeHeaderMenu();
+                if (wallModal) wallModal.style.display = "flex";
+            });
+            document.getElementById("chatWallpaperModalClose")?.addEventListener("click", () => {
+                if (wallModal) wallModal.style.display = "none";
+            });
+            wallModal?.addEventListener("click", (e) => {
+                if (e.target === wallModal) wallModal.style.display = "none";
+            });
+            document.getElementById("chatWallpaperPickBtn")?.addEventListener("click", () => {
+                document.getElementById("chatWallpaperFileInput")?.click();
+            });
+            document.getElementById("chatWallpaperResetBtn")?.addEventListener("click", () => {
+                const key = wallpaperStorageKey();
+                if (key) {
+                    try {
+                        localStorage.removeItem(key);
+                    } catch (e) {}
+                }
+                applyChatWallpaperFromStorage();
+                if (wallModal) wallModal.style.display = "none";
+            });
+
+            document.getElementById("chatWallpaperFileInput")?.addEventListener("change", (e) => {
+                const f = e.target.files && e.target.files[0];
+                e.target.value = "";
+                if (!f || !f.type.startsWith("image/")) return;
+                if (f.size > 2.5 * 1024 * 1024) {
+                    alert("Файл больше 2.5 МБ — выбери другое изображение.");
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const key = wallpaperStorageKey();
+                    if (!key) return;
+                    try {
+                        localStorage.setItem(key, reader.result);
+                    } catch (err) {
+                        alert("Не удалось сохранить (возможно, мало места в хранилище).");
+                        return;
+                    }
+                    applyChatWallpaperFromStorage();
+                    if (wallModal) wallModal.style.display = "none";
+                };
+                reader.readAsDataURL(f);
+            });
+
+            const delModal = document.getElementById("deleteChatModal");
+            document.getElementById("chatMenuDeleteBtn")?.addEventListener("click", () => {
+                closeHeaderMenu();
+                if (delModal) delModal.style.display = "flex";
+            });
+            document.getElementById("deleteChatCancelBtn")?.addEventListener("click", () => {
+                if (delModal) delModal.style.display = "none";
+            });
+            delModal?.addEventListener("click", (e) => {
+                if (e.target === delModal) delModal.style.display = "none";
+            });
+            document.getElementById("deleteChatConfirmBtn")?.addEventListener("click", async () => {
+                const scopeEl = document.querySelector('input[name="deleteChatScope"]:checked');
+                const scope = scopeEl && scopeEl.value === "both" ? "both" : "me";
+                try {
+                    const r = await fetch("/api/chat/clear", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "same-origin",
+                        body: JSON.stringify({ peer_id: SELECTED_USER_ID, scope: scope }),
+                    });
+                    const j = await r.json().catch(() => ({}));
+                    if (!r.ok) {
+                        alert(j.detail || "Не удалось удалить чат");
+                        return;
+                    }
+                    window.location.href = "/chat";
+                } catch (err) {
+                    alert("Ошибка сети");
+                }
+            });
+
+            const searchModal = document.getElementById("chatSearchModal");
+            const searchInput = document.getElementById("chatSearchInput");
+            document.getElementById("chatSearchOpenBtn")?.addEventListener("click", () => {
+                if (searchModal) searchModal.style.display = "flex";
+                if (searchInput) {
+                    searchInput.value = "";
+                    searchInput.focus();
+                    const h0 = document.getElementById("chatSearchHint");
+                    if (h0) h0.textContent = "";
+                    clearChatSearchHighlights();
+                }
+            });
+            document.getElementById("chatSearchModalClose")?.addEventListener("click", () => {
+                if (searchModal) searchModal.style.display = "none";
+                clearChatSearchHighlights();
+                if (searchInput) searchInput.value = "";
+            });
+            searchModal?.addEventListener("click", (e) => {
+                if (e.target === searchModal) {
+                    searchModal.style.display = "none";
+                    clearChatSearchHighlights();
+                }
+            });
+            let searchT = null;
+            searchInput?.addEventListener("input", () => {
+                if (searchT) clearTimeout(searchT);
+                searchT = setTimeout(() => runChatSearch(searchInput.value), 200);
+            });
+        })();
+
         (function setupAttachMenu() {
             const wrap = document.getElementById("attachWrap");
             const pop = document.getElementById("attachPopover");
